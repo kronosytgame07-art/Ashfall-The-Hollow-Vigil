@@ -68,6 +68,11 @@ func _build_environment() -> void:
 	ground_mat.roughness = 1.0
 	ground.material_override = ground_mat
 	$World.add_child(ground)
+	var mountain_scene := load("res://models/environment/mountain_ring.glb") as PackedScene
+	if mountain_scene:
+		var mountains := mountain_scene.instantiate()
+		mountains.name = "MountainRing"
+		$World.add_child(mountains)
 	grid_root = Node3D.new()
 	grid_root.name = "Grid"
 	$World.add_child(grid_root)
@@ -191,11 +196,15 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	mat.albedo_color = Color("#302b31")
 	base.material_override = mat
 	root.add_child(base)
-	match posmod(cell.x + cell.y, 4):
-		0: _make_rock_obstacle(root, mat)
-		1: _make_dead_tree(root)
-		2: _make_bone_obstacle(root)
-		3: _make_crystal_obstacle(root)
+	var obstacle_models := [
+		"res://models/obstacles/corrupted_rocks.glb",
+		"res://models/obstacles/dead_tree.glb",
+		"res://models/obstacles/bones.glb",
+		"res://models/obstacles/soul_crystals.glb"
+	]
+	var obstacle_scene := load(obstacle_models[posmod(cell.x + cell.y, obstacle_models.size())]) as PackedScene
+	if obstacle_scene:
+		root.add_child(obstacle_scene.instantiate())
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 2
@@ -207,73 +216,6 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	collision.position.y = 0.9
 	body.add_child(collision)
 	root.add_child(body)
-
-func _make_rock_obstacle(root: Node3D, mat: Material) -> void:
-	for j in range(3):
-		var rock := MeshInstance3D.new()
-		var mesh := SphereMesh.new()
-		mesh.radius = 0.42 + j * 0.09
-		mesh.height = mesh.radius * 1.45
-		rock.mesh = mesh
-		rock.position = Vector3((j - 1) * 0.42, 0.35 + j * 0.09, (j % 2) * 0.22)
-		rock.scale = Vector3(1.0, 0.8, 0.85)
-		rock.material_override = mat
-		root.add_child(rock)
-
-func _make_dead_tree(root: Node3D) -> void:
-	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color("#33231f")
-	for data in [
-		[Vector3(0, 1.0, 0), Vector3(0.38, 2.0, 0.38), 0.0],
-		[Vector3(-0.38, 1.65, 0), Vector3(0.22, 1.2, 0.22), -0.72],
-		[Vector3(0.42, 1.85, 0), Vector3(0.2, 1.0, 0.2), 0.82]
-	]:
-		var branch := MeshInstance3D.new()
-		var mesh := CylinderMesh.new()
-		mesh.top_radius = data[1].x * 0.35
-		mesh.bottom_radius = data[1].x * 0.5
-		mesh.height = data[1].y
-		mesh.radial_segments = 7
-		branch.mesh = mesh
-		branch.position = data[0]
-		branch.rotation.z = data[2]
-		branch.material_override = wood
-		root.add_child(branch)
-
-func _make_bone_obstacle(root: Node3D) -> void:
-	var bone_mat := StandardMaterial3D.new()
-	bone_mat.albedo_color = Color("#b3a78d")
-	for j in range(4):
-		var bone := MeshInstance3D.new()
-		var mesh := CylinderMesh.new()
-		mesh.top_radius = 0.08
-		mesh.bottom_radius = 0.1
-		mesh.height = 1.25
-		mesh.radial_segments = 8
-		bone.mesh = mesh
-		bone.position = Vector3((j - 1.5) * 0.25, 0.22, (j % 2) * 0.18)
-		bone.rotation = Vector3(PI * 0.5, j * 0.6, 0.25 * j)
-		bone.material_override = bone_mat
-		root.add_child(bone)
-
-func _make_crystal_obstacle(root: Node3D) -> void:
-	var crystal_mat := StandardMaterial3D.new()
-	crystal_mat.albedo_color = Color("#52406f")
-	crystal_mat.emission_enabled = true
-	crystal_mat.emission = Color("#49217c")
-	crystal_mat.emission_energy_multiplier = 2.0
-	for j in range(4):
-		var crystal := MeshInstance3D.new()
-		var mesh := CylinderMesh.new()
-		mesh.top_radius = 0.0
-		mesh.bottom_radius = 0.22 + j * 0.035
-		mesh.height = 0.9 + j * 0.22
-		mesh.radial_segments = 6
-		crystal.mesh = mesh
-		crystal.position = Vector3((j - 1.5) * 0.28, mesh.height * 0.5 + 0.1, (j % 2) * 0.22)
-		crystal.rotation.z = (j - 1.5) * 0.09
-		crystal.material_override = crystal_mat
-		root.add_child(crystal)
 
 func _select_building(kind: String) -> void:
 	selected_kind = kind
