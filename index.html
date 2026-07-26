@@ -166,16 +166,43 @@
   .login .findbtn{width:100%;}
   .hide{display:none !important;}
   .foot{text-align:center; margin-top:24px; color:var(--bone-dim); font-size:12px; font-style:italic;}
-  .mutebtn{position:fixed; top:16px; right:16px; z-index:60; width:38px; height:38px; border-radius:50%;
+  .mutebtn{width:48px; height:48px; border-radius:12px;
     background:linear-gradient(180deg, var(--stone-light), var(--stone-dark)); border:1px solid var(--line-strong);
     color:var(--bone); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
     box-shadow:0 3px 10px rgba(0,0,0,0.5);}
   .mutebtn:hover{border-color:var(--ember-bright);}
-  @media (max-width:520px){.grid{gap:5px;} .tile .bicon{font-size:17px;} .res{min-width:96px; padding:7px 9px;}}
+  .quickmenu{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:60;display:flex;gap:8px}
+  button,input{font:inherit} button{min-height:44px} button:focus-visible,input:focus-visible{outline:3px solid var(--gold-bright);outline-offset:3px}
+  .ui-modal{z-index:120}.settings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:54px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .settings-row label{font-family:'Cinzel',serif;font-size:13px}.settings-row input[type=range]{width:min(190px,48vw);accent-color:var(--ember-bright)}
+  .switch{width:54px;min-height:32px;border:1px solid var(--line-strong);border-radius:18px;background:#181411;color:var(--bone);cursor:pointer}
+  .switch.on{background:var(--ember);border-color:var(--ember-bright)}
+  .connection-card{padding:12px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.22);margin:12px 0}
+  .icon{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.15),transparent 45%),#181411;border:1px solid var(--line-strong);filter:drop-shadow(0 2px 4px #000)}
+  .tab{min-height:48px}.collect-hint{font-family:'Cinzel',serif}
+  body.large-ui{font-size:118%} body.large-ui .tab,body.large-ui button{min-height:54px}
+  body.high-contrast{--bone:#fff4d2;--bone-dim:#d8ccb0;--line:rgba(255,244,210,.3);--line-strong:rgba(255,244,210,.55)}
+  body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
+  @media (max-width:720px){
+    body{padding:calc(72px + env(safe-area-inset-top)) 8px calc(88px + env(safe-area-inset-bottom))}
+    .titleblock{margin-bottom:6px}.titleblock h1{font-size:clamp(24px,8vw,34px)}.eyebrow{letter-spacing:.22em}
+    .resbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.res{min-width:0;padding:7px 8px}.res .val{font-size:14px}
+    .tabbar{position:sticky;bottom:max(6px,env(safe-area-inset-bottom));z-index:45;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:5px;background:rgba(11,9,8,.94);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px)}
+    .tabbar .tab{padding:7px 3px;font-size:9px;line-height:1.15}
+    .panel{max-height:92dvh;padding:18px 14px}.overlay{padding:8px}
+    #sceneWrap,#battleFieldWrap{height:58dvh!important;min-height:360px!important;touch-action:none}
+    #troopBar{bottom:62px!important;gap:4px!important;padding:0 4px}#troopBar .tab{padding:7px 6px!important;font-size:10px!important}
+    #spellBar{bottom:8px!important}#spellBar .findbtn{min-height:48px}
+    .toast{bottom:calc(82px + env(safe-area-inset-bottom));width:max-content;max-width:92vw;text-align:center}
+  }
 </style>
 </head>
 <body>
-<button class="mutebtn" id="muteBtn" onclick="toggleSound()" title="Couper/activer le son">🔊</button>
+<nav class="quickmenu" aria-label="Réglages rapides">
+  <button class="mutebtn" id="muteBtn" onclick="toggleSound()" title="Couper ou activer le son" aria-label="Couper ou activer le son">🔊</button>
+  <button class="mutebtn" onclick="openUiModal('optionsModal')" title="Options" aria-label="Ouvrir les options">⚙️</button>
+  <button class="mutebtn" onclick="openConnectionMenu()" title="Connexion" aria-label="Ouvrir le menu connexion">👤</button>
+</nav>
 <div class="wrap">
 
   <div class="titleblock">
@@ -197,8 +224,8 @@
       <button class="close-x" style="position:absolute; top:8px; right:10px;" onclick="dismissTutorial()">✕</button>
       <div style="font-family:'Cinzel',serif; font-size:13px; color:var(--bone); margin-bottom:6px;">🔥 Bienvenue, gardien</div>
       <div style="font-size:13px; color:var(--bone-dim); line-height:1.5;">
-        1. Clique une <b>parcelle en pointillés</b> pour bâtir.<br>
-        2. Clique un <b>bâtiment</b> pour l'améliorer ou récolter ses ressources.<br>
+        1. Touche une <b>parcelle</b> pour bâtir. Glisse pour tourner et pince pour zoomer.<br>
+        2. Touche un <b>bâtiment</b> pour l'améliorer, ou sa bulle lumineuse pour récolter.<br>
         3. Onglet <b>⚔️ Assaut</b> : cherche un adversaire, choisis ta composition de troupes, regarde le combat en direct.<br>
         4. Un <b>Chantier</b> permet de construire en parallèle ; un <b>Laboratoire</b> renforce tes troupes.
       </div>
@@ -215,16 +242,16 @@
     </div>
 
     <div class="tabbar">
-      <div class="tab active" id="tab-village" onclick="switchTab('village')">🏰 Village</div>
-      <div class="tab" id="tab-battle" onclick="switchTab('battle')">⚔️ Assaut</div>
-      <div class="tab" id="tab-leaderboard" onclick="switchTab('leaderboard')">🏆 Classement</div>
-      <div class="tab" id="tab-achievements" onclick="switchTab('achievements')">🏅 Hauts faits</div>
+      <button class="tab active" id="tab-village" onclick="switchTab('village')" aria-pressed="true">🏰 Village</button>
+      <button class="tab" id="tab-battle" onclick="switchTab('battle')" aria-pressed="false">⚔️ Assaut</button>
+      <button class="tab" id="tab-leaderboard" onclick="switchTab('leaderboard')" aria-pressed="false">🏆 Classement</button>
+      <button class="tab" id="tab-achievements" onclick="switchTab('achievements')" aria-pressed="false">🏅 Hauts faits</button>
     </div>
 
     <div id="view-village" class="village" style="padding:0; overflow:hidden;">
       <div id="sceneWrap" style="position:relative; width:100%; height:min(62vh,540px); min-height:340px; cursor:grab;">
         <canvas id="gameCanvas" style="display:block; width:100%; height:100%;"></canvas>
-        <div style="position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:var(--bone-dim); pointer-events:none; text-shadow:0 1px 2px #000;">glisser pour tourner · molette pour zoomer · clic sur une case</div>
+        <div class="collect-hint" style="position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:var(--bone-dim); pointer-events:none; text-shadow:0 1px 2px #000;">glisser : tourner · pincer : zoomer · toucher : agir</div>
       </div>
     </div>
 
@@ -275,6 +302,24 @@
 </div>
 
 <div class="overlay" id="overlay"><div class="panel" id="panel"></div></div>
+<div class="overlay ui-modal" id="optionsModal" role="dialog" aria-modal="true" aria-labelledby="optionsTitle">
+  <div class="panel"><button class="close-x" onclick="closeUiModal('optionsModal')" aria-label="Fermer">✕</button>
+    <h2 id="optionsTitle">⚙️ Options</h2><div class="desc">Adapte Ashfall à ton écran et à tes besoins.</div>
+    <div class="settings-row"><label for="volumeSlider">Volume</label><input id="volumeSlider" type="range" min="0" max="100" value="50" oninput="setMasterVolume(this.value)"></div>
+    <div class="settings-row"><label>Mouvements réduits</label><button class="switch" id="reducedMotionToggle" onclick="toggleUiPreference('reducedMotion')" aria-pressed="false">Non</button></div>
+    <div class="settings-row"><label>Interface agrandie</label><button class="switch" id="largeUiToggle" onclick="toggleUiPreference('largeUi')" aria-pressed="false">Non</button></div>
+    <div class="settings-row"><label>Contraste renforcé</label><button class="switch" id="contrastToggle" onclick="toggleUiPreference('highContrast')" aria-pressed="false">Non</button></div>
+  </div>
+</div>
+<div class="overlay ui-modal" id="connectionModal" role="dialog" aria-modal="true" aria-labelledby="connectionTitle">
+  <div class="panel"><button class="close-x" onclick="closeUiModal('connectionModal')" aria-label="Fermer">✕</button>
+    <h2 id="connectionTitle">👤 Connexion</h2><div class="desc">Compte de gardien et synchronisation.</div>
+    <div class="connection-card"><div id="connectionPlayer">Aucun gardien connecté</div><div class="timelabel" id="connectionStatus">Progression non chargée</div></div>
+    <button class="actionbtn" onclick="saveNow()">Sauvegarder maintenant</button>
+    <button class="actionbtn" onclick="reconnectNow()">Vérifier la connexion</button>
+    <button class="actionbtn" style="background:linear-gradient(180deg,#6e3535,#451d1d);color:#f6dddd" onclick="changeGuardian()">Changer de gardien</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -389,6 +434,39 @@ function unlockLevelFor(rank){ return 1; }
 let playerName = null, storageKey = null;
 let state = null;
 let onlineOK = true;
+const UI_PREFS_KEY = 'ashfall:ui-prefs';
+let uiPrefs = {volume:.5,reducedMotion:false,largeUi:false,highContrast:false};
+
+function loadUiPrefs(){
+  try{ uiPrefs={...uiPrefs,...JSON.parse(localStorage.getItem(UI_PREFS_KEY)||'{}')}; }catch(e){}
+  applyUiPrefs();
+}
+function saveUiPrefs(){ try{ localStorage.setItem(UI_PREFS_KEY,JSON.stringify(uiPrefs)); }catch(e){} }
+function applyUiPrefs(){
+  document.body.classList.toggle('reduced-motion',!!uiPrefs.reducedMotion);
+  document.body.classList.toggle('large-ui',!!uiPrefs.largeUi);
+  document.body.classList.toggle('high-contrast',!!uiPrefs.highContrast);
+  const slider=document.getElementById('volumeSlider'); if(slider) slider.value=Math.round(uiPrefs.volume*100);
+  [['reducedMotionToggle','reducedMotion'],['largeUiToggle','largeUi'],['contrastToggle','highContrast']].forEach(([id,key])=>{
+    const el=document.getElementById(id); if(!el)return; const on=!!uiPrefs[key];
+    el.classList.toggle('on',on); el.textContent=on?'Oui':'Non'; el.setAttribute('aria-pressed',String(on));
+  });
+  soundOn=uiPrefs.volume>0;
+  const mute=document.getElementById('muteBtn'); if(mute) mute.textContent=soundOn?'🔊':'🔇';
+  if(masterGain&&audioCtx) masterGain.gain.setTargetAtTime(uiPrefs.volume,audioCtx.currentTime,.04);
+}
+function setMasterVolume(value){ uiPrefs.volume=Math.max(0,Math.min(1,Number(value)/100)); saveUiPrefs(); applyUiPrefs(); if(uiPrefs.volume>0) ensureAudio(); }
+function toggleUiPreference(key){ uiPrefs[key]=!uiPrefs[key]; saveUiPrefs(); applyUiPrefs(); sfxClick(); }
+function openUiModal(id){ document.getElementById(id).classList.add('show'); document.querySelector(`#${id} .close-x`)?.focus(); }
+function closeUiModal(id){ document.getElementById(id).classList.remove('show'); }
+function openConnectionMenu(){
+  document.getElementById('connectionPlayer').textContent=playerName?`Gardien : ${playerName}`:'Aucun gardien connecté';
+  document.getElementById('connectionStatus').textContent=playerName?(onlineOK?'Synchronisation en ligne active':'Mode hors-ligne — la reconnexion sera retentée'):'Connecte-toi depuis l’accueil.';
+  openUiModal('connectionModal');
+}
+async function saveNow(){ if(!storageKey){ showToast('Aucun gardien connecté.');return; } await saveState(); showToast(onlineOK?'Progression sauvegardée.':'Sauvegarde en ligne indisponible.'); openConnectionMenu(); }
+async function reconnectNow(){ if(!playerName){ showToast('Connecte d’abord un gardien.');return; } await checkOnline(); showToast(onlineOK?'Connexion rétablie.':'Toujours hors-ligne.'); openConnectionMenu(); }
+async function changeGuardian(){ if(storageKey) await saveState(); location.reload(); }
 
 function dismissTutorial(){ document.getElementById('tutorialBanner').classList.add('hide'); sfxClick(); }
 function sanitizeName(n){ return n.trim().replace(/[^a-zA-Z0-9_\- ]/g,'').slice(0,18).trim(); }
@@ -492,10 +570,10 @@ function costForNext(type){
 /* ================= Tabs ================= */
 function switchTab(tab){
   sfxClick();
-  document.getElementById('tab-village').classList.toggle('active', tab==='village');
-  document.getElementById('tab-battle').classList.toggle('active', tab==='battle');
-  document.getElementById('tab-leaderboard').classList.toggle('active', tab==='leaderboard');
-  document.getElementById('tab-achievements').classList.toggle('active', tab==='achievements');
+  ['village','battle','leaderboard','achievements'].forEach(name=>{
+    const el=document.getElementById('tab-'+name), active=tab===name;
+    el.classList.toggle('active',active); el.setAttribute('aria-pressed',String(active));
+  });
   document.getElementById('view-village').classList.toggle('hide', tab!=='village');
   document.getElementById('view-battle').classList.toggle('hide', tab!=='battle');
   document.getElementById('view-leaderboard').classList.toggle('hide', tab!=='leaderboard');
@@ -507,7 +585,8 @@ function switchTab(tab){
 
 /* ================= Rendering: village 3D (Three.js) ================= */
 let three = { renderer:null, scene:null, camera:null, raycaster:null, mouse:null, group:null,
-  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 62, dragging:false, lastX:0, lastY:0, tileMeshes:{}, clock:0, ready:false };
+  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 62, dragging:false, lastX:0, lastY:0,
+  downX:0,downY:0,moved:false,pointers:new Map(),pinchDistance:0,tileMeshes:{}, clock:0, ready:false };
 
 function gridToWorld(i){
   const r=Math.floor(i/COLS), c=i%COLS;
@@ -933,38 +1012,48 @@ function initScene(){
   const pMat = new THREE.PointsMaterial({color:0xe0832f, size:0.05, transparent:true, opacity:0.75});
   three.particles = new THREE.Points(pGeo,pMat); three.scene.add(three.particles);
 
-  wrap.addEventListener('pointerdown', e=>{ three.dragging=true; three.lastX=e.clientX; three.lastY=e.clientY; wrap.style.cursor='grabbing'; });
-  window.addEventListener('pointerup', ()=>{ three.dragging=false; wrap.style.cursor='grab'; });
-  window.addEventListener('pointermove', e=>{
-    if(!three.dragging) return;
-    const dx=e.clientX-three.lastX, dy=e.clientY-three.lastY;
-    three.camAzimuth -= dx*0.006;
-    three.camPolar = Math.max(0.45, Math.min(1.35, three.camPolar - dy*0.004));
-    three.lastX=e.clientX; three.lastY=e.clientY;
-  });
-  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(16, Math.min(100, three.camRadius + e.deltaY*0.015)); }, {passive:false});
-  wrap.addEventListener('click', e=>{
-    if(Math.abs(e.clientX-three.lastX)>4 || Math.abs(e.clientY-three.lastY)>4) return;
-    const rect = canvas.getBoundingClientRect();
-    three.mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
-    three.mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
-    three.raycaster.setFromCamera(three.mouse, three.camera);
-    const hits = three.raycaster.intersectObjects(three.group.children, true);
+  wrap.style.touchAction='none';
+  function villageTap(clientX,clientY){
+    const rect=canvas.getBoundingClientRect();
+    three.mouse.x=((clientX-rect.left)/rect.width)*2-1; three.mouse.y=-((clientY-rect.top)/rect.height)*2+1;
+    three.raycaster.setFromCamera(three.mouse,three.camera);
+    const hits=three.raycaster.intersectObjects(three.group.children,true);
     for(const hit of hits){
-      if(three.plotInstancedMesh && hit.object===three.plotInstancedMesh && hit.instanceId!==undefined){
-        const idx = three.plotIndexMap[hit.instanceId];
-        if(idx!==undefined){ openBuildMenu(idx); return; }
+      let target=hit.object;
+      while(target&&target.userData.collectIndex===undefined) target=target.parent;
+      if(target){ collect(target.userData.collectIndex); return; }
+      if(three.plotInstancedMesh&&hit.object===three.plotInstancedMesh&&hit.instanceId!==undefined){
+        const idx=three.plotIndexMap[hit.instanceId]; if(idx!==undefined){openBuildMenu(idx);return;}
       }
-      let obj = hit.object;
-      while(obj && obj.userData.tileIndex===undefined) obj = obj.parent;
-      if(obj){
-        const idx = obj.userData.tileIndex;
-        if(state.buildings[idx]) openBuildingPanel(idx);
-        else openBuildMenu(idx);
-        return;
-      }
+      target=hit.object; while(target&&target.userData.tileIndex===undefined) target=target.parent;
+      if(target){ const idx=target.userData.tileIndex; state.buildings[idx]?openBuildingPanel(idx):openBuildMenu(idx); return; }
     }
+  }
+  wrap.addEventListener('pointerdown',e=>{
+    e.preventDefault(); try{wrap.setPointerCapture(e.pointerId);}catch(err){}
+    three.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(three.pointers.size===1){three.dragging=true;three.downX=three.lastX=e.clientX;three.downY=three.lastY=e.clientY;three.moved=false;wrap.style.cursor='grabbing';}
+    if(three.pointers.size===2){const p=[...three.pointers.values()];three.pinchDistance=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);}
   });
+  wrap.addEventListener('pointermove',e=>{
+    if(!three.pointers.has(e.pointerId))return; three.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(three.pointers.size===2){
+      const p=[...three.pointers.values()],d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+      if(three.pinchDistance) three.camRadius=Math.max(16,Math.min(100,three.camRadius+(three.pinchDistance-d)*.08));
+      three.pinchDistance=d;three.moved=true;return;
+    }
+    const dx=e.clientX-three.lastX,dy=e.clientY-three.lastY;
+    if(Math.hypot(e.clientX-three.downX,e.clientY-three.downY)>8)three.moved=true;
+    if(three.dragging&&three.moved){three.camAzimuth-=dx*.006;three.camPolar=Math.max(.45,Math.min(1.35,three.camPolar-dy*.004));}
+    three.lastX=e.clientX;three.lastY=e.clientY;
+  });
+  function endVillagePointer(e){
+    const wasSingle=three.pointers.size===1,wasTap=wasSingle&&!three.moved;
+    three.pointers.delete(e.pointerId);three.pinchDistance=0;
+    if(!three.pointers.size){three.dragging=false;wrap.style.cursor='grab';if(wasTap)villageTap(e.clientX,e.clientY);}
+  }
+  wrap.addEventListener('pointerup',endVillagePointer);wrap.addEventListener('pointercancel',endVillagePointer);
+  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(16, Math.min(100, three.camRadius + e.deltaY*0.015)); }, {passive:false});
   window.addEventListener('resize', resizeScene);
   resizeScene();
   three.ready = true;
@@ -997,7 +1086,11 @@ function animateScene(){
   }
   pos.needsUpdate = true;
   Object.values(three.tileMeshes).forEach(m=>{
-    if(m.userData.pulse){ const s=1+Math.sin(three.clock*4)*0.12; m.scale.setScalar(m.userData.baseScale*s); }
+    if(m.userData.pulse){
+      const s=1+Math.sin(three.clock*4)*0.08, base=m.userData.baseScale;
+      if(base&&base.x!==undefined)m.scale.set(base.x*s,base.y*s,base.z);
+      else m.scale.setScalar((base||1)*s);
+    }
   });
   (three.waveMeshes||[]).forEach((m,i)=>{ m.rotation.y = Math.sin(three.clock*1.6+i)*0.18; });
   const fxFrame = Math.floor(three.clock*10)%8;
@@ -1192,6 +1285,19 @@ function makeBuilding(type, level){
   return g;
 }
 
+function makeCollectionBubble(resource,amount,idx){
+  const canvas=document.createElement('canvas');canvas.width=320;canvas.height=128;const ctx=canvas.getContext('2d');
+  ctx.shadowColor='rgba(224,131,47,.85)';ctx.shadowBlur=18;ctx.fillStyle='rgba(18,14,11,.94)';
+  ctx.beginPath();ctx.roundRect(12,12,296,92,28);ctx.fill();ctx.shadowBlur=0;
+  ctx.lineWidth=4;ctx.strokeStyle='#d9b657';ctx.stroke();
+  ctx.font='44px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(resIcon(resource),60,58);
+  ctx.textAlign='left';ctx.fillStyle='#f2e5c4';ctx.font='700 27px Cinzel,serif';ctx.fillText(fmt(amount),98,48);
+  ctx.fillStyle='#c4b897';ctx.font='20px Cinzel,serif';ctx.fillText('RÉCOLTER',98,79);
+  ctx.fillStyle='#d9b657';ctx.beginPath();ctx.moveTo(145,104);ctx.lineTo(175,104);ctx.lineTo(160,124);ctx.closePath();ctx.fill();
+  const texture=new THREE.CanvasTexture(canvas);texture.minFilter=THREE.LinearFilter;
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false}));
+  sprite.scale.set(2.7,1.08,1);sprite.renderOrder=30;sprite.userData.collectIndex=idx;return sprite;
+}
 function updateScene(){
   if(!three.ready) return;
   while(three.group.children.length) three.group.remove(three.group.children[0]);
@@ -1224,9 +1330,9 @@ function updateScene(){
       });
       const readyToCollect = def.produces && b.stored >= (def.baseCap*b.level*0.999);
       if(readyToCollect){
-        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), glowMat(0xd9b657,1.8));
-        dot.position.set(x,2.2+(size-1)*0.5,z); dot.userData.pulse=true; dot.userData.baseScale=1;
-        three.group.add(dot); three.tileMeshes['ready'+i]=dot;
+        const bubble=makeCollectionBubble(def.produces,b.stored,i);
+        bubble.position.set(x,2.35+(size-1)*.5,z); bubble.userData.pulse=true; bubble.userData.baseScale=bubble.scale.clone();
+        three.group.add(bubble); three.tileMeshes['ready'+i]=bubble;
       }
     }
     mesh.userData.tileIndex = i;
@@ -2108,16 +2214,15 @@ function ensureAudio(){
   try{
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = soundOn?0.5:0;
+    masterGain.gain.value = uiPrefs.volume;
     masterGain.connect(audioCtx.destination);
     startAmbient();
   }catch(e){ audioCtx=null; }
 }
 function toggleSound(){
-  soundOn = !soundOn;
-  document.getElementById('muteBtn').textContent = soundOn?'🔊':'🔇';
-  if(!audioCtx && soundOn){ ensureAudio(); return; }
-  if(masterGain) masterGain.gain.setTargetAtTime(soundOn?0.5:0, audioCtx.currentTime, 0.05);
+  uiPrefs.volume = uiPrefs.volume>0 ? 0 : .5;
+  saveUiPrefs(); applyUiPrefs();
+  if(uiPrefs.volume>0) ensureAudio();
 }
 function noiseBuffer(duration){
   const sr=audioCtx.sampleRate, buf=audioCtx.createBuffer(1,Math.max(1,Math.floor(sr*duration)),sr), data=buf.getChannelData(0);
@@ -2202,8 +2307,11 @@ function sfxDefeat(){ playTone(130,0.4,'sawtooth',0.13); playTone(90,0.6,'sine',
 
 /* Allow Enter key on login */
 document.addEventListener('DOMContentLoaded', ()=>{
+  loadUiPrefs();
   const inp = document.getElementById('nameInput');
   if(inp) inp.addEventListener('keydown', e=>{ if(e.key==='Enter') login(); });
+  document.querySelectorAll('.ui-modal').forEach(modal=>modal.addEventListener('pointerdown',e=>{if(e.target===modal)closeUiModal(modal.id);}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.ui-modal.show').forEach(m=>closeUiModal(m.id));});
 });
 window.addEventListener('beforeunload', ()=>{ if(storageKey) saveState(); });
 </script>
