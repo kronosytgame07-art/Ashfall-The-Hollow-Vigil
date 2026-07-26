@@ -22,7 +22,9 @@ Pour l'héberger en ligne gratuitement via **GitHub Pages** :
 - ⚔️ **Combat en temps réel avec déploiement de troupes** : tu vois la base ennemie posée devant toi en 3D, tes troupes se déploient et marchent vers les bâtiments, les attaquent un par un (barres de vie visibles), pendant que les Murailles et Tours adverses ripostent. Système d'étoiles (1 à 3) selon le pourcentage de destruction, comme dans Clash of Clans, avec butin et trophées calculés en conséquence.
 - 🗡️ **Trois types de troupes** (Guerrier, Archer, Brute) avec leurs propres stats (vie, dégâts, vitesse, portée), et **trois compositions au choix** avant l'assaut (Équilibrée, Assaut rapide, Mur de boucliers).
 - 👑 **Un héros** — le Roi des Cendres, débloqué au Château niveau 2 — combat automatiquement à chaque assaut et soigne périodiquement les troupes proches.
+- 🔥✨ **Sorts de combat** : Rage (dégâts des troupes +60% pendant 6s) et Soin (soigne 50% des PV), lançables pendant la bataille grâce aux charges fournies par la **Salle des Sorts**.
 - 🧪 **Laboratoire** : bâtiment qui augmente la puissance globale des troupes (dégâts) à chaque niveau.
+- 🏅 **Hauts faits** : 10 objectifs de progression (premiers bâtiments, niveaux de Château, victoires, trophées, récoltes...) avec récompenses automatiques en ressources, dans un onglet dédié.
 - 🏗️ **Ouvriers multiples** : une seule construction à la fois par défaut ; le bâtiment "Chantier" débloque un ouvrier supplémentaire (jusqu'à 3), permettant de vraies constructions en parallèle.
 - 🎯 **Matchmaking par puissance** : l'adversaire trouvé est choisi parmi plusieurs candidats en fonction de qui a une force de base la plus proche de la tienne, plutôt que purement au hasard.
 - 📖 **Tutoriel de bienvenue** affiché à la première visite, avec les bases du jeu.
@@ -32,7 +34,7 @@ Pour l'héberger en ligne gratuitement via **GitHub Pages** :
 
 ## Non inclus dans ce prototype
 
-Pour rester honnête sur le périmètre : pas de sorts, pas de clans ni de guerres de clans, pas de campagne solo, pas de vrai serveur de validation (les actions restent calculées côté client — un joueur techniquement averti pourrait modifier ses propres données), pas de doublages ni de musique composée par un vrai musicien (la boucle mélodique est générée par code). Le déploiement de troupes est automatique (pas de placement manuel au clic) et le pathfinding est en ligne droite, sans contournement des obstacles. Trois.js est chargé depuis un CDN (cdnjs) : une connexion internet est nécessaire au premier chargement.
+Pour rester honnête sur le périmètre : pas de clans ni de guerres de clans, pas de campagne solo, pas de vrai serveur de validation (les actions restent calculées côté client — un joueur techniquement averti pourrait modifier ses propres données), pas de doublages ni de musique composée par un vrai musicien (la boucle mélodique est générée par code). Le déploiement de troupes est automatique (pas de placement manuel au clic) et le pathfinding est en ligne droite, sans contournement des obstacles. Trois.js est chargé depuis un CDN (cdnjs) : une connexion internet est nécessaire au premier chargement.
 
 ## Structure
 
