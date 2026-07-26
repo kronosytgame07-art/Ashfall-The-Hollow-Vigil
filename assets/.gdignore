@@ -1,2 +1,0 @@
-# Les ressources de l'ancien prototype web sont conservées comme référence,
-# mais Godot ne doit pas importer plusieurs centaines de sprites 2D inutilisés.
