@@ -33,6 +33,8 @@ Pour rester honnête sur le périmètre : il n'y a pas de choix de type de troup
 ## Structure
 
 - `index.html` — le jeu complet (HTML/CSS/JS), un seul fichier, sans dépendance de build.
+- `assets/buildings/` — les huit sprites WebP des bâtiments.
+- `assets/backgrounds/main-menu.webp` — l'illustration optimisée du menu principal.
 
 ## Limites connues (prototype)
 
