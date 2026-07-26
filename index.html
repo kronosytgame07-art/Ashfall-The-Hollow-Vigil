@@ -23,7 +23,7 @@
   html,body{margin:0;padding:0;}
   body{
     background:
-      linear-gradient(rgba(5,7,12,.68),rgba(5,4,5,.92)),
+      linear-gradient(rgba(5,7,12,.48),rgba(5,4,5,.72)),
       url('assets/backgrounds/main-menu.webp') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
@@ -561,14 +561,14 @@ const ICON_DRAW = {
 };
 let ICON_MATS = {};
 const BUILDING_ART = {
-  chateau:{src:'assets/buildings/townhall.webp', w:4.8, h:4.8, y:2.15},
-  mine:{src:'assets/buildings/mine.webp', w:3.15, h:3.15, y:1.38},
-  scierie:{src:'assets/buildings/sawmill.webp', w:3.15, h:3.15, y:1.38},
-  autel:{src:'assets/buildings/altar.webp', w:2.9, h:2.9, y:1.22},
-  caserne:{src:'assets/buildings/barracks.webp', w:3.45, h:3.45, y:1.52},
-  muraille:{src:'assets/buildings/wall.webp', w:3.45, h:2.3, y:0.92},
-  tour:{src:'assets/buildings/tower.webp', w:3.1, h:4.25, y:1.94},
-  forge:{src:'assets/buildings/forge.webp', w:3.3, h:3.3, y:1.45}
+  chateau:{src:'assets/buildings/townhall.webp', w:3.3, h:3.3},
+  mine:{src:'assets/buildings/mine.webp', w:2.2, h:2.2},
+  scierie:{src:'assets/buildings/sawmill.webp', w:2.2, h:2.2},
+  autel:{src:'assets/buildings/altar.webp', w:2.05, h:2.05},
+  caserne:{src:'assets/buildings/barracks.webp', w:2.35, h:2.35},
+  muraille:{src:'assets/buildings/wall.webp', w:2.3, h:1.53},
+  tour:{src:'assets/buildings/tower.webp', w:2.0, h:2.74},
+  forge:{src:'assets/buildings/forge.webp', w:2.25, h:2.25}
 };
 let BUILDING_MATS = {};
 function initBuildingSprites(){
@@ -652,18 +652,21 @@ function initScene(){
   const canvas = document.getElementById('gameCanvas');
   three.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   three.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  three.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  three.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  three.renderer.toneMappingExposure = 1.25;
   three.renderer.shadowMap.enabled = true;
   three.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   three.scene = new THREE.Scene();
-  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.045);
+  three.scene.fog = new THREE.FogExp2(0x17120f, 0.028);
   three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
 
   // Lighting: dark, warm, torch-lit
-  three.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
-  const moon = new THREE.DirectionalLight(0x6f7aa0, 0.4);
+  three.scene.add(new THREE.AmbientLight(0x777080, 1.35));
+  const moon = new THREE.DirectionalLight(0xaab8e0, 0.75);
   moon.position.set(-7,11,-5); moon.castShadow = true;
   moon.shadow.mapSize.set(1024,1024);
   moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
@@ -674,7 +677,9 @@ function initScene(){
 
   // Ground
   const groundGeo = new THREE.CircleGeometry(9,48);
-  const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}));
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({
+    map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42
+  }));
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
   const ringGeo = new THREE.RingGeometry(8.6,9.4,48);
   const ring = new THREE.Mesh(ringGeo, stoneMat(0x2a251f,1));
@@ -764,7 +769,7 @@ function makeBuilding(type, level){
     const sprite = new THREE.Sprite(BUILDING_MATS[type]);
     const tierScale = 1 + Math.min(0.18, (level-1)*0.025);
     sprite.scale.set(art.w*tierScale, art.h*tierScale, 1);
-    sprite.position.set(0, art.y*tierScale, 0);
+    sprite.position.set(0, 0.04, 0);
     sprite.center.set(0.5, 0);
     g.add(sprite);
     return g;
@@ -1158,18 +1163,23 @@ function initBattleScene(){
   const canvas = document.getElementById('battleCanvas');
   battleThree.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   battleThree.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  battleThree.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  battleThree.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  battleThree.renderer.toneMappingExposure = 1.25;
   battleThree.renderer.shadowMap.enabled = true;
   battleThree.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   battleThree.scene = new THREE.Scene();
-  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.05);
+  battleThree.scene.fog = new THREE.FogExp2(0x17120f, 0.03);
   battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  battleThree.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
-  const moon = new THREE.DirectionalLight(0x6f7aa0,0.4); moon.position.set(-7,11,-5); moon.castShadow=true;
+  battleThree.scene.add(new THREE.AmbientLight(0x777080,1.35));
+  const moon = new THREE.DirectionalLight(0xaab8e0,0.75); moon.position.set(-7,11,-5); moon.castShadow=true;
   moon.shadow.mapSize.set(1024,1024);
   moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
   battleThree.scene.add(moon);
   const ember = new THREE.PointLight(0xe0832f,1.8,12,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
-  const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
+  const groundMat = TEX.ground
+    ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42})
+    : new THREE.MeshStandardMaterial({color:0x342c25});
   const ground = new THREE.Mesh(new THREE.CircleGeometry(9,48), groundMat);
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
   battleThree.group = new THREE.Group(); battleThree.scene.add(battleThree.group);
