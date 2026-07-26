@@ -321,7 +321,7 @@ const BUILDINGS = {
 };
 const FOOTPRINT = { chateau:3, salledesorts:2, labo:2, caserne:2, tour:2,
   mine:1, scierie:1, autel:1, forge:1, chantier:1, muraille:1 };
-const COLS = 13, ROWS = 13, GRID_SIZE = COLS*ROWS;
+const COLS = 44, ROWS = 44, GRID_SIZE = COLS*ROWS;
 const TRUE_CENTER_R = Math.floor((ROWS-1)/2), TRUE_CENTER_C = Math.floor((COLS-1)/2);
 const CENTER = (TRUE_CENTER_R - Math.floor((FOOTPRINT.chateau-1)/2))*COLS + (TRUE_CENTER_C - Math.floor((FOOTPRINT.chateau-1)/2));
 const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo","salledesorts"];
@@ -485,7 +485,7 @@ function switchTab(tab){
 
 /* ================= Rendering: village 3D (Three.js) ================= */
 let three = { renderer:null, scene:null, camera:null, raycaster:null, mouse:null, group:null,
-  camAzimuth: Math.PI/4, camPolar: 1.0, camRadius: 34, dragging:false, lastX:0, lastY:0, tileMeshes:{}, clock:0, ready:false };
+  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 62, dragging:false, lastX:0, lastY:0, tileMeshes:{}, clock:0, ready:false };
 
 function gridToWorld(i){
   const r=Math.floor(i/COLS), c=i%COLS;
@@ -543,6 +543,16 @@ function initTextures(){
     for(let i=0;i<700;i++){ ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.05})`; ctx.fillRect(Math.random()*s,Math.random()*s,2,2); }
   }, COLS*20);
   TEX.ground.repeat.set(1,1);
+  TEX.plot = makeCanvasTexture((ctx,s)=>{
+    ctx.clearRect(0,0,s,s);
+    ctx.fillStyle = 'rgba(53,45,36,0.55)'; ctx.fillRect(s*0.04,s*0.04,s*0.92,s*0.92);
+    ctx.strokeStyle = 'rgba(214,203,170,0.32)'; ctx.lineWidth = s*0.045;
+    ctx.setLineDash([s*0.1, s*0.07]);
+    ctx.strokeRect(s*0.08,s*0.08,s*0.84,s*0.84);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(147,135,108,0.55)'; ctx.lineWidth = s*0.05;
+    ctx.beginPath(); ctx.moveTo(s*0.5,s*0.34); ctx.lineTo(s*0.5,s*0.66); ctx.moveTo(s*0.34,s*0.5); ctx.lineTo(s*0.66,s*0.5); ctx.stroke();
+  },48);
   initIconSprites();
 }
 
@@ -774,8 +784,8 @@ function initScene(){
   three.renderer.shadowMap.enabled = true;
   three.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   three.scene = new THREE.Scene();
-  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.016);
-  three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.0075);
+  three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 340);
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
@@ -785,8 +795,8 @@ function initScene(){
   const moon = new THREE.DirectionalLight(0x6f7aa0, 0.4);
   moon.position.set(-10,15,-7); moon.castShadow = true;
   moon.shadow.mapSize.set(1536,1536);
-  moon.shadow.camera.left=-24; moon.shadow.camera.right=24; moon.shadow.camera.top=24; moon.shadow.camera.bottom=-24;
-  moon.shadow.camera.near=1; moon.shadow.camera.far=60; moon.shadow.bias=-0.002;
+  moon.shadow.camera.left=-28; moon.shadow.camera.right=28; moon.shadow.camera.top=28; moon.shadow.camera.bottom=-28;
+  moon.shadow.camera.near=1; moon.shadow.camera.far=90; moon.shadow.bias=-0.002;
   three.scene.add(moon);
   const emberLight = new THREE.PointLight(0xe0832f, 2.2, 16, 2);
   emberLight.position.set(0,1.6,0); three.scene.add(emberLight); three.emberLight = emberLight;
@@ -822,7 +832,7 @@ function initScene(){
     three.camPolar = Math.max(0.45, Math.min(1.35, three.camPolar - dy*0.004));
     three.lastX=e.clientX; three.lastY=e.clientY;
   });
-  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(14, Math.min(55, three.camRadius + e.deltaY*0.01)); }, {passive:false});
+  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(16, Math.min(100, three.camRadius + e.deltaY*0.015)); }, {passive:false});
   wrap.addEventListener('click', e=>{
     if(Math.abs(e.clientX-three.lastX)>4 || Math.abs(e.clientY-three.lastY)>4) return;
     const rect = canvas.getBoundingClientRect();
@@ -830,13 +840,18 @@ function initScene(){
     three.mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
     three.raycaster.setFromCamera(three.mouse, three.camera);
     const hits = three.raycaster.intersectObjects(three.group.children, true);
-    if(hits.length){
-      let obj = hits[0].object;
+    for(const hit of hits){
+      if(three.plotInstancedMesh && hit.object===three.plotInstancedMesh && hit.instanceId!==undefined){
+        const idx = three.plotIndexMap[hit.instanceId];
+        if(idx!==undefined){ openBuildMenu(idx); return; }
+      }
+      let obj = hit.object;
       while(obj && obj.userData.tileIndex===undefined) obj = obj.parent;
       if(obj){
         const idx = obj.userData.tileIndex;
         if(state.buildings[idx]) openBuildingPanel(idx);
         else openBuildMenu(idx);
+        return;
       }
     }
   });
@@ -873,7 +888,6 @@ function animateScene(){
   pos.needsUpdate = true;
   Object.values(three.tileMeshes).forEach(m=>{
     if(m.userData.pulse){ const s=1+Math.sin(three.clock*4)*0.12; m.scale.setScalar(m.userData.baseScale*s); }
-    if(m.userData.plusMesh){ m.userData.plusMesh.rotation.y += 0.01; }
   });
   (three.waveMeshes||[]).forEach((m,i)=>{ m.rotation.y = Math.sin(three.clock*1.6+i)*0.18; });
   three.renderer.render(three.scene, three.camera);
@@ -1052,59 +1066,59 @@ function updateScene(){
   while(three.group.children.length) three.group.remove(three.group.children[0]);
   three.tileMeshes = {};
   three.waveMeshes = [];
-  const chLevel = chateauLevel(state);
-  const unlockedSet = new Set(ALL_INDICES.slice(0, unlockedCount(chLevel)));
+  three.plotInstancedMesh = null;
+  three.plotIndexMap = [];
   const occupied = buildOccupiedMap(); // idx -> anchorIdx (couvre aussi les ancres elles-mêmes)
 
-  for(let i=0;i<GRID_SIZE;i++){
-    const anchorHere = state.buildings[i] ? i : null;
-    if(anchorHere!==null){
-      const b = state.buildings[i];
-      const def = BUILDINGS[b.type];
-      const size = FOOTPRINT[b.type]||1;
-      const {x,z} = footprintCenterWorld(i, size);
-      const underConstruction = b.until && b.until > Date.now();
-      let mesh;
-      if(underConstruction){
-        const dim = size*1.7 - 0.35;
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(dim,0.7,dim), new THREE.MeshStandardMaterial({color:0x6a6050, wireframe:true, transparent:true, opacity:0.6}));
-        mesh.position.set(x,0.35,z);
-      } else {
-        mesh = makeBuilding(b.type, b.level);
-        mesh.position.set(x,0,z);
-        mesh.traverse(o=>{ if(o.userData && o.userData.wave) three.waveMeshes.push(o); });
-        const readyToCollect = def.produces && b.stored >= (def.baseCap*b.level*0.999);
-        if(readyToCollect){
-          const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), glowMat(0xd9b657,1.8));
-          dot.position.set(x,2.2+(size-1)*0.5,z); dot.userData.pulse=true; dot.userData.baseScale=1;
-          three.group.add(dot); three.tileMeshes['ready'+i]=dot;
-        }
-      }
-      mesh.userData.tileIndex = i;
-      three.group.add(mesh);
-      three.tileMeshes[i]=mesh;
-      continue;
-    }
-    if(occupied[i]!==undefined) continue; // case couverte par un bâtiment voisin (non-ancre) : rien à dessiner, le sol suffit
-    const {x,z} = gridToWorld(i);
-    if(unlockedSet.has(i)){
-      const padGeo = new THREE.BoxGeometry(1.7,0.06,1.7);
-      const pad = new THREE.Mesh(padGeo, new THREE.MeshStandardMaterial({color:0x352d24, roughness:1, transparent:true, opacity:0.85}));
-      pad.position.set(x,0.03,z); pad.userData.tileIndex=i; pad.receiveShadow=true;
-      three.group.add(pad);
-      const plusGroup = new THREE.Group();
-      const bar1 = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.06,0.06), glowMat(0x93876c,0.4));
-      const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.35), glowMat(0x93876c,0.4));
-      plusGroup.add(bar1,bar2); plusGroup.position.set(x,0.4,z); plusGroup.userData.tileIndex=i;
-      three.group.add(plusGroup);
-      pad.userData.plusMesh = plusGroup; pad.userData.baseScale=1;
-      three.tileMeshes[i]=pad;
+  // 1) Bâtiments (peu nombreux : boucle classique, un mesh chacun)
+  Object.keys(state.buildings).forEach(idxStr=>{
+    const i = Number(idxStr);
+    const b = state.buildings[i];
+    const def = BUILDINGS[b.type];
+    const size = FOOTPRINT[b.type]||1;
+    const {x,z} = footprintCenterWorld(i, size);
+    const underConstruction = b.until && b.until > Date.now();
+    let mesh;
+    if(underConstruction){
+      const dim = size*1.7 - 0.35;
+      mesh = new THREE.Mesh(new THREE.BoxGeometry(dim,0.7,dim), new THREE.MeshStandardMaterial({color:0x6a6050, wireframe:true, transparent:true, opacity:0.6}));
+      mesh.position.set(x,0.35,z);
     } else {
-      const lockGeo = new THREE.BoxGeometry(1.7,0.05,1.7);
-      const lockPad = new THREE.Mesh(lockGeo, new THREE.MeshStandardMaterial({color:0x100d0b, roughness:1}));
-      lockPad.position.set(x,0.025,z); lockPad.receiveShadow=true;
-      three.group.add(lockPad);
+      mesh = makeBuilding(b.type, b.level);
+      mesh.position.set(x,0,z);
+      mesh.traverse(o=>{ if(o.userData && o.userData.wave) three.waveMeshes.push(o); });
+      const readyToCollect = def.produces && b.stored >= (def.baseCap*b.level*0.999);
+      if(readyToCollect){
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), glowMat(0xd9b657,1.8));
+        dot.position.set(x,2.2+(size-1)*0.5,z); dot.userData.pulse=true; dot.userData.baseScale=1;
+        three.group.add(dot); three.tileMeshes['ready'+i]=dot;
+      }
     }
+    mesh.userData.tileIndex = i;
+    three.group.add(mesh);
+    three.tileMeshes[i]=mesh;
+  });
+
+  // 2) Cases vides constructibles : un unique InstancedMesh pour les ~1900 cases (perf)
+  const emptyIndices = [];
+  for(let i=0;i<GRID_SIZE;i++){ if(occupied[i]===undefined) emptyIndices.push(i); }
+  if(emptyIndices.length){
+    const padGeo = new THREE.PlaneGeometry(1.7,1.7);
+    const padMat = new THREE.MeshStandardMaterial({map:TEX.plot, transparent:true, roughness:1, depthWrite:false});
+    const inst = new THREE.InstancedMesh(padGeo, padMat, emptyIndices.length);
+    inst.receiveShadow = true;
+    const dummy = new THREE.Object3D();
+    emptyIndices.forEach((idx,i)=>{
+      const {x,z} = gridToWorld(idx);
+      dummy.position.set(x,0.02,z);
+      dummy.rotation.set(-Math.PI/2,0,0);
+      dummy.updateMatrix();
+      inst.setMatrixAt(i, dummy.matrix);
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    three.group.add(inst);
+    three.plotInstancedMesh = inst;
+    three.plotIndexMap = emptyIndices;
   }
 }
 function renderResources(){
