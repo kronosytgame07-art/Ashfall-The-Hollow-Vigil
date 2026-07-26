@@ -26,6 +26,7 @@ var _right_shoulder: Node3D
 var _left_elbow: Node3D
 var _right_elbow: Node3D
 var _tool_pivot: Node3D
+var _work_requested := false
 
 func _ready() -> void:
 	_rng.randomize()
@@ -58,10 +59,12 @@ func _physics_process(delta: float) -> void:
 func set_work_target(world_target: Vector3) -> void:
 	target = world_target
 	state = State.RUN
+	_work_requested = true
 
 func start_work() -> void:
 	state = State.WORK
 	stride_phase = 0.0
+	_work_requested = false
 
 func stop_work() -> void:
 	state = State.WALK
@@ -71,8 +74,11 @@ func _update_locomotion(delta: float) -> void:
 	var offset := target - global_position
 	offset.y = 0.0
 	if offset.length() < 0.48:
-		state = State.IDLE
-		_idle_time = _rng.randf_range(0.5, 2.1)
+		if _work_requested:
+			start_work()
+		else:
+			state = State.IDLE
+			_idle_time = _rng.randf_range(0.5, 2.1)
 		return
 	var desired_direction := offset.normalized()
 	var desired_speed := run_speed if state == State.RUN else walk_speed
@@ -208,7 +214,9 @@ func _build_character() -> void:
 	_torso.position = Vector3(0, 1.78, 0)
 	_root_visual.add_child(_torso)
 	_box_part(_torso, "Body", Vector3(1.02, 1.08, 0.62), Vector3.ZERO, Color("#3b2921"))
+	_box_part(_torso, "LeatherApron", Vector3(0.7, 0.86, 0.08), Vector3(0, -0.02, -0.35), Color("#6d4228"))
 	_box_part(_torso, "Belt", Vector3(1.12, 0.15, 0.69), Vector3(0, -0.42, 0), Color("#171316"))
+	_box_part(_torso, "BeltBuckle", Vector3(0.18, 0.18, 0.08), Vector3(0, -0.42, -0.39), Color("#9d7438"), 0.65)
 	var head_mesh := SphereMesh.new()
 	head_mesh.radius = 0.34
 	head_mesh.height = 0.68
@@ -218,6 +226,14 @@ func _build_character() -> void:
 	hood_mesh.height = 0.78
 	var hood := _mesh_part(_torso, "Hood", hood_mesh, Vector3(0, 0.9, -0.08), Color("#2a201f"))
 	hood.scale = Vector3(1.0, 1.06, 0.88)
+	var eye_mesh := SphereMesh.new()
+	eye_mesh.radius = 0.045
+	eye_mesh.height = 0.09
+	_mesh_part(_torso, "LeftEye", eye_mesh, Vector3(-0.12, 0.86, -0.315), Color("#d7bb72"))
+	_mesh_part(_torso, "RightEye", eye_mesh, Vector3(0.12, 0.86, -0.315), Color("#d7bb72"))
+	_box_part(_torso, "Nose", Vector3(0.1, 0.15, 0.12), Vector3(0, 0.76, -0.34), Color("#865239"))
+	_box_part(_torso, "LeftShoulderPad", Vector3(0.38, 0.22, 0.68), Vector3(-0.54, 0.28, 0), Color("#49434a"), 0.25)
+	_box_part(_torso, "RightShoulderPad", Vector3(0.38, 0.22, 0.68), Vector3(0.54, 0.28, 0), Color("#49434a"), 0.25)
 	var left_leg := _limb_chain("Left", -0.27, 1.27)
 	var right_leg := _limb_chain("Right", 0.27, 1.27)
 	var left_arm := _limb_chain("Left", -0.64, 2.18, true)

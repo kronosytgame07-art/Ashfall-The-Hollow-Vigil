@@ -10,6 +10,9 @@ func _initialize() -> void:
 	for kind in REQUIRED_BUILDINGS:
 		var fp := BuildingFactory.footprint(kind)
 		assert(fp.x > 0 and fp.y > 0, "Invalid footprint: " + kind)
+		var definition := BuildingFactory.definition(kind)
+		assert(not definition.is_empty(), "Missing gameplay definition: " + kind)
+		assert(definition.has("cost"), "Missing building cost: " + kind)
 		var model_path: String = BuildingFactory.MODEL_PATHS.get(kind, "")
 		assert(ResourceLoader.exists(model_path), "Missing imported GLB: " + model_path)
 	for model_path in [
@@ -24,5 +27,11 @@ func _initialize() -> void:
 		var angle := sector * TAU / 8.0
 		var direction := Vector3(sin(angle), 0.0, cos(angle))
 		assert(is_equal_approx(direction.length(), 1.0), "Invalid direction sector")
-	print("Ashfall 3D validation: 17 GLB assets, 12 buildings, 8 movement sectors, OK")
+	var game_state := AshfallGameState.new()
+	assert(game_state.can_afford({"gold": 100}), "Starting economy is invalid")
+	assert(game_state.spend({"gold": 100}), "Resource spending failed")
+	assert(game_state.resources.gold == 1150, "Resource subtraction failed")
+	assert(BuildingFactory.footprint("town_hall") == Vector2i(3, 3), "Town hall must occupy 3x3")
+	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
+	print("Ashfall 3D validation: assets, economy, persistence schema, footprints and 8-way movement, OK")
 	quit()
