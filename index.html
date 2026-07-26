@@ -23,8 +23,6 @@
   html,body{margin:0;padding:0;}
   body{
     background:
-      linear-gradient(rgba(5,7,12,.68),rgba(5,4,5,.92)),
-      url('assets/backgrounds/main-menu.webp') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -195,6 +193,16 @@
   </div>
 
   <div id="gameScreen" class="hide">
+    <div id="tutorialBanner" class="hide" style="max-width:640px; margin:0 auto 14px; background:var(--stone-dark); border:1px solid var(--line); border-left:3px solid var(--ember-bright); border-radius:4px; padding:14px 16px; position:relative;">
+      <button class="close-x" style="position:absolute; top:8px; right:10px;" onclick="dismissTutorial()">✕</button>
+      <div style="font-family:'Cinzel',serif; font-size:13px; color:var(--bone); margin-bottom:6px;">🔥 Bienvenue, gardien</div>
+      <div style="font-size:13px; color:var(--bone-dim); line-height:1.5;">
+        1. Clique une <b>parcelle en pointillés</b> pour bâtir.<br>
+        2. Clique un <b>bâtiment</b> pour l'améliorer ou récolter ses ressources.<br>
+        3. Onglet <b>⚔️ Assaut</b> : cherche un adversaire, choisis ta composition de troupes, regarde le combat en direct.<br>
+        4. Un <b>Chantier</b> permet de construire en parallèle ; un <b>Laboratoire</b> renforce tes troupes.
+      </div>
+    </div>
     <div class="onlinebar"><span class="dot" id="onlineDot"></span><span id="onlineText">connexion…</span></div>
 
     <div class="bonfire-row"><div class="bonfire"><div class="swords">⚔️</div><div class="flame"></div></div></div>
@@ -290,9 +298,13 @@ const BUILDINGS = {
               baseCost:{or:400,bois:400,ames:50}, buildTime:40,
               upgradeCost:()=>({or:0,bois:0,ames:0}), upgradeTime:()=>0,
               maxCount:ch=>Math.min(3,Math.floor(ch/2)) },
+  labo:     { name:"Laboratoire", icon:"🧪", desc:"Un chaudron d'âmes distillées qui renforce chaque troupe entraînée.", maxLevel:6, stat:"troopPower", baseStat:4, single:true,
+              baseCost:{or:450,bois:300,ames:80}, buildTime:70,
+              upgradeCost:l=>({or:320*Math.pow(1.6,l-1),bois:220*Math.pow(1.6,l-1),ames:60*l}), upgradeTime:l=>70*Math.pow(1.4,l-1),
+              maxCount:()=>1 },
 };
 const COLS = 6, ROWS = 6, GRID_SIZE = COLS*ROWS, CENTER = 14;
-const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier"];
+const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo"];
 
 function distFromCenter(i){
   const r=Math.floor(i/COLS), c=i%COLS, cr=Math.floor(CENTER/COLS), cc=CENTER%COLS;
@@ -307,6 +319,7 @@ let playerName = null, storageKey = null;
 let state = null;
 let onlineOK = true;
 
+function dismissTutorial(){ document.getElementById('tutorialBanner').classList.add('hide'); sfxClick(); }
 function sanitizeName(n){ return n.trim().replace(/[^a-zA-Z0-9_\- ]/g,'').slice(0,18).trim(); }
 
 function freshState(){
@@ -324,15 +337,17 @@ async function login(){
   document.getElementById('loginMsg').textContent = "Ouverture des portes…";
   ensureAudio();
 
+  let isNewPlayer = false;
   try{
     const res = await window.storage.get(storageKey, true);
-    state = res && res.value ? JSON.parse(res.value) : freshState();
-  }catch(e){ state = freshState(); }
+    state = res && res.value ? JSON.parse(res.value) : (isNewPlayer=true, freshState());
+  }catch(e){ state = freshState(); isNewPlayer = true; }
   if(state.trophies===undefined) state.trophies = 0;
   if(state.shieldUntil===undefined) state.shieldUntil = null;
 
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('gameScreen').classList.remove('hide');
+  if(isNewPlayer) document.getElementById('tutorialBanner').classList.remove('hide');
   startAsh();
   initScene();
   renderResources();
@@ -384,7 +399,7 @@ function canAfford(cost){ return state.resources.or>=cost.or && state.resources.
 function spend(cost){ state.resources.or-=cost.or; state.resources.bois-=cost.bois; state.resources.ames-=cost.ames; }
 function costString(c){ const p=[]; if(c.or) p.push(`🪙 ${fmt(c.or)}`); if(c.bois) p.push(`🪵 ${fmt(c.bois)}`); if(c.ames) p.push(`🔥 ${fmt(c.ames)}`); return p.length?p.join('  ·  '):"Gratuit"; }
 function resIcon(r){ return r==='or'?'🪙':r==='bois'?'🪵':'🔥'; }
-function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':'Vitesse +%'; }
+function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':s==='troopPower'?'Puissance des troupes +%':'Vitesse +%'; }
 function powerOf(st, statType){
   return Object.values(st.buildings).filter(b=>BUILDINGS[b.type] && BUILDINGS[b.type].stat===statType)
     .reduce((sum,b)=>sum + BUILDINGS[b.type].baseStat*b.level, 0);
@@ -466,7 +481,6 @@ function initTextures(){
   },256);
   TEX.ground.repeat.set(6,6);
   initIconSprites();
-  initBuildingSprites();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -557,31 +571,17 @@ const ICON_DRAW = {
     outlinedPath(ctx,c=>{ c.moveTo(s*0.5,s*0.3); c.lineTo(s*0.5,s*0.68); c.lineTo(s*0.36,s*0.68); c.closePath(); }, '#6b4423', null);
     outlinedPath(ctx,c=>{ c.rect(s*0.56,s*0.2,s*0.16,s*0.1); }, '#c9ced4', INK, s*0.035);
     gloss(ctx,s*0.36,s*0.4,s*0.06,s*0.1,-0.5);
+  },
+  labo:(ctx,s)=>{
+    outlinedPath(ctx,c=>{ c.moveTo(s*0.42,s*0.2); c.lineTo(s*0.42,s*0.42); c.lineTo(s*0.24,s*0.78); c.quadraticCurveTo(s*0.5,s*0.9,s*0.76,s*0.78); c.lineTo(s*0.58,s*0.42); c.lineTo(s*0.58,s*0.2); c.closePath(); },
+      '#c9ced4', INK, s*0.04);
+    outlinedPath(ctx,c=>{ c.rect(s*0.38,s*0.14,s*0.24,s*0.08); }, '#9aa0a6', INK, s*0.03);
+    outlinedPath(ctx,c=>{ c.moveTo(s*0.3,s*0.6); c.quadraticCurveTo(s*0.5,s*0.68,s*0.7,s*0.6); c.lineTo(s*0.76,s*0.76); c.quadraticCurveTo(s*0.5,s*0.88,s*0.24,s*0.76); c.closePath(); },
+      '#a685d6', INK, s*0.035);
+    gloss(ctx,s*0.4,s*0.65,s*0.05,s*0.08,-0.4);
   }
 };
 let ICON_MATS = {};
-const BUILDING_ART = {
-  chateau:{src:'assets/buildings/townhall.webp', w:4.8, h:4.8, y:2.15},
-  mine:{src:'assets/buildings/mine.webp', w:3.15, h:3.15, y:1.38},
-  scierie:{src:'assets/buildings/sawmill.webp', w:3.15, h:3.15, y:1.38},
-  autel:{src:'assets/buildings/altar.webp', w:2.9, h:2.9, y:1.22},
-  caserne:{src:'assets/buildings/barracks.webp', w:3.45, h:3.45, y:1.52},
-  muraille:{src:'assets/buildings/wall.webp', w:3.45, h:2.3, y:0.92},
-  tour:{src:'assets/buildings/tower.webp', w:3.1, h:4.25, y:1.94},
-  forge:{src:'assets/buildings/forge.webp', w:3.3, h:3.3, y:1.45}
-};
-let BUILDING_MATS = {};
-function initBuildingSprites(){
-  const loader = new THREE.TextureLoader();
-  Object.entries(BUILDING_ART).forEach(([type,art])=>{
-    const texture = loader.load(art.src);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
-    BUILDING_MATS[type] = new THREE.SpriteMaterial({
-      map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
-    });
-  });
-}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -609,7 +609,7 @@ function roundRectPath(ctx,x,y,w,h,r){
   ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
-const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95 };
+const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95, labo:0.85 };
 function stoneMat(color,rough){ return new THREE.MeshStandardMaterial({map:TEX.stone, color, roughness:rough!==undefined?rough:0.95, metalness:0.05}); }
 function woodMat(color){ return new THREE.MeshStandardMaterial({map:TEX.wood, color, roughness:0.9}); }
 function roofMat(color){ return new THREE.MeshStandardMaterial({map:TEX.roof, color, roughness:0.85}); }
@@ -759,16 +759,6 @@ function animateScene(){
 
 function makeBuilding(type, level){
   const g = new THREE.Group();
-  const art = BUILDING_ART[type];
-  if(art && BUILDING_MATS[type]){
-    const sprite = new THREE.Sprite(BUILDING_MATS[type]);
-    const tierScale = 1 + Math.min(0.18, (level-1)*0.025);
-    sprite.scale.set(art.w*tierScale, art.h*tierScale, 1);
-    sprite.position.set(0, art.y*tierScale, 0);
-    sprite.center.set(0.5, 0);
-    g.add(sprite);
-    return g;
-  }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
   if(type==='chateau'){
@@ -888,6 +878,23 @@ function makeBuilding(type, level){
     const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8), glowMat(roofBright,1.5));
     lantern.position.set(-0.45,0.35,0.35); g.add(lantern);
     const pl2 = new THREE.PointLight(roofBright,0.6,1.8); pl2.position.copy(lantern.position); g.add(pl2);
+  } else if(type==='labo'){
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.58,0.25,10), stoneMat(0x352c22));
+    table.position.y=0.13; g.add(table);
+    const cauldron = new THREE.Mesh(new THREE.SphereGeometry(0.32,10,8,0,Math.PI*2,0,Math.PI*0.6), stoneMat(0x2c2620,0.6));
+    cauldron.position.y=0.4; g.add(cauldron);
+    const liquid = new THREE.Mesh(new THREE.CircleGeometry(0.24,12), glowMat(0x7a5ba6,1.6));
+    liquid.rotation.x=-Math.PI/2; liquid.position.y=0.5; g.add(liquid);
+    for(let i=0;i<3;i++){
+      const bub = new THREE.Mesh(new THREE.SphereGeometry(0.03+Math.random()*0.02,6,6), glowMat(0xa685d6,1.4));
+      bub.position.set((Math.random()-0.5)*0.3, 0.55+Math.random()*0.15, (Math.random()-0.5)*0.3);
+      g.add(bub);
+    }
+    const pl3 = new THREE.PointLight(0x7a5ba6,1.1,2.4); pl3.position.set(0,0.6,0); g.add(pl3);
+    [[-0.4,0],[0.4,0],[0,-0.4],[0,0.4]].forEach(([x,z])=>{
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.3,6), woodMat(0x2c2015));
+      leg.position.set(x,0.15,z); g.add(leg);
+    });
   }
   const s = 0.9 + tierBoost;
   g.scale.setScalar(s);
@@ -1013,7 +1020,7 @@ function openBuildingPanel(idx){
       <div class="progresswrap"><div class="progressbar"><div style="width:${pct}%"></div></div></div>
       <button class="actionbtn collect" ${b.stored<1?'disabled':''} onclick="collect(${idx})">Récolter ${fmt(b.stored)} ${resIcon(def.produces)}</button>`;
     } else if(def.stat){
-      html += `<div class="statline"><span>${statLabel(def.stat)}</span><span>${def.baseStat*b.level}</span></div>`;
+      html += `<div class="statline"><span>${statLabel(def.stat)}</span><span>${def.stat==='troopPower' ? '+'+(def.baseStat*b.level*2)+'%' : def.baseStat*b.level}</span></div>`;
     }
     if(b.level < def.maxLevel){
       const cost = def.upgradeCost(b.level), time = def.upgradeTime(b.level)*forgeSpeedMult();
@@ -1142,16 +1149,42 @@ async function findEnemy(){
       <div class="vs-x">VS</div>
       <div class="vscol"><div class="who">Leur défense</div><div class="num">${enDef}</div></div>
     </div>
+    ${heroAvailable(state) ? '<div class="timelabel">👑 Le Roi des Cendres rejoint la bataille.</div>' : ''}
     <div class="timelabel">Butin potentiel (à 100% de destruction) : 🪙 ${fmt(Math.min(600,Math.round((enemy.resources.or||0)*0.6)))} · 🪵 ${fmt(Math.min(600,Math.round((enemy.resources.bois||0)*0.6)))}</div>
+    <div class="timelabel" style="margin-top:10px;">Composition de l'armée :</div>
+    <div style="display:flex; gap:6px; margin-top:6px;">
+      <button class="tab comp-btn active" data-comp="equilibree" onclick="selectComposition('equilibree',this)" style="flex:1; padding:8px 4px; font-size:10.5px;">⚔️ Équilibrée</button>
+      <button class="tab comp-btn" data-comp="rapide" onclick="selectComposition('rapide',this)" style="flex:1; padding:8px 4px; font-size:10.5px;">🏹 Assaut rapide</button>
+      <button class="tab comp-btn" data-comp="mur" onclick="selectComposition('mur',this)" style="flex:1; padding:8px 4px; font-size:10.5px;">🛡️ Mur de boucliers</button>
+    </div>
     <button class="actionbtn" style="margin-top:14px;" onclick="deployAssault()">Lancer l'assaut</button>
   </div>`;
   btn.disabled = false; btn.textContent = "Chercher un autre adversaire";
 }
+window._troopComposition = 'equilibree';
+function selectComposition(comp, el){
+  window._troopComposition = comp;
+  document.querySelectorAll('.comp-btn').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  sfxClick();
+}
 
 /* ---- Champ de bataille 3D : déploiement de troupes, combat en temps réel ---- */
-const BUILDING_BASE_HP = { chateau:420, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90 };
+const BUILDING_BASE_HP = { chateau:420, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90, labo:130 };
+const TROOP_TYPES = {
+  guerrier: { hpMult:1,   dpsMult:1,   speedMult:1,    range:0.75, color:0xa1481f, headColor:0xd6cbaa, defRes:0 },
+  archer:   { hpMult:0.65,dpsMult:1.3, speedMult:1.15, range:2.6,  color:0x8fb8cc, headColor:0xd6cbaa, defRes:0 },
+  brute:    { hpMult:1.7, dpsMult:0.75,speedMult:0.68, range:0.85, color:0x5c4632, headColor:0xb0a894, defRes:0.35 }
+};
+const COMPOSITIONS = {
+  equilibree: { guerrier:0.34, archer:0.33, brute:0.33 },
+  rapide:     { guerrier:0.2,  archer:0.6,  brute:0.2 },
+  mur:        { guerrier:0.2,  archer:0.2,  brute:0.6 }
+};
+const HERO_UNLOCK_LEVEL = 2;
+function heroAvailable(st){ return chateauLevel(st) >= HERO_UNLOCK_LEVEL; }
 let battleThree = { renderer:null, scene:null, camera:null, group:null, ready:false, clock:0, buildings:{}, troops:[],
-  running:false, elapsed:0, maxDuration:40, destroyedCount:0, totalCount:0, townHallDestroyed:false, _lastT:0, _defTick:0 };
+  running:false, elapsed:0, maxDuration:40, destroyedCount:0, totalCount:0, townHallDestroyed:false, _lastT:0, _defTick:0, _healTick:0 };
 
 function initBattleScene(){
   if(battleThree.ready || !window.THREE) return;
@@ -1226,23 +1259,61 @@ function buildEnemyScene(enemyState){
   battleThree.destroyedCount = 0;
   battleThree.townHallDestroyed = false;
 }
-function spawnTroops(count){
+function spawnTroops(count, composition){
   battleThree.troops.forEach(t=>battleThree.group.remove(t.mesh));
   battleThree.troops = [];
   const troopHp = 30 + chateauLevel(state)*4;
-  for(let i=0;i<count;i++){
+  const troopDps = 9;
+  const troopPowerMult = 1 + powerOf(state,'troopPower')*0.02;
+  const comp = COMPOSITIONS[composition] || COMPOSITIONS.equilibree;
+  const order = ['guerrier','archer','brute'];
+  let remaining = count;
+  const counts = {};
+  order.forEach((t,i)=>{
+    if(i===order.length-1){ counts[t]=remaining; }
+    else { counts[t]=Math.round(count*comp[t]); remaining -= counts[t]; }
+  });
+  order.forEach(type=>{
+    const def = TROOP_TYPES[type];
+    for(let i=0;i<counts[type];i++){
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.34,8), new THREE.MeshStandardMaterial({color:def.color, roughness:0.7}));
+      body.position.y=0.22; g.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshStandardMaterial({color:def.headColor, roughness:0.6}));
+      head.position.y=0.46; g.add(head);
+      if(type==='archer'){
+        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.1,0.015,6,10,Math.PI), new THREE.MeshStandardMaterial({color:0x6b4a2f}));
+        bow.position.set(0.12,0.3,0); bow.rotation.y=Math.PI/2; g.add(bow);
+      } else if(type==='brute'){
+        g.scale.set(1.2,1.15,1.2);
+      }
+      g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+      const spawnX = (Math.random()-0.5)*7;
+      const spawnZ = 6.3+Math.random()*1.3;
+      g.position.set(spawnX,0,spawnZ);
+      battleThree.group.add(g);
+      battleThree.troops.push({ mesh:g, hp:troopHp*def.hpMult, maxHp:troopHp*def.hpMult, target:null,
+        speed:(1.5+Math.random()*0.3)*def.speedMult, dps:troopDps*def.dpsMult*troopPowerMult,
+        range:def.range, defRes:def.defRes, alive:true, isHero:false });
+    }
+  });
+  if(heroAvailable(state)){
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({color:0xa1481f, roughness:0.7});
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.34,8), bodyMat);
-    body.position.y=0.22; g.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshStandardMaterial({color:0xd6cbaa, roughness:0.6}));
-    head.position.y=0.46; g.add(head);
+    const cape = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,8), new THREE.MeshStandardMaterial({color:0x7a2020, roughness:0.6}));
+    cape.position.y=0.28; g.add(cape);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.4,8), new THREE.MeshStandardMaterial({color:0x8a7638, metalness:0.4, roughness:0.4}));
+    body.position.y=0.28; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,10), new THREE.MeshStandardMaterial({color:0xd6cbaa}));
+    head.position.y=0.58; g.add(head);
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.12,5), glowMat(0xd9b657,1.3));
+    crown.position.y=0.72; g.add(crown);
+    const glow = new THREE.PointLight(0xd9b657,0.9,2); glow.position.y=0.7; g.add(glow);
     g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-    const spawnX = (Math.random()-0.5)*7;
-    const spawnZ = 6.3+Math.random()*1.3;
-    g.position.set(spawnX,0,spawnZ);
+    g.position.set((Math.random()-0.5)*3,0,6.8);
     battleThree.group.add(g);
-    battleThree.troops.push({ mesh:g, hp:troopHp, maxHp:troopHp, target:null, speed:1.5+Math.random()*0.35, dps:9, alive:true });
+    const heroHp = 120 + chateauLevel(state)*12;
+    battleThree.troops.push({ mesh:g, hp:heroHp, maxHp:heroHp, target:null, speed:1.35, dps:24*troopPowerMult,
+      range:0.9, defRes:0.15, alive:true, isHero:true });
   }
 }
 function nearestAliveBuilding(pos){
@@ -1265,7 +1336,8 @@ function simulateBattleStep(dt){
     if(!t.target) return;
     const dir = new THREE.Vector3().subVectors(t.target.worldPos, t.mesh.position);
     const dist = dir.length();
-    if(dist > 0.75){
+    const range = t.range || 0.75;
+    if(dist > range){
       dir.normalize();
       t.mesh.position.addScaledVector(dir, t.speed*dt);
       t.mesh.rotation.y = Math.atan2(dir.x,dir.z);
@@ -1286,6 +1358,20 @@ function simulateBattleStep(dt){
     }
   });
 
+  battleThree._healTick += dt;
+  if(battleThree._healTick >= 8){
+    battleThree._healTick = 0;
+    const hero = battleThree.troops.find(t=>t.isHero && t.alive);
+    if(hero){
+      battleThree.troops.forEach(t=>{
+        if(t.alive && t.mesh.position.distanceTo(hero.mesh.position) < 3){
+          t.hp = Math.min(t.maxHp, t.hp + t.maxHp*0.2);
+        }
+      });
+      showToast("👑 Le Roi des Cendres ranime ses gardiens");
+    }
+  }
+
   battleThree._defTick += dt;
   if(battleThree._defTick >= 1){
     battleThree._defTick = 0;
@@ -1294,7 +1380,7 @@ function simulateBattleStep(dt){
       const alive = battleThree.troops.filter(t=>t.alive);
       if(alive.length===0) return;
       const target = alive[Math.floor(Math.random()*alive.length)];
-      const dmg = (BUILDINGS[b.type].baseStat*b.level)*0.55;
+      const dmg = (BUILDINGS[b.type].baseStat*b.level)*0.55*(1-(target.defRes||0));
       target.hp -= dmg;
       if(target.hp<=0){ target.alive=false; battleThree.group.remove(target.mesh); }
     });
@@ -1321,8 +1407,8 @@ function deployAssault(){
     resizeBattleScene();
     buildEnemyScene(enemy);
     const troopCount = Math.max(3, Math.min(30, Math.round(powerOf(state,'attaque')/6)));
-    spawnTroops(troopCount);
-    battleThree.elapsed = 0; battleThree.maxDuration = 40; battleThree.running = true;
+    spawnTroops(troopCount, window._troopComposition||'equilibree');
+    battleThree.elapsed = 0; battleThree.maxDuration = 40; battleThree.running = true; battleThree._healTick = 0;
     sfxAttackStart();
   }, 60);
 }
@@ -1438,6 +1524,24 @@ function startAmbient(){
   o1.connect(droneGain); o2.connect(droneGain); droneGain.connect(masterGain);
   o1.start(); o2.start();
   scheduleCrackle();
+  scheduleMotif();
+}
+/* Motif mélodique original (gamme pentatonique mineure), joué au luth synthétique, en boucle lente et jamais identique deux fois */
+const MOTIF_SCALE = [110, 130.81, 146.83, 164.81, 196.00, 220, 261.63]; // A2 pentatonique mineure approx
+function scheduleMotif(){
+  const delay = 6000+Math.random()*5000;
+  setTimeout(()=>{
+    if(audioCtx && soundOn){
+      const noteCount = 3+Math.floor(Math.random()*3);
+      let t=0;
+      for(let i=0;i<noteCount;i++){
+        const freq = MOTIF_SCALE[Math.floor(Math.random()*MOTIF_SCALE.length)];
+        playTone(freq, 1.1, 'triangle', 0.05, t);
+        t += 0.5+Math.random()*0.4;
+      }
+    }
+    scheduleMotif();
+  }, delay);
 }
 function scheduleCrackle(){
   const delay = 1400+Math.random()*3200;
