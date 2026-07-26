@@ -237,8 +237,14 @@
       <div id="battleFieldWrap" class="hide" style="position:relative; width:100%; height:min(62vh,540px); min-height:340px;">
         <canvas id="battleCanvas" style="display:block; width:100%; height:100%;"></canvas>
         <div id="battleHud" style="position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none;">
-          <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">⏱ <span id="battleTimer">40</span>s</div>
+          <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">⏱ <span id="battleTimer">30</span>s</div>
           <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">💥 <span id="battlePct">0</span>% · <span id="battleStars">☆☆☆</span></div>
+        </div>
+        <div id="phaseLabel" style="position:absolute; top:52px; left:0; right:0; text-align:center; font-family:'Cinzel',serif; font-size:12px; color:var(--bone-dim); text-shadow:0 1px 3px #000; pointer-events:none;"></div>
+        <div id="troopBar" class="hide" style="position:absolute; bottom:54px; left:0; right:0; display:flex; justify-content:center; gap:8px;">
+          <button class="tab" id="troopBtn_guerrier" onclick="selectTroopType('guerrier')" style="padding:8px 10px; font-size:11px;">⚔️ Guerrier <span class="troopCount">0</span></button>
+          <button class="tab" id="troopBtn_archer" onclick="selectTroopType('archer')" style="padding:8px 10px; font-size:11px;">🏹 Archer <span class="troopCount">0</span></button>
+          <button class="tab" id="troopBtn_brute" onclick="selectTroopType('brute')" style="padding:8px 10px; font-size:11px;">🛡️ Brute <span class="troopCount">0</span></button>
         </div>
         <div id="spellBar" class="hide" style="position:absolute; bottom:10px; left:0; right:0; display:flex; justify-content:center; gap:8px;">
           <button class="findbtn" id="spellRageBtn" style="padding:9px 16px; font-size:11.5px;" onclick="castSpell('rage')">🔥 Rage</button>
@@ -1364,9 +1370,10 @@ const COMPOSITIONS = {
 };
 const HERO_UNLOCK_LEVEL = 2;
 function heroAvailable(st){ return chateauLevel(st) >= HERO_UNLOCK_LEVEL; }
-let battleThree = { renderer:null, scene:null, camera:null, group:null, ready:false, clock:0, buildings:{}, troops:[],
+let battleThree = { renderer:null, scene:null, camera:null, group:null, zoneGroup:null, ready:false, clock:0, buildings:{}, troops:[],
   running:false, elapsed:0, maxDuration:40, destroyedCount:0, totalCount:0, townHallDestroyed:false, _lastT:0, _defTick:0, _healTick:0,
-  spellCharges:0, rageUntil:0 };
+  spellCharges:0, rageUntil:0,
+  scouting:false, scoutElapsed:0, scoutDuration:30, troopBudget:{guerrier:0,archer:0,brute:0}, selectedTroopType:'guerrier', firstDeployDone:false };
 
 function initBattleScene(){
   if(battleThree.ready || !window.THREE) return;
@@ -1376,19 +1383,43 @@ function initBattleScene(){
   battleThree.renderer.shadowMap.enabled = true;
   battleThree.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   battleThree.scene = new THREE.Scene();
-  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.05);
-  battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.012);
+  battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 260);
   battleThree.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
   const moon = new THREE.DirectionalLight(0x6f7aa0,0.4); moon.position.set(-7,11,-5); moon.castShadow=true;
   moon.shadow.mapSize.set(1024,1024);
-  moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
+  moon.shadow.camera.left=-22; moon.shadow.camera.right=22; moon.shadow.camera.top=22; moon.shadow.camera.bottom=-22;
   battleThree.scene.add(moon);
-  const ember = new THREE.PointLight(0xe0832f,1.8,12,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
+  const ember = new THREE.PointLight(0xe0832f,1.8,16,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
   const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(9,48), groundMat);
+  const battleHalf = (COLS/2)*2.1 + 3*2.1; // zone jouable + bordure de déploiement de 3 cases
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(battleHalf*2, battleHalf*2), groundMat);
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
   battleThree.group = new THREE.Group(); battleThree.scene.add(battleThree.group);
+  battleThree.zoneGroup = new THREE.Group(); battleThree.scene.add(battleThree.zoneGroup);
   battleThree.ready = true;
+  battleThree.camRadius = 34;
+  const wrap = document.getElementById('battleFieldWrap');
+  wrap.addEventListener('click', e=>{
+    if(!battleThree.ready) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouse = new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
+    const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, battleThree.camera);
+    const dir = ray.ray.direction, origin = ray.ray.origin;
+    if(Math.abs(dir.y)<1e-6) return;
+    const t = -origin.y/dir.y; if(t<0) return;
+    const x = origin.x+dir.x*t, z = origin.z+dir.z*t;
+    const type = battleThree.selectedTroopType;
+    if((battleThree.troopBudget[type]||0)<=0){ showToast("Plus de troupes de ce type."); return; }
+    if(!isDeployable(x,z)){ showToast("🚫 Zone anti-déploiement — trop près d'un bâtiment."); return; }
+    deployTroopAt(type, x, z);
+    updateTroopBar();
+    sfxClick();
+    if(!battleThree.firstDeployDone){
+      battleThree.firstDeployDone = true;
+      startBattlePhase();
+    }
+  });
   resizeBattleScene();
   window.addEventListener('resize', resizeBattleScene);
   animateBattleScene();
@@ -1409,10 +1440,11 @@ function animateBattleScene(){
   battleThree._lastT = now;
   battleThree.clock += dt;
   const az = 0.5 + Math.sin(battleThree.clock*0.05)*0.3;
-  const radius = 14, polar = 0.95;
+  const radius = battleThree.camRadius||34, polar = 0.92;
   battleThree.camera.position.set(radius*Math.sin(polar)*Math.sin(az), radius*Math.cos(polar), radius*Math.sin(polar)*Math.cos(az));
   battleThree.camera.lookAt(0,0.4,0);
   if(battleThree.running) simulateBattleStep(dt);
+  if(battleThree.scouting) tickScoutPhase(dt);
   battleThree.renderer.render(battleThree.scene, battleThree.camera);
 }
 function buildEnemyScene(enemyState){
@@ -1441,63 +1473,129 @@ function buildEnemyScene(enemyState){
   battleThree.totalCount = Object.keys(battleThree.buildings).length;
   battleThree.destroyedCount = 0;
   battleThree.townHallDestroyed = false;
+  let maxSpread = 6;
+  Object.values(battleThree.buildings).forEach(b=>{ maxSpread = Math.max(maxSpread, Math.abs(b.worldPos.x), Math.abs(b.worldPos.z)); });
+  battleThree.camRadius = Math.max(22, Math.min(70, maxSpread*2.2));
 }
-function spawnTroops(count, composition){
-  battleThree.troops.forEach(t=>battleThree.group.remove(t.mesh));
-  battleThree.troops = [];
-  const troopHp = 30 + chateauLevel(state)*4;
-  const troopDps = 9;
-  const troopPowerMult = 1 + powerOf(state,'troopPower')*0.02;
+
+/* ---- Zone anti-spawn : ombre des bâtiments + bordure de déploiement libre ---- */
+const NO_SPAWN_HALO = 1.12; // légèrement plus qu'une demi-case : un écart de 1 case reste bloqué, un écart de 2 cases laisse un trou
+function buildingAABBList(){
+  return Object.values(battleThree.buildings).filter(b=>!b.destroyed).map(b=>{
+    const size = FOOTPRINT[b.type]||1;
+    const half = size*2.1/2;
+    return { minX:b.worldPos.x-half, maxX:b.worldPos.x+half, minZ:b.worldPos.z-half, maxZ:b.worldPos.z+half };
+  });
+}
+function isDeployable(x,z){
+  const halfPlayable = (COLS/2)*2.1;
+  const borderOuter = halfPlayable + 3*2.1;
+  const ring = Math.max(Math.abs(x), Math.abs(z));
+  if(ring > borderOuter) return false; // hors de la carte
+  if(ring > halfPlayable) return true; // bordure de déploiement : toujours libre
+  const boxes = buildingAABBList();
+  for(const b of boxes){
+    const dx = Math.max(b.minX-x, 0, x-b.maxX);
+    const dz = Math.max(b.minZ-z, 0, z-b.maxZ);
+    if(Math.sqrt(dx*dx+dz*dz) < NO_SPAWN_HALO) return false;
+  }
+  return true;
+}
+function buildZoneOverlay(){
+  while(battleThree.zoneGroup.children.length) battleThree.zoneGroup.remove(battleThree.zoneGroup.children[0]);
+  const halfPlayable = (COLS/2)*2.1;
+  const borderOuter = halfPlayable + 3*2.1;
+  const step = 2.1;
+  const greenPos = [], redPos = [];
+  for(let x=-borderOuter+step/2; x<borderOuter; x+=step){
+    for(let z=-borderOuter+step/2; z<borderOuter; z+=step){
+      if(Math.max(Math.abs(x),Math.abs(z)) > borderOuter) continue;
+      (isDeployable(x,z) ? greenPos : redPos).push([x,z]);
+    }
+  }
+  const markGeo = new THREE.PlaneGeometry(step*0.92, step*0.92);
+  function makeInstanced(positions, color, opacity){
+    if(!positions.length) return null;
+    const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity, depthWrite:false});
+    const inst = new THREE.InstancedMesh(markGeo, mat, positions.length);
+    const dummy = new THREE.Object3D();
+    positions.forEach(([x,z],i)=>{
+      dummy.position.set(x,0.05,z); dummy.rotation.set(-Math.PI/2,0,0); dummy.updateMatrix();
+      inst.setMatrixAt(i, dummy.matrix);
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    return inst;
+  }
+  const redMesh = makeInstanced(redPos, 0xc04141, 0.38);
+  const greenMesh = makeInstanced(greenPos, 0x5cb85c, 0.16);
+  if(redMesh) battleThree.zoneGroup.add(redMesh);
+  if(greenMesh) battleThree.zoneGroup.add(greenMesh);
+}
+function hideZoneOverlay(){
+  while(battleThree.zoneGroup.children.length) battleThree.zoneGroup.remove(battleThree.zoneGroup.children[0]);
+}
+function computeTroopBudget(count, composition){
   const comp = COMPOSITIONS[composition] || COMPOSITIONS.equilibree;
   const order = ['guerrier','archer','brute'];
   let remaining = count;
   const counts = {};
   order.forEach((t,i)=>{
-    if(i===order.length-1){ counts[t]=remaining; }
+    if(i===order.length-1){ counts[t]=Math.max(0,remaining); }
     else { counts[t]=Math.round(count*comp[t]); remaining -= counts[t]; }
   });
-  order.forEach(type=>{
-    const def = TROOP_TYPES[type];
-    for(let i=0;i<counts[type];i++){
-      const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.34,8), new THREE.MeshStandardMaterial({color:def.color, roughness:0.7}));
-      body.position.y=0.22; g.add(body);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshStandardMaterial({color:def.headColor, roughness:0.6}));
-      head.position.y=0.46; g.add(head);
-      if(type==='archer'){
-        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.1,0.015,6,10,Math.PI), new THREE.MeshStandardMaterial({color:0x6b4a2f}));
-        bow.position.set(0.12,0.3,0); bow.rotation.y=Math.PI/2; g.add(bow);
-      } else if(type==='brute'){
-        g.scale.set(1.2,1.15,1.2);
-      }
-      g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-      const spawnX = (Math.random()-0.5)*7;
-      const spawnZ = 6.3+Math.random()*1.3;
-      g.position.set(spawnX,0,spawnZ);
-      battleThree.group.add(g);
-      battleThree.troops.push({ mesh:g, hp:troopHp*def.hpMult, maxHp:troopHp*def.hpMult, target:null,
-        speed:(1.5+Math.random()*0.3)*def.speedMult, dps:troopDps*def.dpsMult*troopPowerMult,
-        range:def.range, defRes:def.defRes, alive:true, isHero:false });
-    }
-  });
-  if(heroAvailable(state)){
-    const g = new THREE.Group();
-    const cape = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,8), new THREE.MeshStandardMaterial({color:0x7a2020, roughness:0.6}));
-    cape.position.y=0.28; g.add(cape);
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.4,8), new THREE.MeshStandardMaterial({color:0x8a7638, metalness:0.4, roughness:0.4}));
-    body.position.y=0.28; g.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,10), new THREE.MeshStandardMaterial({color:0xd6cbaa}));
-    head.position.y=0.58; g.add(head);
-    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.12,5), glowMat(0xd9b657,1.3));
-    crown.position.y=0.72; g.add(crown);
-    const glow = new THREE.PointLight(0xd9b657,0.9,2); glow.position.y=0.7; g.add(glow);
-    g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-    g.position.set((Math.random()-0.5)*3,0,6.8);
-    battleThree.group.add(g);
-    const heroHp = 120 + chateauLevel(state)*12;
-    battleThree.troops.push({ mesh:g, hp:heroHp, maxHp:heroHp, target:null, speed:1.35, dps:24*troopPowerMult,
-      range:0.9, defRes:0.15, alive:true, isHero:true });
+  return counts;
+}
+function makeTroopMesh(type){
+  const def = TROOP_TYPES[type];
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.34,8), new THREE.MeshStandardMaterial({color:def.color, roughness:0.7}));
+  body.position.y=0.22; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshStandardMaterial({color:def.headColor, roughness:0.6}));
+  head.position.y=0.46; g.add(head);
+  if(type==='archer'){
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(0.1,0.015,6,10,Math.PI), new THREE.MeshStandardMaterial({color:0x6b4a2f}));
+    bow.position.set(0.12,0.3,0); bow.rotation.y=Math.PI/2; g.add(bow);
+  } else if(type==='brute'){
+    g.scale.set(1.2,1.15,1.2);
   }
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  return g;
+}
+function deployTroopAt(type, x, z){
+  const def = TROOP_TYPES[type]; if(!def) return false;
+  if((battleThree.troopBudget[type]||0)<=0) return false;
+  const troopHp = 30 + chateauLevel(state)*4;
+  const troopDps = 9;
+  const troopPowerMult = 1 + powerOf(state,'troopPower')*0.02;
+  const g = makeTroopMesh(type);
+  g.position.set(x,0,z);
+  battleThree.group.add(g);
+  battleThree.troops.push({ mesh:g, hp:troopHp*def.hpMult, maxHp:troopHp*def.hpMult, target:null,
+    speed:(1.5+Math.random()*0.3)*def.speedMult, dps:troopDps*def.dpsMult*troopPowerMult,
+    range:def.range, defRes:def.defRes, alive:true, isHero:false });
+  battleThree.troopBudget[type]--;
+  return true;
+}
+function spawnHero(){
+  if(!heroAvailable(state)) return;
+  const troopPowerMult = 1 + powerOf(state,'troopPower')*0.02;
+  const g = new THREE.Group();
+  const cape = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,8), new THREE.MeshStandardMaterial({color:0x7a2020, roughness:0.6}));
+  cape.position.y=0.28; g.add(cape);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.4,8), new THREE.MeshStandardMaterial({color:0x8a7638, metalness:0.4, roughness:0.4}));
+  body.position.y=0.28; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,10), new THREE.MeshStandardMaterial({color:0xd6cbaa}));
+  head.position.y=0.58; g.add(head);
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.12,5), glowMat(0xd9b657,1.3));
+  crown.position.y=0.72; g.add(crown);
+  const glow = new THREE.PointLight(0xd9b657,0.9,2); glow.position.y=0.7; g.add(glow);
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  const halfPlayable = (COLS/2)*2.1;
+  g.position.set((Math.random()-0.5)*3, 0, halfPlayable+2*2.1);
+  battleThree.group.add(g);
+  const heroHp = 120 + chateauLevel(state)*12;
+  battleThree.troops.push({ mesh:g, hp:heroHp, maxHp:heroHp, target:null, speed:1.35, dps:24*troopPowerMult,
+    range:0.9, defRes:0.15, alive:true, isHero:true });
 }
 function nearestAliveBuilding(pos){
   let best=null, bestDist=Infinity;
@@ -1590,17 +1688,56 @@ function deployAssault(){
   setTimeout(()=>{
     resizeBattleScene();
     buildEnemyScene(enemy);
+    buildZoneOverlay();
+    battleThree.troops.forEach(t=>battleThree.group.remove(t.mesh));
+    battleThree.troops = [];
     const troopCount = Math.max(3, Math.min(30, Math.round(powerOf(state,'attaque')/6)));
-    spawnTroops(troopCount, window._troopComposition||'equilibree');
-    battleThree.elapsed = 0; battleThree.maxDuration = 40; battleThree.running = true; battleThree._healTick = 0;
+    battleThree.troopBudget = computeTroopBudget(troopCount, window._troopComposition||'equilibree');
+    battleThree.selectedTroopType = 'guerrier';
+    battleThree.firstDeployDone = false;
+    spawnHero();
+    battleThree.elapsed = 0; battleThree.maxDuration = 40; battleThree.running = false; battleThree._healTick = 0;
+    battleThree.scouting = true; battleThree.scoutElapsed = 0; battleThree.scoutDuration = 30;
     battleThree.rageUntil = 0;
-    const spellDef = BUILDINGS['salledesorts'];
     const spellBuilding = Object.values(state.buildings).find(b=>b.type==='salledesorts');
     battleThree.spellCharges = spellBuilding ? spellBuilding.level : 0;
     document.getElementById('spellBar').classList.toggle('hide', battleThree.spellCharges<=0);
     updateSpellButtons();
-    sfxAttackStart();
+    updateTroopBar();
+    document.getElementById('troopBar').classList.remove('hide');
+    document.getElementById('phaseLabel').textContent = '🔎 Repérage — pose tes troupes dans les zones vertes';
+    sfxClick();
   }, 60);
+}
+function updateTroopBar(){
+  const budget = battleThree.troopBudget||{};
+  ['guerrier','archer','brute'].forEach(type=>{
+    const btn = document.getElementById('troopBtn_'+type);
+    if(!btn) return;
+    const n = budget[type]||0;
+    btn.querySelector('.troopCount').textContent = n;
+    btn.classList.toggle('active', battleThree.selectedTroopType===type);
+    btn.disabled = n<=0;
+  });
+}
+function selectTroopType(type){
+  battleThree.selectedTroopType = type;
+  updateTroopBar();
+  sfxClick();
+}
+function tickScoutPhase(dt){
+  battleThree.scoutElapsed += dt;
+  const remain = Math.max(0, battleThree.scoutDuration - battleThree.scoutElapsed);
+  const timerEl = document.getElementById('battleTimer'); if(timerEl) timerEl.textContent = Math.ceil(remain);
+  if(remain<=0 && !battleThree.firstDeployDone) startBattlePhase();
+}
+function startBattlePhase(){
+  battleThree.scouting = false;
+  hideZoneOverlay();
+  battleThree.running = true;
+  battleThree.elapsed = 0;
+  document.getElementById('phaseLabel').textContent = '⚔️ Assaut en cours';
+  sfxAttackStart();
 }
 function updateSpellButtons(){
   const has = battleThree.spellCharges > 0;
@@ -1624,6 +1761,8 @@ function castSpell(kind){
 function endBattle(){
   if(!battleThree.running) return;
   battleThree.running = false;
+  battleThree.scouting = false;
+  hideZoneOverlay();
   const enemy = window._currentEnemy;
   const pct = battleThree.totalCount? Math.round((battleThree.destroyedCount/battleThree.totalCount)*100) : 0;
   let stars = 0;
@@ -1666,6 +1805,10 @@ function closeBattleField(){
   document.getElementById('battleIntro').classList.remove('hide');
   document.getElementById('battleResultOverlay').classList.add('hide');
   document.getElementById('spellBar').classList.add('hide');
+  document.getElementById('troopBar').classList.add('hide');
+  document.getElementById('phaseLabel').textContent = '';
+  battleThree.scouting = false;
+  hideZoneOverlay();
 }
 
 /* ================= Leaderboard ================= */
