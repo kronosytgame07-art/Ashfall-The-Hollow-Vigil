@@ -31,8 +31,40 @@ const MODEL_PATHS := {
 	"wall": "res://models/buildings/wall.glb"
 }
 
+const DEFINITIONS := {
+	"town_hall": {"label": "Hôtel de ville", "cost": {"wood": 0, "gold": 0}, "build_time": 0, "max_level": 10},
+	"gold_mine": {"label": "Mine d'or", "cost": {"wood": 180, "gold": 80}, "build_time": 12, "max_level": 10, "produces": "gold", "rate": 18, "capacity": 360},
+	"sawmill": {"label": "Scierie", "cost": {"wood": 80, "gold": 160}, "build_time": 12, "max_level": 10, "produces": "wood", "rate": 18, "capacity": 360},
+	"barracks": {"label": "Caserne", "cost": {"wood": 240, "gold": 180}, "build_time": 18, "max_level": 8},
+	"army_camp": {"label": "Camp militaire", "cost": {"wood": 260, "gold": 220}, "build_time": 20, "max_level": 8},
+	"soul_altar": {"label": "Autel des âmes", "cost": {"wood": 220, "gold": 320}, "build_time": 24, "max_level": 8, "produces": "souls", "rate": 5, "capacity": 100},
+	"forge": {"label": "Forge", "cost": {"wood": 300, "gold": 380}, "build_time": 28, "max_level": 8},
+	"tower": {"label": "Tour de défense", "cost": {"wood": 260, "gold": 420}, "build_time": 26, "max_level": 10},
+	"laboratory": {"label": "Laboratoire", "cost": {"wood": 440, "gold": 520}, "build_time": 36, "max_level": 8},
+	"spell_hall": {"label": "Sanctuaire des sorts", "cost": {"wood": 460, "gold": 560, "souls": 40}, "build_time": 40, "max_level": 8},
+	"builders_yard": {"label": "Chantier", "cost": {"wood": 320, "gold": 280}, "build_time": 20, "max_level": 5},
+	"wall": {"label": "Mur", "cost": {"wood": 35, "gold": 20}, "build_time": 3, "max_level": 10}
+}
+
 static func footprint(kind: String) -> Vector2i:
 	return FOOTPRINTS.get(kind, Vector2i.ONE)
+
+static func definition(kind: String) -> Dictionary:
+	return DEFINITIONS.get(kind, {}).duplicate(true)
+
+static func label(kind: String) -> String:
+	return definition(kind).get("label", kind.replace("_", " ").capitalize())
+
+static func cost(kind: String, level := 1) -> Dictionary:
+	var base: Dictionary = definition(kind).get("cost", {})
+	var multiplier := pow(1.65, maxi(0, level - 1))
+	var result := {}
+	for resource in base:
+		result[resource] = ceili(float(base[resource]) * multiplier)
+	return result
+
+static func build_time(kind: String, level := 1) -> int:
+	return ceili(float(definition(kind).get("build_time", 5)) * pow(1.45, maxi(0, level - 1)))
 
 static func create(kind: String) -> Node3D:
 	var model_path: String = MODEL_PATHS.get(kind, "")
@@ -44,4 +76,7 @@ static func create(kind: String) -> Node3D:
 	imported.name = kind.to_pascal_case()
 	imported.set_meta("building_kind", kind)
 	imported.set_meta("footprint", footprint(kind))
+	imported.set_meta("level", 1)
+	imported.set_meta("stored", 0.0)
+	imported.add_to_group("buildings")
 	return imported
