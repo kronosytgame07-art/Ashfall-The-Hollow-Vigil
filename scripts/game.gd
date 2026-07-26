@@ -12,6 +12,7 @@ var grid_root: Node3D
 var buildings_root: Node3D
 var obstacles_root: Node3D
 var villagers_root: Node3D
+var troops_root: Node3D
 var status_label: Label
 var selection_label: Label
 
@@ -79,6 +80,9 @@ func _build_environment() -> void:
 	villagers_root = Node3D.new()
 	villagers_root.name = "Villagers"
 	$World.add_child(villagers_root)
+	troops_root = Node3D.new()
+	troops_root.name = "Troops"
+	$World.add_child(troops_root)
 
 func _build_grid() -> void:
 	var line_mat := StandardMaterial3D.new()
@@ -119,14 +123,22 @@ func _build_interface() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size.y = 12
 	layout.add_child(spacer)
-	var buttons := HBoxContainer.new()
+	var buttons := HFlowContainer.new()
+	buttons.add_theme_constant_override("h_separation", 5)
+	buttons.add_theme_constant_override("v_separation", 5)
 	layout.add_child(buttons)
 	for data in [
 		["HDV 3×3", "town_hall"],
 		["Mine 2×2", "gold_mine"],
+		["Scierie 2×2", "sawmill"],
 		["Caserne 2×2", "barracks"],
+		["Camp 3×3", "army_camp"],
+		["Autel 2×2", "soul_altar"],
 		["Forge 2×2", "forge"],
 		["Tour 2×2", "tower"],
+		["Labo 2×2", "laboratory"],
+		["Sorts 2×2", "spell_hall"],
+		["Chantier 2×2", "builders_yard"],
 		["Mur 1×1", "wall"]
 	]:
 		var button := Button.new()
@@ -140,7 +152,10 @@ func _build_interface() -> void:
 func _spawn_initial_village() -> void:
 	_place("town_hall", Vector2i(10, 10), false)
 	_place("gold_mine", Vector2i(5, 9), false)
+	_place("sawmill", Vector2i(5, 13), false)
 	_place("barracks", Vector2i(16, 11), false)
+	_place("army_camp", Vector2i(15, 15), false)
+	_place("builders_yard", Vector2i(9, 16), false)
 	for cell in [Vector2i(3, 4), Vector2i(20, 5), Vector2i(5, 19), Vector2i(18, 18)]:
 		_spawn_obstacle(cell)
 
@@ -150,6 +165,17 @@ func _spawn_villagers() -> void:
 		villager.position = Vector3(-5.0 + i * 2.2, 0.0, 6.0 + (i % 2) * 1.8)
 		villager.stride_phase = i * 1.1
 		villagers_root.add_child(villager)
+	for kind in [
+		AshfallCombatUnit.UnitKind.WARRIOR,
+		AshfallCombatUnit.UnitKind.ARCHER,
+		AshfallCombatUnit.UnitKind.BRUTE,
+		AshfallCombatUnit.UnitKind.HERO
+	]:
+		var unit := AshfallCombatUnit.new()
+		unit.kind = kind
+		unit.position = Vector3(8.0 + troops_root.get_child_count() * 1.45, 0.0, 8.0)
+		troops_root.add_child(unit)
+		unit.move_to(Vector3(5.0 + troops_root.get_child_count() * 1.7, 0.0, 11.0))
 
 func _spawn_obstacle(cell: Vector2i) -> void:
 	occupied[cell] = "obstacle"
@@ -165,6 +191,24 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	mat.albedo_color = Color("#302b31")
 	base.material_override = mat
 	root.add_child(base)
+	match posmod(cell.x + cell.y, 4):
+		0: _make_rock_obstacle(root, mat)
+		1: _make_dead_tree(root)
+		2: _make_bone_obstacle(root)
+		3: _make_crystal_obstacle(root)
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 2
+	var collision := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.72
+	shape.height = 1.8
+	collision.shape = shape
+	collision.position.y = 0.9
+	body.add_child(collision)
+	root.add_child(body)
+
+func _make_rock_obstacle(root: Node3D, mat: Material) -> void:
 	for j in range(3):
 		var rock := MeshInstance3D.new()
 		var mesh := SphereMesh.new()
@@ -175,6 +219,61 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 		rock.scale = Vector3(1.0, 0.8, 0.85)
 		rock.material_override = mat
 		root.add_child(rock)
+
+func _make_dead_tree(root: Node3D) -> void:
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color("#33231f")
+	for data in [
+		[Vector3(0, 1.0, 0), Vector3(0.38, 2.0, 0.38), 0.0],
+		[Vector3(-0.38, 1.65, 0), Vector3(0.22, 1.2, 0.22), -0.72],
+		[Vector3(0.42, 1.85, 0), Vector3(0.2, 1.0, 0.2), 0.82]
+	]:
+		var branch := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = data[1].x * 0.35
+		mesh.bottom_radius = data[1].x * 0.5
+		mesh.height = data[1].y
+		mesh.radial_segments = 7
+		branch.mesh = mesh
+		branch.position = data[0]
+		branch.rotation.z = data[2]
+		branch.material_override = wood
+		root.add_child(branch)
+
+func _make_bone_obstacle(root: Node3D) -> void:
+	var bone_mat := StandardMaterial3D.new()
+	bone_mat.albedo_color = Color("#b3a78d")
+	for j in range(4):
+		var bone := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.08
+		mesh.bottom_radius = 0.1
+		mesh.height = 1.25
+		mesh.radial_segments = 8
+		bone.mesh = mesh
+		bone.position = Vector3((j - 1.5) * 0.25, 0.22, (j % 2) * 0.18)
+		bone.rotation = Vector3(PI * 0.5, j * 0.6, 0.25 * j)
+		bone.material_override = bone_mat
+		root.add_child(bone)
+
+func _make_crystal_obstacle(root: Node3D) -> void:
+	var crystal_mat := StandardMaterial3D.new()
+	crystal_mat.albedo_color = Color("#52406f")
+	crystal_mat.emission_enabled = true
+	crystal_mat.emission = Color("#49217c")
+	crystal_mat.emission_energy_multiplier = 2.0
+	for j in range(4):
+		var crystal := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.0
+		mesh.bottom_radius = 0.22 + j * 0.035
+		mesh.height = 0.9 + j * 0.22
+		mesh.radial_segments = 6
+		crystal.mesh = mesh
+		crystal.position = Vector3((j - 1.5) * 0.28, mesh.height * 0.5 + 0.1, (j % 2) * 0.22)
+		crystal.rotation.z = (j - 1.5) * 0.09
+		crystal.material_override = crystal_mat
+		root.add_child(crystal)
 
 func _select_building(kind: String) -> void:
 	selected_kind = kind
@@ -208,8 +307,35 @@ func _place(kind: String, cell: Vector2i, renew_ghost := true) -> void:
 	var building := BuildingFactory.create(kind)
 	building.position = _cell_center(cell, fp)
 	buildings_root.add_child(building)
+	_add_footprint_base(building, fp)
+	_add_building_collision(building, fp)
 	if renew_ghost:
 		_select_building(kind)
+
+func _add_footprint_base(building: Node3D, fp: Vector2i) -> void:
+	var base := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(fp.x * TILE_SIZE * 0.96, 0.12, fp.y * TILE_SIZE * 0.96)
+	base.mesh = mesh
+	base.position.y = 0.06
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color("#28242b")
+	mat.roughness = 1.0
+	base.material_override = mat
+	building.add_child(base)
+	building.move_child(base, 0)
+
+func _add_building_collision(building: Node3D, fp: Vector2i) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 2
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(fp.x * TILE_SIZE * 0.9, 2.4, fp.y * TILE_SIZE * 0.9)
+	shape.shape = box
+	shape.position.y = 1.2
+	body.add_child(shape)
+	building.add_child(body)
 
 func _can_place(cell: Vector2i, fp: Vector2i) -> bool:
 	if cell.x < 0 or cell.y < 0 or cell.x + fp.x > GRID_SIZE or cell.y + fp.y > GRID_SIZE:
