@@ -321,7 +321,7 @@ const BUILDINGS = {
 };
 const FOOTPRINT = { chateau:3, salledesorts:2, labo:2, caserne:2, tour:2,
   mine:1, scierie:1, autel:1, forge:1, chantier:1, muraille:1 };
-const COLS = 9, ROWS = 9, GRID_SIZE = COLS*ROWS;
+const COLS = 13, ROWS = 13, GRID_SIZE = COLS*ROWS;
 const TRUE_CENTER_R = Math.floor((ROWS-1)/2), TRUE_CENTER_C = Math.floor((COLS-1)/2);
 const CENTER = (TRUE_CENTER_R - Math.floor((FOOTPRINT.chateau-1)/2))*COLS + (TRUE_CENTER_C - Math.floor((FOOTPRINT.chateau-1)/2));
 const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo","salledesorts"];
@@ -360,8 +360,8 @@ function distFromCenter(i){
   return Math.max(Math.abs(r-TRUE_CENTER_R), Math.abs(c-TRUE_CENTER_C));
 }
 const ALL_INDICES = [...Array(GRID_SIZE).keys()].filter(i=>!CHATEAU_TILES.includes(i)).sort((a,b)=>distFromCenter(a)-distFromCenter(b));
-function unlockedCount(chLevel){ return Math.min(ALL_INDICES.length, 18 + chLevel*11); }
-function unlockLevelFor(rank){ return Math.max(1, Math.ceil((rank-17)/11)); }
+function unlockedCount(chLevel){ return ALL_INDICES.length; }
+function unlockLevelFor(rank){ return 1; }
 
 /* ================= Player / online state ================= */
 let playerName = null, storageKey = null;
@@ -485,7 +485,7 @@ function switchTab(tab){
 
 /* ================= Rendering: village 3D (Three.js) ================= */
 let three = { renderer:null, scene:null, camera:null, raycaster:null, mouse:null, group:null,
-  camAzimuth: Math.PI*0.28, camPolar: 1.02, camRadius: 24, dragging:false, lastX:0, lastY:0, tileMeshes:{}, clock:0, ready:false };
+  camAzimuth: Math.PI/4, camPolar: 1.0, camRadius: 34, dragging:false, lastX:0, lastY:0, tileMeshes:{}, clock:0, ready:false };
 
 function gridToWorld(i){
   const r=Math.floor(i/COLS), c=i%COLS;
@@ -527,14 +527,22 @@ function initTextures(){
         ctx.beginPath(); ctx.arc(x,r*bh+bh/2,bh/2.1,0,Math.PI,true); ctx.fill(); } }
   });
   TEX.ground = makeCanvasTexture((ctx,s)=>{
-    ctx.fillStyle='#221d19'; ctx.fillRect(0,0,s,s);
-    for(let i=0;i<260;i++){
-      const x=Math.random()*s,y=Math.random()*s,r=3+Math.random()*7;
-      ctx.fillStyle=`rgba(${50+Math.random()*25},${43+Math.random()*20},${35+Math.random()*15},0.55)`;
-      ctx.beginPath(); ctx.ellipse(x,y,r,r*0.65,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
+    const cellPx = s/COLS;
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const checker = (r+c)%2===0;
+        const base = checker ? [44,46,32] : [37,39,27];
+        const jitter = (Math.random()-0.5)*10;
+        ctx.fillStyle = `rgb(${Math.round(base[0]+jitter)},${Math.round(base[1]+jitter)},${Math.round(base[2]+jitter)})`;
+        ctx.fillRect(c*cellPx, r*cellPx, cellPx+0.6, cellPx+0.6);
+      }
     }
-  },256);
-  TEX.ground.repeat.set(6,6);
+    ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = Math.max(1, cellPx*0.035);
+    for(let i=0;i<=COLS;i++){ ctx.beginPath(); ctx.moveTo(i*cellPx,0); ctx.lineTo(i*cellPx,s); ctx.stroke(); }
+    for(let i=0;i<=ROWS;i++){ ctx.beginPath(); ctx.moveTo(0,i*cellPx); ctx.lineTo(s,i*cellPx); ctx.stroke(); }
+    for(let i=0;i<700;i++){ ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.05})`; ctx.fillRect(Math.random()*s,Math.random()*s,2,2); }
+  }, COLS*20);
+  TEX.ground.repeat.set(1,1);
   initIconSprites();
 }
 
@@ -766,8 +774,8 @@ function initScene(){
   three.renderer.shadowMap.enabled = true;
   three.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   three.scene = new THREE.Scene();
-  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.028);
-  three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 140);
+  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.016);
+  three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
@@ -777,21 +785,20 @@ function initScene(){
   const moon = new THREE.DirectionalLight(0x6f7aa0, 0.4);
   moon.position.set(-10,15,-7); moon.castShadow = true;
   moon.shadow.mapSize.set(1536,1536);
-  moon.shadow.camera.left=-16; moon.shadow.camera.right=16; moon.shadow.camera.top=16; moon.shadow.camera.bottom=-16;
-  moon.shadow.camera.near=1; moon.shadow.camera.far=40; moon.shadow.bias=-0.002;
+  moon.shadow.camera.left=-24; moon.shadow.camera.right=24; moon.shadow.camera.top=24; moon.shadow.camera.bottom=-24;
+  moon.shadow.camera.near=1; moon.shadow.camera.far=60; moon.shadow.bias=-0.002;
   three.scene.add(moon);
   const emberLight = new THREE.PointLight(0xe0832f, 2.2, 16, 2);
   emberLight.position.set(0,1.6,0); three.scene.add(emberLight); three.emberLight = emberLight;
 
-  // Ground : grand carré isométrique
-  const halfSize = ((COLS-1)/2)*2.1 + 1.2;
+  // Ground : grand carré isométrique, texture en quadrillage alignée 1:1 sur la grille
+  const halfSize = (COLS/2)*2.1;
   const groundSize = halfSize*2;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
   const groundMatMain = new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1});
-  groundMatMain.map.repeat.set(groundSize/3.2, groundSize/3.2);
   const ground = new THREE.Mesh(groundGeo, groundMatMain);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
-  const borderGeo = new THREE.PlaneGeometry(groundSize+2.4, groundSize+2.4);
+  const borderGeo = new THREE.PlaneGeometry(groundSize+4, groundSize+4);
   const border = new THREE.Mesh(borderGeo, stoneMat(0x241f1a,1));
   border.rotation.x=-Math.PI/2; border.position.y=-0.02; border.receiveShadow=true; three.scene.add(border);
   addProps(halfSize);
@@ -800,8 +807,8 @@ function initScene(){
   three.scene.add(three.group);
 
   // Embers particles
-  const N=90, positions=new Float32Array(N*3);
-  for(let i=0;i<N;i++){ positions[i*3]=(Math.random()-0.5)*16; positions[i*3+1]=Math.random()*6; positions[i*3+2]=(Math.random()-0.5)*16; }
+  const N=140, positions=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ positions[i*3]=(Math.random()-0.5)*30; positions[i*3+1]=Math.random()*7; positions[i*3+2]=(Math.random()-0.5)*30; }
   const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
   const pMat = new THREE.PointsMaterial({color:0xe0832f, size:0.05, transparent:true, opacity:0.75});
   three.particles = new THREE.Points(pGeo,pMat); three.scene.add(three.particles);
@@ -815,7 +822,7 @@ function initScene(){
     three.camPolar = Math.max(0.45, Math.min(1.35, three.camPolar - dy*0.004));
     three.lastX=e.clientX; three.lastY=e.clientY;
   });
-  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(10, Math.min(40, three.camRadius + e.deltaY*0.01)); }, {passive:false});
+  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(14, Math.min(55, three.camRadius + e.deltaY*0.01)); }, {passive:false});
   wrap.addEventListener('click', e=>{
     if(Math.abs(e.clientX-three.lastX)>4 || Math.abs(e.clientY-three.lastY)>4) return;
     const rect = canvas.getBoundingClientRect();
