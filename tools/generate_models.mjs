@@ -56,8 +56,8 @@ const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
 const norm=a=>{const l=Math.hypot(...a)||1;return a.map(v=>v/l)};
 const rotY=(p,a)=>[p[0]*Math.cos(a)+p[2]*Math.sin(a),p[1],-p[0]*Math.sin(a)+p[2]*Math.cos(a)];
 
-function crenels(m,r,y,count=8){
-  for(let i=0;i<count;i++){const a=i*TAU/count;m.box("stone2",[Math.cos(a)*r,y,Math.sin(a)*r],[.42,.55,.42],-a)}
+function crenels(m,r,y,count=8,cx=0,cz=0){
+  for(let i=0;i<count;i++){const a=i*TAU/count;m.box("stone2",[cx+Math.cos(a)*r,y,cz+Math.sin(a)*r],[.42,.55,.42],-a)}
 }
 function torch(m,x,y,z){m.cylinder("iron",[x,y-.25,z],.055,.55,8);m.cone("ember",[x,y+.05,z],.16,.42,8)}
 function windowGlow(m,x,y,z,sx=.35,sy=.55){m.box("ember",[x,y,z],[sx,sy,.035])}
@@ -68,17 +68,71 @@ function timberFrame(m,w,d,y){
 function base(m,w,d){m.box("basalt",[0,.16,0],[w,.32,d]);m.box("stone",[0,.38,0],[w*.91,.18,d*.91])}
 
 function townHall(){
-  const m=new Model("Town Hall");base(m,5.8,5.8);
-  m.box("stone",[0,1.8,0],[4.5,2.9,4.4]);m.box("stone2",[0,3.25,0],[4.8,.32,4.7]);
-  for(const [x,z] of [[-2.1,-2.05],[2.1,-2.05],[-2.1,2.05],[2.1,2.05]]){
-    m.cylinder("stone2",[x,2.35,z],.62,3.9,10,.54);crenels(m,.72,4.4,8);
-    m.cone("roof",[x,4.85,z],.88,1.25,8)
+  const m=new Model("Town Hall Level 1");base(m,5.8,5.8);
+  // Corps central massif, entièrement contenu dans l'empreinte Godot 3×3 (6 m × 6 m).
+  m.box("stone",[0,1.8,0],[4.45,2.85,4.35]);
+  m.box("stone2",[0,.68,0],[4.75,.36,4.65]);
+  m.box("stone2",[0,3.18,0],[4.78,.28,4.68]);
+  // Assises de pierre irrégulières et contreforts donnent une vraie lecture de maçonnerie.
+  for(let row=0;row<5;row++){
+    const y=.82+row*.48,shift=row%2?.28:0;
+    for(let x=-1.72+shift;x<=1.8;x+=.72){
+      m.box(row%2?"stone2":"stone",[x,y,2.205],[.62,.09,.12]);
+      m.box(row%2?"stone":"stone2",[x,y,-2.205],[.62,.09,.12]);
+    }
   }
-  m.cone("roof",[0,4.25,0],3.1,2.35,4);
-  m.box("darkwood",[0,1.25,2.23],[1.05,1.85,.15]);m.stairs("stone",[0,.4,2.45],1.7,.16,.32,4,1);
-  for(const x of [-1.45,1.45])windowGlow(m,x,2.15,2.23);
-  for(const x of [-2.55,2.55])torch(m,x,1.55,2.42);
-  m.box("cloth",[0,4.9,-.1],[.08,2.4,.08]);m.box("cloth",[.48,5.45,-.1],[.9,.72,.04]);
+  for(const x of [-1.82,1.82]){
+    m.box("stone2",[x,1.68,2.27],[.38,2.55,.48]);
+    m.box("stone2",[x,1.68,-2.27],[.38,2.55,.48]);
+  }
+  // Quatre tours distinctes, avec couronnes et toitures coniques.
+  for(const [x,z] of [[-2.1,-2.05],[2.1,-2.05],[-2.1,2.05],[2.1,2.05]]){
+    m.cylinder("stone2",[x,2.35,z],.65,3.9,12,.56);
+    m.cylinder("iron",[x,3.68,z],.61,.14,12);
+    crenels(m,.72,4.4,8,x,z);
+    m.cone("roof",[x,4.88,z],.9,1.28,12);
+    m.cone("iron",[x,5.58,z],.07,.42,8);
+  }
+  // Toit central à deux volumes, faîtage métallique et cheminée.
+  m.cone("roof",[0,4.18,0],3.08,2.28,4);
+  m.box("darkwood",[0,4.1,0],[.18,.2,4.58]);
+  m.cylinder("stone2",[1.18,4.42,-.72],.28,1.5,10,.22);
+  m.cylinder("iron",[1.18,5.18,-.72],.34,.12,10);
+  // Portail profond, ferrures, heurtoir et arche composée de voussoirs.
+  m.box("basalt",[0,1.34,2.24],[1.5,2.15,.28]);
+  m.box("darkwood",[0,1.31,2.405],[1.08,1.92,.16]);
+  for(const x of [-.39,0,.39])m.box("iron",[x,1.31,2.505],[.065,1.76,.045]);
+  for(const y of [.72,1.28,1.84])m.box("iron",[0,y,2.515],[.96,.07,.05]);
+  m.cylinder("gold",[.24,1.25,2.57],.105,.08,12);
+  for(let i=0;i<7;i++){
+    const a=Math.PI-(i*Math.PI/6),x=Math.cos(a)*.73,y=1.9+Math.sin(a)*.73;
+    m.box("stone2",[x,y,2.46],[.34,.3,.3],-a);
+  }
+  m.stairs("stone",[0,.4,2.44],1.85,.16,.3,5,1);
+  // Fenêtres en retrait avec croisée de fer et lumière chaude.
+  for(const x of [-1.28,1.28]){
+    m.box("basalt",[x,2.08,2.235],[.72,1.02,.18]);
+    windowGlow(m,x,2.08,2.34,.48,.75);
+    m.box("iron",[x,2.08,2.39],[.055,.78,.04]);
+    m.box("iron",[x,2.08,2.40],[.5,.055,.04]);
+  }
+  for(const x of [-1.15,1.15]){
+    windowGlow(m,2.235,2.05,x,.32,.68);
+    windowGlow(m,-2.235,2.05,x,.32,.68);
+  }
+  // Braseros, bannières déchirées et emblème de l'HDV.
+  for(const x of [-2.58,2.58]){
+    torch(m,x,1.58,2.43);
+    m.box("iron",[x,1.42,2.34],[.5,.08,.08]);
+  }
+  m.box("iron",[0,4.95,-.1],[.08,2.35,.08]);
+  m.box("cloth",[.48,5.52,-.1],[.92,.76,.05]);
+  m.box("gold",[.18,5.54,-.135],[.12,.46,.035]);
+  m.box("gold",[.48,5.54,-.14],[.5,.1,.035]);
+  for(const x of [-1.34,1.34]){
+    m.box("iron",[x,3.18,2.43],[.055,1.25,.055]);
+    m.box("cloth",[x+(x<0?.23:-.23),2.85,2.45],[.42,.72,.045]);
+  }
   return m;
 }
 function mine(){
