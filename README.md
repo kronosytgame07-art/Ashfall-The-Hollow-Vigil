@@ -45,6 +45,10 @@ Pour rester honnête sur le périmètre : pas de clans ni de guerres de clans, p
 ## Structure
 
 - `index.html` — le jeu complet (HTML/CSS/JS), un seul fichier, sans dépendance de build.
+- `assets/buildings/levels/` — 55 sprites WebP : 11 bâtiments, du niveau 1 au niveau 5.
+- `assets/fx/` — boucles animées séparées (torches, brasiers, fumée, âmes, alchimie et runes).
+- `assets/troops/` — cycles de marche et d’attaque du Guerrier, de l’Archer et de la Brute.
+- `assets/terrain/` — 24 tuiles isométriques pour le sol 9×9, les bordures et l’arène.
 
 ## Limites connues (prototype)
 
