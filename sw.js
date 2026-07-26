@@ -1,5 +1,6 @@
-const CACHE='ashfall-v3';
-const CORE=['./','./index.html','./manifest.json','./assets/app-icon.svg'];
+const CACHE='ashfall-v4';
+const CORE=['./','./index.html','./manifest.json','./assets/app-icon.svg','./assets/vendor/three-r128.min.js',
+  './assets/scenery/ash.webp','./assets/scenery/forest.webp','./assets/scenery/ice.webp','./assets/scenery/swamp.webp','./assets/scenery/volcano.webp'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{

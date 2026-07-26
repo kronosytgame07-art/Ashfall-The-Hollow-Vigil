@@ -9,9 +9,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <title>Ashfall: The Hollow Vigil</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
     --void:#0b0908; --stone-dark:#191512; --stone:#28221d; --stone-light:#3a3126;
@@ -185,8 +182,8 @@
   .connection-card{padding:12px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.22);margin:12px 0}
   .build-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}.build-tabs .tab{width:100%}
   .skin-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:rgba(0,0,0,.24);margin:9px 0}
-  .skin-preview{height:92px;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
-  .skin-preview::before{content:"";position:absolute;inset:18% 20%;transform:rotate(45deg);border:2px solid rgba(255,255,255,.23);background:rgba(36,34,28,.55)}
+  .skin-preview{height:118px;position:relative;overflow:hidden;border-bottom:1px solid var(--line);background-size:cover;background-position:center}
+  .skin-preview::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.42))}
   .skin-preview::after{content:"✦  ✦  ✦";position:absolute;inset:auto 8px 7px;text-align:center;color:#ffd474;letter-spacing:1.6em;animation:pulse 1.5s infinite}
   .skin-ash{background:radial-gradient(circle at 20% 25%,#e0832f 0 2px,transparent 3px),linear-gradient(145deg,#241a17,#090807 70%)}
   .skin-forest{background:radial-gradient(circle at 80% 25%,#7bd0ff 0 3px,transparent 5px),linear-gradient(145deg,#153329,#081511 70%)}
@@ -214,6 +211,11 @@
     #troopBar{bottom:62px!important;gap:4px!important;padding:0 4px}#troopBar .tab{padding:7px 6px!important;font-size:10px!important}
     #spellBar{bottom:8px!important}#spellBar .findbtn{min-height:48px}
     .toast{bottom:calc(82px + env(safe-area-inset-bottom));width:max-content;max-width:92vw;text-align:center}
+  }
+  @media (orientation:landscape) and (max-height:500px){
+    body{padding-top:58px}.titleblock{display:none}.bonfire-row{display:none}.onlinebar{margin:2px 0}
+    .resbar{grid-template-columns:repeat(5,minmax(0,1fr));margin:5px 0}.res{padding:5px 6px;gap:5px}.res .icon{width:27px;height:27px}.res .val{font-size:13px}.res .lbl{font-size:8px}
+    #tutorialBanner{position:fixed!important;z-index:90;inset:58px 8px auto;max-height:calc(100dvh - 70px);overflow:auto}
   }
 </style>
 </head>
@@ -245,7 +247,7 @@
       <button class="close-x" style="position:absolute; top:8px; right:10px;" onclick="dismissTutorial()">✕</button>
       <div style="font-family:'Cinzel',serif; font-size:13px; color:var(--bone); margin-bottom:6px;">🔥 Bienvenue, gardien</div>
       <div style="font-size:13px; color:var(--bone-dim); line-height:1.5;">
-        1. Touche une <b>parcelle</b> pour bâtir. Glisse pour tourner et pince pour zoomer.<br>
+        1. Touche une <b>parcelle</b> pour bâtir et pince pour zoomer.<br>
         2. Touche un <b>bâtiment</b> pour l'améliorer, ou sa bulle lumineuse pour récolter.<br>
         3. Onglet <b>⚔️ Assaut</b> : cherche un adversaire, choisis ta composition de troupes, regarde le combat en direct.<br>
         4. Un <b>Chantier</b> permet de construire en parallèle ; un <b>Laboratoire</b> renforce tes troupes.
@@ -274,7 +276,7 @@
     <div id="view-village" class="village" style="padding:0; overflow:hidden;">
       <div id="sceneWrap" style="position:relative; width:100%; height:min(62vh,540px); min-height:340px; cursor:grab;">
         <canvas id="gameCanvas" style="display:block; width:100%; height:100%;"></canvas>
-        <div class="collect-hint" style="position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:var(--bone-dim); pointer-events:none; text-shadow:0 1px 2px #000;">glisser : tourner · pincer : zoomer · toucher : agir</div>
+        <div class="collect-hint" style="position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:var(--bone-dim); pointer-events:none; text-shadow:0 1px 2px #000;">pincer : zoomer · toucher : agir</div>
       </div>
     </div>
 
@@ -345,7 +347,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="assets/vendor/three-r128.min.js"></script>
 <script>
 /* ================= Building definitions ================= */
 const BUILDINGS = {
@@ -411,16 +413,16 @@ function missingTownHallRequirements(st, level){
 function housingCapacity(st){ return Math.max(3, Math.min(60, powerOf(st,'housing'))); }
 const FOOTPRINT = { camp:4, chateau:3, salledesorts:2, labo:2, caserne:2, tour:2,
   mine:1, scierie:1, autel:1, forge:1, chantier:1, muraille:1 };
-const COLS = 44, ROWS = 44, GRID_SIZE = COLS*ROWS;
+const COLS = 24, ROWS = 24, GRID_SIZE = COLS*ROWS;
 const TRUE_CENTER_R = Math.floor((ROWS-1)/2), TRUE_CENTER_C = Math.floor((COLS-1)/2);
 const CENTER = (TRUE_CENTER_R - Math.floor((FOOTPRINT.chateau-1)/2))*COLS + (TRUE_CENTER_C - Math.floor((FOOTPRINT.chateau-1)/2));
 const PLOT_TYPE_ORDER = ["mine","scierie","caserne","camp","autel","muraille","tour","chantier","forge","labo","salledesorts"];
 const MAP_SKINS = {
-  ash:{name:"Cendres éternelles",icon:"🔥",price:0,preview:"ash",desc:"Ruines, montagnes noires, tombes et braises portées par le vent.",ground:0x29291d,fog:0x0b0908,accent:0xe0832f},
-  forest:{name:"Forêt maudite",icon:"🌲",price:450,preview:"forest",desc:"Pins anciens, lucioles spectrales et autels noyés dans la brume.",ground:0x243b29,fog:0x07120d,accent:0x65cfa0},
-  ice:{name:"Citadelle gelée",icon:"❄️",price:650,preview:"ice",desc:"Falaises de glace, cristaux vivants et neige éternelle.",ground:0x35475a,fog:0x101827,accent:0x88ddff},
-  swamp:{name:"Marais des âmes",icon:"🟢",price:800,preview:"swamp",desc:"Eaux toxiques, champignons luisants et feux follets.",ground:0x303820,fog:0x11150a,accent:0xa5e05b},
-  volcano:{name:"Abîme volcanique",icon:"🌋",price:1000,preview:"volcano",desc:"Lave, roches déchirées et geysers de flammes.",ground:0x3b211c,fog:0x160807,accent:0xff5b28}
+  ash:{name:"Cendres éternelles",icon:"🔥",price:0,preview:"ash",scenery:"assets/scenery/ash.webp",desc:"Ruines, montagnes noires, tombes et braises portées par le vent.",ground:0x29291d,fog:0x0b0908,accent:0xe0832f},
+  forest:{name:"Forêt maudite",icon:"🌲",price:450,preview:"forest",scenery:"assets/scenery/forest.webp",desc:"Pins anciens, rivières spectrales, cascades et sanctuaires noyés dans la brume.",ground:0x243b29,fog:0x07120d,accent:0x65cfa0},
+  ice:{name:"Citadelle gelée",icon:"❄️",price:650,preview:"ice",scenery:"assets/scenery/ice.webp",desc:"Montagnes enneigées, glaciers, cristaux et cascades gelées.",ground:0x35475a,fog:0x101827,accent:0x88ddff},
+  swamp:{name:"Marais des âmes",icon:"🟢",price:800,preview:"swamp",scenery:"assets/scenery/swamp.webp",desc:"Marécages toxiques, chapelle engloutie, rivières et feux follets.",ground:0x303820,fog:0x11150a,accent:0xa5e05b},
+  volcano:{name:"Abîme volcanique",icon:"🌋",price:1000,preview:"volcano",scenery:"assets/scenery/volcano.webp",desc:"Volcans en éruption, citadelles de basalte et cascades de lave.",ground:0x3b211c,fog:0x160807,accent:0xff5b28}
 };
 
 function footprintTiles(anchor, size){
@@ -508,6 +510,19 @@ function freshState(){
   s.buildings[CENTER] = {type:"chateau", level:1, until:null, stored:0};
   return s;
 }
+function migrateLegacyGrid(st){
+  const chateauEntry=Object.entries(st.buildings||{}).find(([,b])=>b.type==='chateau');
+  if(!chateauEntry||Number(chateauEntry[0])===CENTER)return st;
+  const oldCols=44,oldAnchor=20,newAnchor=Math.floor((COLS-1)/2)-Math.floor((FOOTPRINT.chateau-1)/2);
+  const migrated={};
+  Object.entries(st.buildings).forEach(([idx,b])=>{
+    const n=Number(idx),oldR=Math.floor(n/oldCols),oldC=n%oldCols;
+    const newR=newAnchor+(oldR-oldAnchor),newC=newAnchor+(oldC-oldAnchor);
+    if(newR>=0&&newC>=0&&newR<ROWS&&newC<COLS)migrated[newR*COLS+newC]=b;
+  });
+  if(!Object.values(migrated).some(b=>b.type==='chateau'))migrated[CENTER]={type:'chateau',level:1,until:null,stored:0};
+  st.buildings=migrated;return st;
+}
 
 async function login(){
   const raw = document.getElementById('nameInput').value;
@@ -522,7 +537,7 @@ async function login(){
   let isNewPlayer = false;
   try{
     const res = await window.storage.get(storageKey, true);
-    state = res && res.value ? JSON.parse(res.value) : (isNewPlayer=true, freshState());
+    state = res && res.value ? migrateLegacyGrid(JSON.parse(res.value)) : (isNewPlayer=true, freshState());
   }catch(e){ state = freshState(); isNewPlayer = true; }
   if(state.trophies===undefined) state.trophies = 0;
   if(state.resources.gems===undefined) state.resources.gems = 500;
@@ -621,7 +636,7 @@ function switchTab(tab){
 
 /* ================= Rendering: village 3D (Three.js) ================= */
 let three = { renderer:null, scene:null, camera:null, raycaster:null, mouse:null, group:null,
-  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 62, dragging:false, lastX:0, lastY:0,
+  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 40, dragging:false, lastX:0, lastY:0,
   downX:0,downY:0,moved:false,pointers:new Map(),pinchDistance:0,tileMeshes:{}, clock:0, ready:false };
 
 function gridToWorld(i){
@@ -814,12 +829,13 @@ const BUILDING_ART = {
   caserne:{dir:'caserne', scaleX:1.02, scaleY:1.02}, muraille:{dir:'muraille', scaleX:1.05, scaleY:1.05},
   tour:{dir:'tour', scaleX:0.96, scaleY:1.15}, forge:{dir:'forge', scaleX:1.05, scaleY:1.05},
   chantier:{dir:'chantier', scaleX:1.04, scaleY:1.04}, labo:{dir:'labo', scaleX:1.02, scaleY:1.02},
-  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03}
+  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03}, camp:{dir:'camp',scaleX:.98,scaleY:.98}
 };
 // [largeur opaque, hauteur opaque, dernière ligne opaque] mesurées dans chaque WebP 512×512.
 // Ces données calent la vraie base dessinée sur y=0 au lieu de caler le bord transparent du fichier.
 const BUILDING_TRIM = {
   autel:[[198,166,338],[294,197,354],[308,220,365],[308,236,373],[271,239,375]],
+  camp:[[298,243,480],[345,283,480],[364,381,480],[416,441,480],[391,441,480]],
   caserne:[[208,202,356],[238,204,357],[298,233,372],[267,247,379],[277,251,381]],
   chantier:[[228,186,348],[244,220,365],[320,243,377],[325,293,402],[292,312,411]],
   chateau:[[202,192,351],[240,222,366],[257,232,371],[305,236,373],[299,247,379]],
@@ -1072,14 +1088,19 @@ function createSkinGroundTexture(skinId){
 function applyMapSkinVisual(){
   if(!three.ready&&!three.scene)return;
   const skinId=state?.mapSkin||'ash',skin=MAP_SKINS[skinId]||MAP_SKINS.ash;
-  if(three.defaultDecorGroup)three.defaultDecorGroup.visible=skinId==='ash';
+  if(three.defaultDecorGroup)three.defaultDecorGroup.visible=false;
   if(three.skinDecorGroup)three.scene.remove(three.skinDecorGroup);
   if(skinId!=='ash'){three.skinDecorGroup=createMapSkinDecor(skinId,(COLS/2)*2.1);three.scene.add(three.skinDecorGroup);}
-  if(three.ground){three.ground.material.map=createSkinGroundTexture(skinId);three.ground.material.color.setHex(0xffffff);three.ground.material.needsUpdate=true;}
-  if(three.border)three.border.material.color.setHex(skin.ground);
+  if(three.ground){
+    three.ground.material.map=createSkinGroundTexture(skinId);three.ground.material.color.setHex(0xffffff);
+    three.ground.material.transparent=true;three.ground.material.opacity=.14;three.ground.material.depthWrite=false;three.ground.material.needsUpdate=true;
+  }
+  if(three.border)three.border.visible=false;
   if(three.scene.fog)three.scene.fog.color.setHex(skin.fog);
   if(three.emberLight)three.emberLight.color.setHex(skin.accent);
   if(three.particles)three.particles.material.color.setHex(skin.accent);
+  const wrap=document.getElementById('sceneWrap');
+  if(wrap){wrap.style.backgroundImage=`linear-gradient(rgba(5,4,3,.08),rgba(5,4,3,.2)),url("${skin.scenery}")`;wrap.style.backgroundSize='100% 100%';wrap.style.backgroundPosition='center';}
 }
 
 function initScene(){
@@ -1158,12 +1179,12 @@ function initScene(){
     if(!three.pointers.has(e.pointerId))return; three.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(three.pointers.size===2){
       const p=[...three.pointers.values()],d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
-      if(three.pinchDistance) three.camRadius=Math.max(16,Math.min(100,three.camRadius+(three.pinchDistance-d)*.08));
+      if(three.pinchDistance) three.camRadius=Math.max(16,Math.min(58,three.camRadius+(three.pinchDistance-d)*.08));
       three.pinchDistance=d;three.moved=true;return;
     }
     const dx=e.clientX-three.lastX,dy=e.clientY-three.lastY;
     if(Math.hypot(e.clientX-three.downX,e.clientY-three.downY)>8)three.moved=true;
-    if(three.dragging&&three.moved){three.camAzimuth-=dx*.006;three.camPolar=Math.max(.45,Math.min(1.35,three.camPolar-dy*.004));}
+    // La scenery est un artwork isométrique cadré : la caméra garde cet angle fixe.
     three.lastX=e.clientX;three.lastY=e.clientY;
   });
   function endVillagePointer(e){
@@ -1172,7 +1193,7 @@ function initScene(){
     if(!three.pointers.size){three.dragging=false;wrap.style.cursor='grab';if(wasTap)villageTap(e.clientX,e.clientY);}
   }
   wrap.addEventListener('pointerup',endVillagePointer);wrap.addEventListener('pointercancel',endVillagePointer);
-  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(16, Math.min(100, three.camRadius + e.deltaY*0.015)); }, {passive:false});
+  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(16, Math.min(58, three.camRadius + e.deltaY*0.015)); }, {passive:false});
   window.addEventListener('resize', resizeScene);
   resizeScene();
   three.ready = true;
@@ -1229,7 +1250,9 @@ function makeBuilding(type, level){
   if(art && BUILDING_TRIM[type] && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
     const trim=BUILDING_TRIM[type][visualLevel-1],opaqueWidth=trim[0]/512;
     const fullScale=(tileSpan*.88)/Math.max(.2,opaqueWidth);
-    const base=new THREE.Mesh(new THREE.BoxGeometry(tileSpan*.9,.12,tileSpan*.9),stoneMat(type==='chateau'?0x4b4438:0x373128,1));
+    const skinGround=MAP_SKINS[state?.mapSkin||'ash']?.ground||0x373128;
+    const baseColor=type==='chateau'?new THREE.Color(skinGround).lerp(new THREE.Color(0x8a6b45),.28).getHex():skinGround;
+    const base=new THREE.Mesh(new THREE.BoxGeometry(tileSpan*.9,.12,tileSpan*.9),new THREE.MeshStandardMaterial({color:baseColor,emissive:baseColor,emissiveIntensity:.16,roughness:1}));
     base.position.y=.035;base.receiveShadow=true;g.add(base);
     const shadow=new THREE.Mesh(new THREE.CircleGeometry(tileSpan*.34,32),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.42,depthWrite:false}));
     shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.58,1);shadow.position.y=.105;g.add(shadow);
@@ -1553,7 +1576,7 @@ function openMapSkinShop(returnIdx){
     const owned=state.ownedMapSkins.includes(id),equipped=state.mapSkin===id;
     const freeChoice=firstFree&&id!=='ash',canBuy=(state.resources.gems||0)>=skin.price;
     let label=equipped?'Équipé':owned?'Choisir':freeChoice?'Gratuit':`💎 ${skin.price}`;
-    html+=`<div class="skin-card"><div class="skin-preview skin-${skin.preview}"></div><div class="skin-info">
+    html+=`<div class="skin-card"><div class="skin-preview skin-${skin.preview}" style="background-image:url('${skin.scenery}')"></div><div class="skin-info">
       <span class="oicon" style="font-size:26px">${skin.icon}</span><div><div class="oname">${skin.name}</div><div class="ocost">${skin.desc}</div></div>
       <button ${equipped||(!owned&&!freeChoice&&!canBuy)?'disabled':''} onclick="selectMapSkin('${id}')">${label}</button>
     </div></div>`;
