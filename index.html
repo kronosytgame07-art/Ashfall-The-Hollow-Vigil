@@ -300,10 +300,10 @@ const BUILDINGS = {
               baseCost:{or:300,bois:200,ames:20}, buildTime:60,
               upgradeCost:l=>({or:220*Math.pow(1.5,l-1),bois:150*Math.pow(1.5,l-1),ames:15*l}), upgradeTime:l=>60*Math.pow(1.4,l-1),
               maxCount:ch=>Math.min(2,1+Math.floor(ch/3)) },
-  muraille: { name:"Muraille", icon:"🧱", desc:"Une pierre de plus entre la cité et ce qui rôde dehors.", maxLevel:6, stat:"defense", baseStat:5,
-              baseCost:{or:200,bois:100,ames:0}, buildTime:30,
-              upgradeCost:l=>({or:150*Math.pow(1.5,l-1),bois:80*Math.pow(1.5,l-1),ames:0}), upgradeTime:l=>30*Math.pow(1.4,l-1),
-              maxCount:ch=>Math.min(8,2+ch) },
+  muraille: { name:"Muraille", icon:"🧱", desc:"Une pierre de plus entre la cité et ce qui rôde dehors. Se pose et s'améliore instantanément.", maxLevel:6, stat:"defense", baseStat:5, instant:true,
+              baseCost:{or:200,bois:100,ames:0}, buildTime:0,
+              upgradeCost:l=>({or:150*Math.pow(1.5,l-1),bois:80*Math.pow(1.5,l-1),ames:0}), upgradeTime:()=>0,
+              maxCount:ch=>Math.min(60,8+ch*10) },
   tour:     { name:"Tour de Guet", icon:"🗼", desc:"Un gardien y veille, insensible au temps.", maxLevel:6, stat:"defense", baseStat:8,
               baseCost:{or:220,bois:180,ames:10}, buildTime:40,
               upgradeCost:l=>({or:170*Math.pow(1.5,l-1),bois:120*Math.pow(1.5,l-1),ames:8*l}), upgradeTime:l=>40*Math.pow(1.4,l-1),
@@ -849,12 +849,17 @@ function initScene(){
     for(const hit of hits){
       if(three.plotInstancedMesh && hit.object===three.plotInstancedMesh && hit.instanceId!==undefined){
         const idx = three.plotIndexMap[hit.instanceId];
-        if(idx!==undefined){ openBuildMenu(idx); return; }
+        if(idx!==undefined){
+          if(window._movingBuilding!=null) tryMoveBuildingTo(idx);
+          else openBuildMenu(idx);
+          return;
+        }
       }
       let obj = hit.object;
       while(obj && obj.userData.tileIndex===undefined) obj = obj.parent;
       if(obj){
         const idx = obj.userData.tileIndex;
+        if(window._movingBuilding!=null){ showToast("Choisis une parcelle vide pour y déplacer la muraille."); return; }
         if(state.buildings[idx]) openBuildingPanel(idx);
         else openBuildMenu(idx);
         return;
@@ -1161,9 +1166,10 @@ function openBuildMenu(idx){
     const cost = costForNext(t);
     const afford = canAfford(cost) && !buildersFull && fits;
     const sizeLabel = size>1 ? `${size}×${size}` : `1×1`;
+    const timeLabel = def.instant ? 'instantané' : `⏱ ${Math.round(def.buildTime*forgeSpeedMult())}s`;
     html += `<div class="opt"><span class="oicon">${def.icon}</span><div class="omain">
       <div class="oname">${def.name} <span style="color:var(--bone-dim);font-size:11px;">(${count}/${max}) · ${sizeLabel}</span></div>
-      <div class="ocost">${costString(cost)} · ⏱ ${Math.round(def.buildTime*forgeSpeedMult())}s${!fits?' · <span style="color:#c04141;">espace insuffisant</span>':''}</div>
+      <div class="ocost">${costString(cost)} · ${timeLabel}${!fits?' · <span style="color:#c04141;">espace insuffisant</span>':''}</div>
       </div><button ${afford?'':'disabled'} onclick="startBuild(${idx},'${t}')">Bâtir</button></div>`;
   });
   if(!any) html += `<div class="desc">Plus rien à bâtir ici pour l'instant — améliore ton Château pour débloquer davantage d'édifices.</div>`;
@@ -1182,6 +1188,13 @@ function startBuild(idx,type){
   if(!canPlaceFootprint(idx, size, unlockedSet, occupied)){ showToast("Espace insuffisant pour bâtir ici."); return; }
   spend(cost);
   const def = BUILDINGS[type];
+  if(def.instant){
+    state.buildings[idx] = {type, level:1, until:null, stored:0};
+    sfxComplete();
+    closePanel(); renderAll(); saveState(); checkAchievements();
+    showToast(`${def.name} posée instantanément.`);
+    return;
+  }
   const time = def.buildTime*forgeSpeedMult()*1000;
   state.buildings[idx] = {type, level:1, until:Date.now()+time, constructStart:Date.now(), stored:0, pendingLevel:1};
   sfxBuild();
@@ -1207,18 +1220,56 @@ function openBuildingPanel(idx){
     } else if(def.stat){
       html += `<div class="statline"><span>${statLabel(def.stat)}</span><span>${def.stat==='troopPower' ? '+'+(def.baseStat*b.level*2)+'%' : def.baseStat*b.level}</span></div>`;
     }
-    if(b.level < def.maxLevel){
-      const cost = def.upgradeCost(b.level), time = def.upgradeTime(b.level)*forgeSpeedMult();
+    const maxLvl = effectiveMaxLevel(b.type);
+    if(b.level < maxLvl){
+      const cost = def.upgradeCost(b.level);
       const buildersFull = activeBuilders(state) >= maxBuilders(state);
       const afford = canAfford(cost) && !buildersFull;
-      html += `<div class="statline"><span>Amélioration → Nv.${b.level+1}</span><span>${costString(cost)}</span></div>
-      <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">Améliorer · ⏱ ${Math.round(time)}s</button>
-      <div class="timelabel">Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés':''}</div>`;
+      if(def.instant){
+        html += `<div class="statline"><span>Amélioration → Nv.${b.level+1}</span><span>${costString(cost)}</span></div>
+        <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">Améliorer instantanément</button>
+        <div class="timelabel">Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés (il en faut un de libre pour valider)':''}</div>`;
+      } else {
+        const time = def.upgradeTime(b.level)*forgeSpeedMult();
+        html += `<div class="statline"><span>Amélioration → Nv.${b.level+1}</span><span>${costString(cost)}</span></div>
+        <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">Améliorer · ⏱ ${Math.round(time)}s</button>
+        <div class="timelabel">Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés':''}</div>`;
+      }
+    } else if(maxLvl < def.maxLevel){
+      html += `<div class="timelabel">Plafonnée par ton Château (niveau ${maxLvl}) — améliore ton Château pour aller plus loin.</div>`;
     } else { html += `<div class="timelabel">Niveau maximum atteint.</div>`; }
+    if(b.type==='muraille'){
+      html += `<button class="actionbtn" style="background:linear-gradient(180deg, var(--soul-bright), var(--soul)); margin-top:8px;" onclick="startMoveBuilding(${idx})">Déplacer cette muraille</button>`;
+    }
   }
   document.getElementById('panel').innerHTML = html;
   document.getElementById('overlay').classList.add('show');
   if(underConstruction) tickConstructionPanel(idx);
+}
+function startMoveBuilding(idx){
+  window._movingBuilding = idx;
+  closePanel();
+  showToast("Clique une parcelle vide pour y déplacer la muraille.");
+}
+function tryMoveBuildingTo(newIdx){
+  const oldIdx = window._movingBuilding;
+  window._movingBuilding = null;
+  const b = state.buildings[oldIdx];
+  if(!b) return;
+  const size = FOOTPRINT[b.type]||1;
+  const chLevel = chateauLevel(state);
+  const unlockedSet = new Set(ALL_INDICES.slice(0, unlockedCount(chLevel)));
+  unlockedSet.add(newIdx);
+  const occupied = buildOccupiedMap();
+  delete occupied[oldIdx]; // libère virtuellement l'ancienne case pour la validation
+  const tiles = footprintTiles(oldIdx, size);
+  if(tiles) tiles.forEach(t=>delete occupied[t]);
+  if(!canPlaceFootprint(newIdx, size, unlockedSet, occupied)){ showToast("Impossible de déplacer ici : espace insuffisant."); return; }
+  delete state.buildings[oldIdx];
+  state.buildings[newIdx] = b;
+  sfxBuild();
+  renderAll(); saveState();
+  showToast("Muraille déplacée.");
 }
 function collect(idx){
   const b = state.buildings[idx], def = BUILDINGS[b.type];
@@ -1230,12 +1281,25 @@ function collect(idx){
   checkAchievements();
   showToast(`+${fmt(amt)} ${resIcon(def.produces)} récoltés`);
 }
+function effectiveMaxLevel(type){
+  const def = BUILDINGS[type];
+  if(type==='muraille') return Math.min(def.maxLevel, chateauLevel(state));
+  return def.maxLevel;
+}
 function startUpgrade(idx){
   const b = state.buildings[idx], def = BUILDINGS[b.type];
+  if(b.level >= effectiveMaxLevel(b.type)){ showToast(`Améliore d'abord ton Château pour dépasser le niveau ${b.level}.`); return; }
   const cost = def.upgradeCost(b.level);
   if(!canAfford(cost)) return;
   if(activeBuilders(state) >= maxBuilders(state)){ showToast(`Tous tes ouvriers sont occupés (${activeBuilders(state)}/${maxBuilders(state)})`); return; }
   spend(cost);
+  if(def.instant){
+    b.level += 1;
+    sfxComplete();
+    closePanel(); renderAll(); saveState(); checkAchievements();
+    showToast(`${def.name} améliorée instantanément — Niveau ${b.level}`);
+    return;
+  }
   const time = def.upgradeTime(b.level)*forgeSpeedMult()*1000;
   b.constructStart = Date.now(); b.until = Date.now()+time; b.pendingLevel = b.level+1;
   sfxBuild();
