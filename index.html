@@ -23,6 +23,8 @@
   html,body{margin:0;padding:0;}
   body{
     background:
+      linear-gradient(rgba(5,7,12,.68),rgba(5,4,5,.92)),
+      url('assets/backgrounds/main-menu.png') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -160,6 +162,9 @@
   .login{max-width:400px; margin:60px auto; background:var(--stone-dark); border:1px solid var(--line); border-top:2px solid var(--ember-bright);
     border-radius:5px; padding:30px 26px; text-align:center; position:relative; z-index:2;
     box-shadow:0 24px 70px rgba(0,0,0,0.7);}
+  #loginScreen{background:linear-gradient(180deg,rgba(42,34,29,.92),rgba(14,12,13,.96));backdrop-filter:blur(7px);
+    box-shadow:0 24px 80px rgba(0,0,0,.88),0 0 0 1px rgba(255,170,77,.08) inset;}
+  #gameScreen .village{background:radial-gradient(circle at 50% 42%,rgba(89,100,128,.10),transparent 48%),rgba(12,11,13,.94);}
   .login h2{font-family:'Cinzel Decorative',serif; margin-top:0;}
   .login input{width:100%; background:var(--stone); border:1px solid var(--line); color:var(--bone); font-family:'EB Garamond',serif;
     font-size:16px; padding:11px 12px; border-radius:4px; margin:14px 0; text-align:center;}
@@ -179,9 +184,9 @@
 <div class="wrap">
 
   <div class="titleblock">
-    <div class="eyebrow">Par-delà les cendres</div>
-    <h1>Ashfall: The Hollow Vigil</h1>
-    <div class="subtitle">Bâtis. Récolte. Assiège tes rivaux.</div>
+    <div class="eyebrow">La Veille Creuse</div>
+    <h1>Ashfall</h1>
+    <div class="subtitle">The Hollow Vigil · Bâtis. Récolte. Assiège.</div>
   </div>
 
   <div id="loginScreen" class="login">
@@ -531,6 +536,29 @@ const ICON_DRAW = {
   }
 };
 let ICON_MATS = {};
+const BUILDING_ART = {
+  chateau:{src:'assets/buildings/townhall.png', w:4.8, h:4.8, y:2.15},
+  mine:{src:'assets/buildings/mine.png', w:3.15, h:3.15, y:1.38},
+  scierie:{src:'assets/buildings/sawmill.png', w:3.15, h:3.15, y:1.38},
+  autel:{src:'assets/buildings/altar.png', w:2.9, h:2.9, y:1.22},
+  caserne:{src:'assets/buildings/barracks.png', w:3.45, h:3.45, y:1.52},
+  muraille:{src:'assets/buildings/wall.png', w:3.45, h:2.3, y:0.92},
+  tour:{src:'assets/buildings/tower.png', w:3.1, h:4.25, y:1.94},
+  forge:{src:'assets/buildings/forge.png', w:3.3, h:3.3, y:1.45}
+};
+let BUILDING_MATS = {};
+function initBuildingSprites(){
+  const loader = new THREE.TextureLoader();
+  Object.entries(BUILDING_ART).forEach(([type,art])=>{
+    const tex=loader.load(art.src, ()=>{ tex.anisotropy=Math.min(8,three.renderer.capabilities.getMaxAnisotropy()); });
+    tex.minFilter=THREE.LinearMipMapLinearFilter;
+    tex.magFilter=THREE.LinearFilter;
+    BUILDING_MATS[type]=new THREE.SpriteMaterial({
+      map:tex, transparent:true, alphaTest:.08, depthTest:true, depthWrite:false,
+      color:0xffffff
+    });
+  });
+}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -609,6 +637,7 @@ function initScene(){
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
+  initBuildingSprites();
 
   // Lighting: dark, warm, torch-lit
   three.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
@@ -706,7 +735,7 @@ function animateScene(){
   three.renderer.render(three.scene, three.camera);
 }
 
-function makeBuilding(type, level){
+function makeProceduralBuilding(type, level){
   const g = new THREE.Group();
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
@@ -825,6 +854,29 @@ function makeBuilding(type, level){
     icon.position.set(0, (ICON_HEIGHT[type]||1.2), 0);
     g.add(icon);
   }
+  return g;
+}
+
+function makeBuilding(type, level){
+  const art=BUILDING_ART[type];
+  const mat=BUILDING_MATS[type];
+  if(!art || !mat) return makeProceduralBuilding(type,level);
+  const g=new THREE.Group();
+  const sprite=new THREE.Sprite(mat.clone());
+  const tierScale=1+Math.min(.12,(level-1)*.018);
+  sprite.scale.set(art.w*tierScale,art.h*tierScale,1);
+  sprite.position.set(0,art.y*tierScale,0);
+  sprite.renderOrder=4;
+  g.add(sprite);
+  const plate=new THREE.Mesh(
+    new THREE.CircleGeometry(type==='chateau'?1.48:type==='muraille'?1.04:1.12,32),
+    new THREE.MeshBasicMaterial({color:0x050608,transparent:true,opacity:.42,depthWrite:false})
+  );
+  plate.rotation.x=-Math.PI/2;
+  plate.scale.z=type==='muraille'?.52:.72;
+  plate.position.y=.025;
+  g.add(plate);
+  g.userData.artSprite=sprite;
   return g;
 }
 
