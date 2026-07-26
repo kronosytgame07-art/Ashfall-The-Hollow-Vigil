@@ -1,6 +1,6 @@
 # 🔥 Ashfall: The Hollow Vigil
 
-Un prototype de jeu de construction de village dans une ambiance **dark fantasy / Dark Souls**, avec une boucle de jeu inspirée de **Clash of Clans** : ressources, bâtiments, minuteurs de construction, et assauts contre d'autres joueurs.
+Un prototype de jeu de construction de village dans une ambiance **dark fantasy**, avec une boucle de jeu de stratégie mobile : ressources, bâtiments, minuteurs de construction et assauts contre d'autres joueurs.
 
 ## Jouer
 
@@ -14,7 +14,7 @@ Pour l'héberger en ligne gratuitement via **GitHub Pages** :
 
 ## Fonctionnalités
 
-- 🏰 **Village en 3D** (Three.js) : bâtiments modélisés en géométrie procédurale low-poly avec **textures générées par code** (pierre appareillée, bois veiné, tuiles de toit, sol texturé), **ombres portées dynamiques**, portes et fenêtres qui brillent d'une lueur chaude, bannières qui ondulent, décor environnant (rochers, arbres morts, pierres tombales) dispersé autour du village. Chaque bâtiment porte un **sprite d'icône badge en style "chunky cartoon"** (contours noirs épais, couleurs saturées, reflets brillants, badge biseauté à liseré de braise — dessiné entièrement par code) qui flotte au-dessus de lui et reste toujours tourné vers la caméra pour une identification instantanée. Caméra qu'on fait tourner en glissant et zoomer à la molette.
+- 🏰 **Village en 3D hybride** (Three.js) : huit bâtiments illustrés originaux en vue isométrique, silhouettes cartoon premium, palette dark fantasy et effets de braise séparés. Les bâtiments restent statiques tandis que le terrain, les particules, les lumières et les retours de récolte/construction apportent le mouvement.
 - 🏗️ **Village évolutif** : le Château débloque progressivement de nouvelles parcelles au fil de ses niveaux.
 - 🏗️ **Bâtiments multiples** : Mines, Scieries, Casernes, Murailles, Tours peuvent être construites en plusieurs exemplaires (jusqu'à un plafond qui augmente avec le niveau du Château).
 - ⏱️ Construction et amélioration avec minuteurs, coûts croissants par niveau **et** par nombre d'exemplaires déjà construits.
@@ -30,7 +30,9 @@ Pour rester honnête sur le périmètre : ceci est un prototype 3D low-poly styl
 
 ## Structure
 
-- `index.html` — le jeu complet (HTML/CSS/JS), un seul fichier, sans dépendance de build.
+- `index.html` — le jeu complet (HTML/CSS/JS), sans dépendance de build.
+- `assets/buildings/` — les huit sprites de bâtiments détourés.
+- `assets/backgrounds/main-menu.png` — l'illustration du menu principal.
 
 ## Limites connues (prototype)
 
