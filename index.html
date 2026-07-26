@@ -72,7 +72,7 @@
   .res .val{font-family:'Cinzel',serif; font-weight:600; font-size:15px;}
   .res .lbl{font-size:10px; color:var(--bone-dim); letter-spacing:0.08em; text-transform:uppercase; display:block; margin-top:-2px;}
   .res.or{border-top:2px solid var(--gold-old);} .res.bois{border-top:2px solid #6b5334;}
-  .res.ames{border-top:2px solid var(--soul);} .res.trophy{border-top:2px solid var(--purple-bright);}
+  .res.ames{border-top:2px solid var(--soul);} .res.gems{border-top:2px solid #63d4e8;} .res.trophy{border-top:2px solid var(--purple-bright);}
 
   .tabbar{display:flex; justify-content:center; gap:7px; margin-bottom:16px; flex-wrap:wrap;}
   .tab{font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.05em; text-transform:uppercase;
@@ -178,6 +178,17 @@
   .switch{width:54px;min-height:32px;border:1px solid var(--line-strong);border-radius:18px;background:#181411;color:var(--bone);cursor:pointer}
   .switch.on{background:var(--ember);border-color:var(--ember-bright)}
   .connection-card{padding:12px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.22);margin:12px 0}
+  .build-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}.build-tabs .tab{width:100%}
+  .skin-card{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:rgba(0,0,0,.24);margin:9px 0}
+  .skin-preview{height:92px;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .skin-preview::before{content:"";position:absolute;inset:18% 20%;transform:rotate(45deg);border:2px solid rgba(255,255,255,.23);background:rgba(36,34,28,.55)}
+  .skin-preview::after{content:"✦  ✦  ✦";position:absolute;inset:auto 8px 7px;text-align:center;color:#ffd474;letter-spacing:1.6em;animation:pulse 1.5s infinite}
+  .skin-ash{background:radial-gradient(circle at 20% 25%,#e0832f 0 2px,transparent 3px),linear-gradient(145deg,#241a17,#090807 70%)}
+  .skin-forest{background:radial-gradient(circle at 80% 25%,#7bd0ff 0 3px,transparent 5px),linear-gradient(145deg,#153329,#081511 70%)}
+  .skin-ice{background:radial-gradient(circle at 25% 30%,#e9fbff 0 3px,transparent 5px),linear-gradient(145deg,#436c88,#101b2f 70%)}
+  .skin-swamp{background:radial-gradient(circle at 70% 65%,#b6ff73 0 3px,transparent 6px),linear-gradient(145deg,#344524,#10160d 70%)}
+  .skin-volcano{background:radial-gradient(circle at 25% 35%,#ffb13b 0 4px,transparent 7px),linear-gradient(145deg,#4d1711,#100706 70%)}
+  .skin-info{display:flex;align-items:center;gap:10px;padding:10px}.skin-info>div{flex:1}.skin-info button{min-width:96px}
   .icon{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.15),transparent 45%),#181411;border:1px solid var(--line-strong);filter:drop-shadow(0 2px 4px #000)}
   .tab{min-height:48px}.collect-hint{font-family:'Cinzel',serif}
   body.large-ui{font-size:118%} body.large-ui .tab,body.large-ui button{min-height:54px}
@@ -187,7 +198,7 @@
     body{padding:calc(72px + env(safe-area-inset-top)) 8px calc(88px + env(safe-area-inset-bottom))}
     .titleblock{margin-bottom:6px}.titleblock h1{font-size:clamp(24px,8vw,34px)}.eyebrow{letter-spacing:.22em}
     .resbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.res{min-width:0;padding:7px 8px}.res .val{font-size:14px}
-    .tabbar{position:sticky;bottom:max(6px,env(safe-area-inset-bottom));z-index:45;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:5px;background:rgba(11,9,8,.94);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px)}
+    .tabbar{position:sticky;bottom:max(6px,env(safe-area-inset-bottom));z-index:45;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:5px;background:rgba(11,9,8,.94);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(8px)}
     .tabbar .tab{padding:7px 3px;font-size:9px;line-height:1.15}
     .panel{max-height:92dvh;padding:18px 14px}.overlay{padding:8px}
     #sceneWrap,#battleFieldWrap{height:58dvh!important;min-height:360px!important;touch-action:none}
@@ -238,6 +249,7 @@
       <div class="res or"><span class="icon">🪙</span><div><span class="val" id="res-or">0</span><span class="lbl">Or</span></div></div>
       <div class="res bois"><span class="icon">🪵</span><div><span class="val" id="res-bois">0</span><span class="lbl">Bois</span></div></div>
       <div class="res ames"><span class="icon">🔥</span><div><span class="val" id="res-ames">0</span><span class="lbl">Âmes</span></div></div>
+      <div class="res gems"><span class="icon">💎</span><div><span class="val" id="res-gems">0</span><span class="lbl">Gemmes</span></div></div>
       <div class="res trophy"><span class="icon">🏆</span><div><span class="val" id="res-trophy">0</span><span class="lbl">Trophées</span></div></div>
     </div>
 
@@ -246,6 +258,7 @@
       <button class="tab" id="tab-battle" onclick="switchTab('battle')" aria-pressed="false">⚔️ Assaut</button>
       <button class="tab" id="tab-leaderboard" onclick="switchTab('leaderboard')" aria-pressed="false">🏆 Classement</button>
       <button class="tab" id="tab-achievements" onclick="switchTab('achievements')" aria-pressed="false">🏅 Hauts faits</button>
+      <button class="tab" id="tab-build" onclick="openConstructionHub()" aria-pressed="false">🛠️ Construire</button>
     </div>
 
     <div id="view-village" class="village" style="padding:0; overflow:hidden;">
@@ -392,6 +405,13 @@ const COLS = 44, ROWS = 44, GRID_SIZE = COLS*ROWS;
 const TRUE_CENTER_R = Math.floor((ROWS-1)/2), TRUE_CENTER_C = Math.floor((COLS-1)/2);
 const CENTER = (TRUE_CENTER_R - Math.floor((FOOTPRINT.chateau-1)/2))*COLS + (TRUE_CENTER_C - Math.floor((FOOTPRINT.chateau-1)/2));
 const PLOT_TYPE_ORDER = ["mine","scierie","caserne","camp","autel","muraille","tour","chantier","forge","labo","salledesorts"];
+const MAP_SKINS = {
+  ash:{name:"Cendres éternelles",icon:"🔥",price:0,preview:"ash",desc:"Ruines, montagnes noires, tombes et braises portées par le vent.",ground:0x29291d,fog:0x0b0908,accent:0xe0832f},
+  forest:{name:"Forêt maudite",icon:"🌲",price:450,preview:"forest",desc:"Pins anciens, lucioles spectrales et autels noyés dans la brume.",ground:0x243b29,fog:0x07120d,accent:0x65cfa0},
+  ice:{name:"Citadelle gelée",icon:"❄️",price:650,preview:"ice",desc:"Falaises de glace, cristaux vivants et neige éternelle.",ground:0x35475a,fog:0x101827,accent:0x88ddff},
+  swamp:{name:"Marais des âmes",icon:"🟢",price:800,preview:"swamp",desc:"Eaux toxiques, champignons luisants et feux follets.",ground:0x303820,fog:0x11150a,accent:0xa5e05b},
+  volcano:{name:"Abîme volcanique",icon:"🌋",price:1000,preview:"volcano",desc:"Lave, roches déchirées et geysers de flammes.",ground:0x3b211c,fog:0x160807,accent:0xff5b28}
+};
 
 function footprintTiles(anchor, size){
   const r0 = Math.floor(anchor/COLS), c0 = anchor%COLS;
@@ -472,8 +492,9 @@ function dismissTutorial(){ document.getElementById('tutorialBanner').classList.
 function sanitizeName(n){ return n.trim().replace(/[^a-zA-Z0-9_\- ]/g,'').slice(0,18).trim(); }
 
 function freshState(){
-  const s = { resources:{or:400,bois:400,ames:40}, trophies:0, shieldUntil:null, buildings:{},
-    stats:{wins:0, battles:0, collects:0}, achievementsClaimed:[] };
+  const s = { resources:{or:400,bois:400,ames:40,gems:500}, trophies:0, shieldUntil:null, buildings:{},
+    stats:{wins:0, battles:0, collects:0}, achievementsClaimed:[],
+    mapSkin:'ash', ownedMapSkins:['ash'], freeMapSkinClaimed:false };
   s.buildings[CENTER] = {type:"chateau", level:1, until:null, stored:0};
   return s;
 }
@@ -493,6 +514,10 @@ async function login(){
     state = res && res.value ? JSON.parse(res.value) : (isNewPlayer=true, freshState());
   }catch(e){ state = freshState(); isNewPlayer = true; }
   if(state.trophies===undefined) state.trophies = 0;
+  if(state.resources.gems===undefined) state.resources.gems = 500;
+  if(!state.mapSkin) state.mapSkin='ash';
+  if(!Array.isArray(state.ownedMapSkins)) state.ownedMapSkins=['ash'];
+  if(state.freeMapSkinClaimed===undefined) state.freeMapSkinClaimed=false;
   if(state.shieldUntil===undefined) state.shieldUntil = null;
   if(!state.stats) state.stats = {wins:0, battles:0, collects:0};
   if(!state.achievementsClaimed) state.achievementsClaimed = [];
@@ -962,6 +987,49 @@ function addProps(halfSize){
     propGroup.add(m);
   }
   three.scene.add(propGroup);
+  three.defaultDecorGroup = propGroup;
+}
+
+function createMapSkinDecor(skinId,halfSize){
+  const skin=MAP_SKINS[skinId]||MAP_SKINS.ash,group=new THREE.Group();
+  const mat=(color,emissive=0)=>new THREE.MeshStandardMaterial({color,emissive:emissive?color:0,emissiveIntensity:emissive,roughness:.82});
+  const edgePos=i=>{
+    const edge=i%4,along=((i*7.37)%19)/19*halfSize*2-halfSize,out=halfSize+1.2+(i%3)*.75;
+    return edge===0?[along,0,-out]:edge===1?[along,0,out]:edge===2?[-out,0,along]:[out,0,along];
+  };
+  for(let i=0;i<28;i++){
+    const [x,y,z]=edgePos(i);let obj;
+    if(skinId==='forest'){
+      obj=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.09,.14,1.15,6),mat(0x30241a));trunk.position.y=.55;obj.add(trunk);
+      for(let k=0;k<3;k++){const crown=new THREE.Mesh(new THREE.ConeGeometry(.5-k*.09,.8,7),mat(k%2?0x163d2d:0x20503a));crown.position.y=.9+k*.42;obj.add(crown);}
+    }else if(skinId==='ice'){
+      obj=new THREE.Mesh(new THREE.ConeGeometry(.22+(i%3)*.09,1+(i%4)*.22,5),mat(i%2?0x78b9d5:0xbbe9f5,.25));obj.position.y=.6;
+    }else if(skinId==='swamp'){
+      obj=new THREE.Group();const stem=new THREE.Mesh(new THREE.CylinderGeometry(.04,.06,.38,6),mat(0x786443));stem.position.y=.19;obj.add(stem);
+      const cap=new THREE.Mesh(new THREE.SphereGeometry(.2,8,5,0,Math.PI*2,0,Math.PI/2),mat(i%2?0x77aa3d:0x9f5bb7,.35));cap.position.y=.42;obj.add(cap);
+    }else if(skinId==='volcano'){
+      obj=new THREE.Mesh(new THREE.DodecahedronGeometry(.25+(i%4)*.07,0),mat(i%3?0x251817:0xe44820,i%3?0:.7));obj.position.y=.2;obj.rotation.set(i*.7,i*.4,0);
+    }else continue;
+    obj.position.x=x;obj.position.z=z;obj.userData.decorFloat=i%5===0;obj.userData.baseY=obj.position.y;obj.userData.phase=i*.63;group.add(obj);
+  }
+  for(let i=0;i<12;i++){
+    const [x,,z]=edgePos(i+31),orb=new THREE.Mesh(new THREE.SphereGeometry(.07+(i%3)*.02,8,8),mat(skin.accent,1.8));
+    orb.position.set(x,.7+(i%4)*.28,z);orb.userData.decorFloat=true;orb.userData.baseY=orb.position.y;orb.userData.phase=i;group.add(orb);
+    const light=new THREE.PointLight(skin.accent,.35,4);light.position.copy(orb.position);light.userData.decorLight=true;light.userData.phase=i;group.add(light);
+  }
+  return group;
+}
+function applyMapSkinVisual(){
+  if(!three.ready&&!three.scene)return;
+  const skinId=state?.mapSkin||'ash',skin=MAP_SKINS[skinId]||MAP_SKINS.ash;
+  if(three.defaultDecorGroup)three.defaultDecorGroup.visible=skinId==='ash';
+  if(three.skinDecorGroup)three.scene.remove(three.skinDecorGroup);
+  if(skinId!=='ash'){three.skinDecorGroup=createMapSkinDecor(skinId,(COLS/2)*2.1);three.scene.add(three.skinDecorGroup);}
+  if(three.ground){three.ground.material.map=skinId==='ash'?three.defaultGroundMap:null;three.ground.material.color.setHex(skinId==='ash'?0xffffff:skin.ground);three.ground.material.needsUpdate=true;}
+  if(three.border)three.border.material.color.setHex(skin.ground);
+  if(three.scene.fog)three.scene.fog.color.setHex(skin.fog);
+  if(three.emberLight)three.emberLight.color.setHex(skin.accent);
+  if(three.particles)three.particles.material.color.setHex(skin.accent);
 }
 
 function initScene(){
@@ -996,10 +1064,10 @@ function initScene(){
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
   const groundMatMain = new THREE.MeshStandardMaterial({map:TERRAIN_TEX['ash-1']||TEX.ground, roughness:1});
   const ground = new THREE.Mesh(groundGeo, groundMatMain);
-  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
+  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground); three.ground=ground; three.defaultGroundMap=groundMatMain.map;
   const borderGeo = new THREE.PlaneGeometry(groundSize+4, groundSize+4);
   const border = new THREE.Mesh(borderGeo, stoneMat(0x241f1a,1));
-  border.rotation.x=-Math.PI/2; border.position.y=-0.02; border.receiveShadow=true; three.scene.add(border);
+  border.rotation.x=-Math.PI/2; border.position.y=-0.02; border.receiveShadow=true; three.scene.add(border); three.border=border;
   addProps(halfSize);
 
   three.group = new THREE.Group();
@@ -1011,6 +1079,7 @@ function initScene(){
   const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
   const pMat = new THREE.PointsMaterial({color:0xe0832f, size:0.05, transparent:true, opacity:0.75});
   three.particles = new THREE.Points(pGeo,pMat); three.scene.add(three.particles);
+  applyMapSkinVisual();
 
   wrap.style.touchAction='none';
   function villageTap(clientX,clientY){
@@ -1093,6 +1162,10 @@ function animateScene(){
     }
   });
   (three.waveMeshes||[]).forEach((m,i)=>{ m.rotation.y = Math.sin(three.clock*1.6+i)*0.18; });
+  if(three.skinDecorGroup)three.skinDecorGroup.children.forEach(o=>{
+    if(o.userData.decorFloat)o.position.y=o.userData.baseY+(uiPrefs.reducedMotion?0:Math.sin(three.clock*1.8+o.userData.phase)*.16);
+    if(o.userData.decorLight)o.intensity=uiPrefs.reducedMotion?.3:.25+Math.sin(three.clock*3+o.userData.phase)*.13;
+  });
   const fxFrame = Math.floor(three.clock*10)%8;
   (three.fxSprites||[]).forEach(fx=>{ if(FX_MATS[fx.userData.fxKind]) fx.material=FX_MATS[fx.userData.fxKind][fxFrame]; });
   three.renderer.render(three.scene, three.camera);
@@ -1366,6 +1439,7 @@ function renderResources(){
   document.getElementById('res-or').textContent = fmt(state.resources.or);
   document.getElementById('res-bois').textContent = fmt(state.resources.bois);
   document.getElementById('res-ames').textContent = fmt(state.resources.ames);
+  document.getElementById('res-gems').textContent = fmt(state.resources.gems||0);
   document.getElementById('res-trophy').textContent = fmt(state.trophies||0);
 }
 function renderAll(){ updateScene(); renderResources(); }
@@ -1383,7 +1457,9 @@ function openBuildMenu(idx){
   const unlockedSet = new Set(ALL_INDICES.slice(0, unlockedCount(chLevel)));
   unlockedSet.add(idx);
   const occupied = buildOccupiedMap();
-  let html = `<button class="close-x" onclick="closePanel()">✕</button><h2>Bâtir sur cette parcelle</h2>
+  let html = `<button class="close-x" onclick="closePanel()">✕</button><h2>🛠️ Construction</h2>
+    <div class="build-tabs"><button class="tab active" aria-pressed="true">Bâtiments</button><button class="tab" onclick="openMapSkinShop(${idx})">Skins de carte</button></div>
+    <h3 style="font-family:'Cinzel',serif;margin:8px 0">Bâtir sur cette parcelle</h3>
     <div class="desc">Choisis ce que les cendres feront pousser ici. Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés !':''}</div>`;
   let any=false;
   PLOT_TYPE_ORDER.forEach(t=>{
@@ -1405,6 +1481,43 @@ function openBuildMenu(idx){
   if(!any) html += `<div class="desc">Plus rien à bâtir ici pour l'instant — améliore ton Château pour débloquer davantage d'édifices.</div>`;
   document.getElementById('panel').innerHTML = html;
   document.getElementById('overlay').classList.add('show');
+}
+function openConstructionHub(){ openMapSkinShop(null); }
+function openMapSkinShop(returnIdx){
+  const firstFree=!state.freeMapSkinClaimed;
+  let html=`<button class="close-x" onclick="closePanel()">✕</button><h2>🛠️ Construction</h2>
+    <div class="build-tabs"><button class="tab" onclick="${returnIdx===null?'showBuildHelp()':`openBuildMenu(${returnIdx})`}">Bâtiments</button><button class="tab active" aria-pressed="true">Skins de carte</button></div>
+    <div class="desc">${firstFree?'🎁 Ton premier décor premium est offert : choisis celui que tu veux.':'Personnalise les alentours de ta cité. Les bâtiments et leur placement ne changent pas.'}</div>`;
+  Object.entries(MAP_SKINS).forEach(([id,skin])=>{
+    const owned=state.ownedMapSkins.includes(id),equipped=state.mapSkin===id;
+    const freeChoice=firstFree&&id!=='ash',canBuy=(state.resources.gems||0)>=skin.price;
+    let label=equipped?'Équipé':owned?'Choisir':freeChoice?'Gratuit':`💎 ${skin.price}`;
+    html+=`<div class="skin-card"><div class="skin-preview skin-${skin.preview}"></div><div class="skin-info">
+      <span class="oicon" style="font-size:26px">${skin.icon}</span><div><div class="oname">${skin.name}</div><div class="ocost">${skin.desc}</div></div>
+      <button ${equipped||(!owned&&!freeChoice&&!canBuy)?'disabled':''} onclick="selectMapSkin('${id}')">${label}</button>
+    </div></div>`;
+  });
+  document.getElementById('panel').innerHTML=html;document.getElementById('overlay').classList.add('show');
+}
+function showBuildHelp(){
+  document.getElementById('panel').innerHTML=`<button class="close-x" onclick="closePanel()">✕</button><h2>🛠️ Construction</h2>
+    <div class="build-tabs"><button class="tab active">Bâtiments</button><button class="tab" onclick="openMapSkinShop(null)">Skins de carte</button></div>
+    <div class="desc">Touche une parcelle libre directement dans le village pour choisir et placer un bâtiment.</div>
+    <button class="actionbtn" onclick="closePanel()">Retour au village</button>`;
+}
+function selectMapSkin(id){
+  const skin=MAP_SKINS[id];if(!skin)return;
+  const owned=state.ownedMapSkins.includes(id);
+  if(!owned){
+    if(!state.freeMapSkinClaimed&&id!=='ash'){state.freeMapSkinClaimed=true;}
+    else{
+      if((state.resources.gems||0)<skin.price){showToast('Pas assez de gemmes.');return;}
+      state.resources.gems-=skin.price;
+    }
+    state.ownedMapSkins.push(id);
+  }
+  state.mapSkin=id;applyMapSkinVisual();renderResources();saveState();sfxComplete();
+  showToast(`${skin.icon} Décor « ${skin.name} » équipé`);openMapSkinShop(null);
 }
 function startBuild(idx,type){
   const def = BUILDINGS[type];
