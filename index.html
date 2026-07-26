@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0908">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
 <title>Ashfall: The Hollow Vigil</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -189,6 +194,10 @@
   .skin-swamp{background:radial-gradient(circle at 70% 65%,#b6ff73 0 3px,transparent 6px),linear-gradient(145deg,#344524,#10160d 70%)}
   .skin-volcano{background:radial-gradient(circle at 25% 35%,#ffb13b 0 4px,transparent 7px),linear-gradient(145deg,#4d1711,#100706 70%)}
   .skin-info{display:flex;align-items:center;gap:10px;padding:10px}.skin-info>div{flex:1}.skin-info button{min-width:96px}
+  .rotate-device{display:none;position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at 50% 35%,#30231b,#080706 72%);color:var(--bone);align-items:center;justify-content:center;text-align:center;padding:28px}
+  .rotate-device .phone{font-size:64px;display:block;animation:rotateHint 1.8s ease-in-out infinite}.rotate-device h2{font-family:'Cinzel Decorative',serif}
+  @keyframes rotateHint{0%,25%{transform:rotate(0)}70%,100%{transform:rotate(90deg)}}
+  @media (orientation:portrait) and (max-width:900px){.rotate-device{display:flex}body.reduced-motion .rotate-device .phone{animation:none;transform:rotate(90deg)}}
   .icon{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.15),transparent 45%),#181411;border:1px solid var(--line-strong);filter:drop-shadow(0 2px 4px #000)}
   .tab{min-height:48px}.collect-hint{font-family:'Cinzel',serif}
   body.large-ui{font-size:118%} body.large-ui .tab,body.large-ui button{min-height:54px}
@@ -209,6 +218,7 @@
 </style>
 </head>
 <body>
+<div class="rotate-device" role="alert"><div><span class="phone">📱</span><h2>Tourne ton appareil</h2><p>Ashfall se joue en format paysage pour garder la cité et les contrôles entièrement visibles.</p></div></div>
 <nav class="quickmenu" aria-label="Réglages rapides">
   <button class="mutebtn" id="muteBtn" onclick="toggleSound()" title="Couper ou activer le son" aria-label="Couper ou activer le son">🔊</button>
   <button class="mutebtn" onclick="openUiModal('optionsModal')" title="Options" aria-label="Ouvrir les options">⚙️</button>
@@ -507,6 +517,7 @@ async function login(){
   storageKey = "village:"+name.replace(/\s+/g,'_');
   document.getElementById('loginMsg').textContent = "Ouverture des portes…";
   ensureAudio();
+  lockLandscape();
 
   let isNewPlayer = false;
   try{
@@ -803,8 +814,22 @@ const BUILDING_ART = {
   caserne:{dir:'caserne', scaleX:1.02, scaleY:1.02}, muraille:{dir:'muraille', scaleX:1.05, scaleY:1.05},
   tour:{dir:'tour', scaleX:0.96, scaleY:1.15}, forge:{dir:'forge', scaleX:1.05, scaleY:1.05},
   chantier:{dir:'chantier', scaleX:1.04, scaleY:1.04}, labo:{dir:'labo', scaleX:1.02, scaleY:1.02},
-  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03},
-  camp:{dir:'camp', scaleX:0.98, scaleY:0.98}
+  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03}
+};
+// [largeur opaque, hauteur opaque, dernière ligne opaque] mesurées dans chaque WebP 512×512.
+// Ces données calent la vraie base dessinée sur y=0 au lieu de caler le bord transparent du fichier.
+const BUILDING_TRIM = {
+  autel:[[198,166,338],[294,197,354],[308,220,365],[308,236,373],[271,239,375]],
+  caserne:[[208,202,356],[238,204,357],[298,233,372],[267,247,379],[277,251,381]],
+  chantier:[[228,186,348],[244,220,365],[320,243,377],[325,293,402],[292,312,411]],
+  chateau:[[202,192,351],[240,222,366],[257,232,371],[305,236,373],[299,247,379]],
+  forge:[[212,179,345],[291,186,348],[308,193,352],[308,196,353],[273,210,360]],
+  labo:[[229,240,375],[316,238,374],[325,253,382],[325,309,410],[295,325,418]],
+  mine:[[198,159,335],[227,237,374],[248,252,381],[307,249,380],[289,257,384]],
+  muraille:[[219,194,352],[227,222,366],[247,231,371],[306,243,377],[276,257,384]],
+  salledesorts:[[292,186,348],[325,251,381],[325,262,386],[325,296,403],[302,297,404]],
+  scierie:[[277,209,360],[308,220,365],[308,257,384],[308,257,384],[284,257,384]],
+  tour:[[143,257,384],[148,257,384],[177,257,384],[195,257,384],[236,257,384]]
 };
 let BUILDING_MATS = {}, TERRAIN_TEX = {};
 const BUILDING_FX = {
@@ -828,7 +853,10 @@ function initBuildingSprites(){
   Object.entries(BUILDING_ART).forEach(([type,art])=>{
     BUILDING_MATS[type] = [];
     for(let level=1; level<=5; level++){
-      const texture = loader.load(`assets/buildings/levels/${art.dir}/level-${level}.webp`);
+      const texture = loader.load(`assets/buildings/levels/${art.dir}/level-${level}.webp`,undefined,undefined,()=>{
+        BUILDING_MATS[type][level]=null;
+        if(three.ready)updateScene();
+      });
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
       BUILDING_MATS[type][level] = new THREE.SpriteMaterial({
@@ -1019,13 +1047,35 @@ function createMapSkinDecor(skinId,halfSize){
   }
   return group;
 }
+const SKIN_GROUND_CACHE={};
+function createSkinGroundTexture(skinId){
+  if(SKIN_GROUND_CACHE[skinId])return SKIN_GROUND_CACHE[skinId];
+  const palettes={
+    ash:[[48,44,35],[41,38,31],[57,49,38]],
+    forest:[[40,65,43],[34,56,38],[49,74,46]],
+    ice:[[62,82,101],[73,96,116],[52,72,92]],
+    swamp:[[51,59,35],[43,51,31],[61,67,38]],
+    volcano:[[62,37,31],[48,29,27],[76,40,30]]
+  },colors=palettes[skinId]||palettes.ash,cell=24,size=COLS*cell;
+  const c=document.createElement('canvas');c.width=c.height=size;const ctx=c.getContext('2d');
+  for(let r=0;r<ROWS;r++)for(let col=0;col<COLS;col++){
+    const base=colors[(r*13+col*7)%colors.length],j=((r*19+col*31)%9)-4;
+    ctx.fillStyle=`rgb(${base[0]+j},${base[1]+j},${base[2]+j})`;ctx.fillRect(col*cell,r*cell,cell+.5,cell+.5);
+    ctx.strokeStyle='rgba(8,7,6,.16)';ctx.lineWidth=1;ctx.strokeRect(col*cell+.5,r*cell+.5,cell-1,cell-1);
+    if((r*17+col*11)%13===0){ctx.strokeStyle='rgba(214,203,170,.09)';ctx.beginPath();ctx.moveTo(col*cell+5,r*cell+17);ctx.lineTo(col*cell+12,r*cell+10);ctx.lineTo(col*cell+19,r*cell+14);ctx.stroke();}
+  }
+  const vignette=ctx.createRadialGradient(size/2,size/2,size*.12,size/2,size/2,size*.68);
+  vignette.addColorStop(0,'rgba(255,255,255,.025)');vignette.addColorStop(1,'rgba(0,0,0,.36)');ctx.fillStyle=vignette;ctx.fillRect(0,0,size,size);
+  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(8,three.renderer.capabilities.getMaxAnisotropy());
+  SKIN_GROUND_CACHE[skinId]=tex;return tex;
+}
 function applyMapSkinVisual(){
   if(!three.ready&&!three.scene)return;
   const skinId=state?.mapSkin||'ash',skin=MAP_SKINS[skinId]||MAP_SKINS.ash;
   if(three.defaultDecorGroup)three.defaultDecorGroup.visible=skinId==='ash';
   if(three.skinDecorGroup)three.scene.remove(three.skinDecorGroup);
   if(skinId!=='ash'){three.skinDecorGroup=createMapSkinDecor(skinId,(COLS/2)*2.1);three.scene.add(three.skinDecorGroup);}
-  if(three.ground){three.ground.material.map=skinId==='ash'?three.defaultGroundMap:null;three.ground.material.color.setHex(skinId==='ash'?0xffffff:skin.ground);three.ground.material.needsUpdate=true;}
+  if(three.ground){three.ground.material.map=createSkinGroundTexture(skinId);three.ground.material.color.setHex(0xffffff);three.ground.material.needsUpdate=true;}
   if(three.border)three.border.material.color.setHex(skin.ground);
   if(three.scene.fog)three.scene.fog.color.setHex(skin.fog);
   if(three.emberLight)three.emberLight.color.setHex(skin.accent);
@@ -1175,18 +1225,26 @@ function makeBuilding(type, level){
   const g = new THREE.Group();
   const art = BUILDING_ART[type];
   const visualLevel = Math.max(1,Math.min(5,level||1));
-  if(art && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
+  const footprint=FOOTPRINT[type]||1,tileSpan=footprint*2.1;
+  if(art && BUILDING_TRIM[type] && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
+    const trim=BUILDING_TRIM[type][visualLevel-1],opaqueWidth=trim[0]/512;
+    const fullScale=(tileSpan*.88)/Math.max(.2,opaqueWidth);
+    const base=new THREE.Mesh(new THREE.BoxGeometry(tileSpan*.9,.12,tileSpan*.9),stoneMat(type==='chateau'?0x4b4438:0x373128,1));
+    base.position.y=.035;base.receiveShadow=true;g.add(base);
+    const shadow=new THREE.Mesh(new THREE.CircleGeometry(tileSpan*.34,32),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.42,depthWrite:false}));
+    shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.58,1);shadow.position.y=.105;g.add(shadow);
     const sprite = new THREE.Sprite(BUILDING_MATS[type][visualLevel]);
-    const tileSpan = (FOOTPRINT[type]||1)*2.1;
-    sprite.scale.set(tileSpan*art.scaleX, tileSpan*art.scaleY, 1);
-    sprite.position.set(0, 0.04, 0);
-    sprite.center.set(0.5, 0);
+    sprite.scale.set(fullScale*art.scaleX,fullScale*art.scaleY,1);
+    sprite.position.set(0,.11,0);
+    sprite.center.set(.5,1-trim[2]/512);
+    sprite.userData.isBuildingArt=true;
     g.add(sprite);
     const fxDef = BUILDING_FX[type];
     if(fxDef && FX_MATS[fxDef.kind]){
+      const fxScale=Math.max(1,footprint*.85);
       const fx = new THREE.Sprite(FX_MATS[fxDef.kind][0]);
-      fx.scale.set(fxDef.size,fxDef.size,1);
-      fx.position.set(fxDef.x,fxDef.y,0.03);
+      fx.scale.set(fxDef.size*fxScale,fxDef.size*fxScale,1);
+      fx.position.set(fxDef.x*fxScale,fxDef.y*fxScale,.03);
       fx.userData.fxKind=fxDef.kind;
       g.add(fx);
     }
@@ -1194,7 +1252,17 @@ function makeBuilding(type, level){
   }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
-  if(type==='chateau'){
+  if(type==='camp'){
+    const base=new THREE.Mesh(new THREE.BoxGeometry(3.25,.18,3.25),stoneMat(0x40382e));base.position.y=.09;g.add(base);
+    [[-1,-.75],[.8,-.65],[-.7,.8],[.85,.75]].forEach(([x,z],i)=>{
+      const tent=new THREE.Mesh(new THREE.ConeGeometry(.58,.9,4),new THREE.MeshStandardMaterial({color:i%2?0x762f28:0x8e3d2d,roughness:.92}));
+      tent.rotation.y=Math.PI/4;tent.position.set(x,.55,z);g.add(tent);
+      const flap=new THREE.Mesh(new THREE.PlaneGeometry(.3,.42),new THREE.MeshBasicMaterial({color:0x241713,side:THREE.DoubleSide}));
+      flap.position.set(x,.38,z+.42);g.add(flap);
+    });
+    const fire=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8),glowMat(0xe0832f,2));fire.position.set(0,.35,0);g.add(fire);
+    const light=new THREE.PointLight(0xe0832f,1.4,5);light.position.set(0,.55,0);g.add(light);
+  } else if(type==='chateau'){
     const base = new THREE.Mesh(new THREE.BoxGeometry(1.7,1.0,1.7), stoneMat(stoneLight));
     base.position.y=0.5; g.add(base);
     const door = new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.6), woodMat(0x241a12));
@@ -1348,13 +1416,6 @@ function makeBuilding(type, level){
   const s = (0.9 + tierBoost) * sizeMult;
   g.scale.setScalar(s);
   g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
-  if(ICON_MATS[type]){
-    const icon = new THREE.Sprite(ICON_MATS[type]);
-    const iconScale = 0.7/Math.sqrt(sizeMult);
-    icon.scale.set(iconScale,iconScale,1);
-    icon.position.set(0, (ICON_HEIGHT[type]||1.2), 0);
-    g.add(icon);
-  }
   return g;
 }
 
@@ -1418,7 +1479,7 @@ function updateScene(){
   for(let i=0;i<GRID_SIZE;i++){ if(occupied[i]===undefined) emptyIndices.push(i); }
   if(emptyIndices.length){
     const padGeo = new THREE.PlaneGeometry(1.7,1.7);
-    const padMat = new THREE.MeshStandardMaterial({map:TERRAIN_TEX.buildable||TEX.plot, transparent:true, alphaTest:0.03, roughness:1, depthWrite:false});
+    const padMat = new THREE.MeshStandardMaterial({map:TEX.plot, color:0xbcae8b, transparent:true, opacity:.24, alphaTest:.02, roughness:1, depthWrite:false});
     const inst = new THREE.InstancedMesh(padGeo, padMat, emptyIndices.length);
     inst.receiveShadow = true;
     const dummy = new THREE.Object3D();
@@ -2427,6 +2488,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.ui-modal.show').forEach(m=>closeUiModal(m.id));});
 });
 window.addEventListener('beforeunload', ()=>{ if(storageKey) saveState(); });
+async function lockLandscape(){
+  try{ if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape'); }catch(e){}
+}
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
 </body>
 </html>
