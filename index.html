@@ -554,6 +554,8 @@ function initTextures(){
     ctx.beginPath(); ctx.moveTo(s*0.5,s*0.34); ctx.lineTo(s*0.5,s*0.66); ctx.moveTo(s*0.34,s*0.5); ctx.lineTo(s*0.66,s*0.5); ctx.stroke();
   },48);
   initIconSprites();
+  initBuildingSprites();
+  initAnimatedArt();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -663,6 +665,74 @@ const ICON_DRAW = {
   }
 };
 let ICON_MATS = {};
+const BUILDING_ART = {
+  chateau:{dir:'chateau', w:6.15, h:6.15},
+  mine:{dir:'mine', w:2.2, h:2.2},
+  scierie:{dir:'scierie', w:2.2, h:2.2},
+  autel:{dir:'autel', w:2.05, h:2.05},
+  caserne:{dir:'caserne', w:4.3, h:4.3},
+  muraille:{dir:'muraille', w:2.25, h:2.25},
+  tour:{dir:'tour', w:4.0, h:4.8},
+  forge:{dir:'forge', w:2.25, h:2.25},
+  chantier:{dir:'chantier', w:2.2, h:2.2},
+  labo:{dir:'labo', w:4.3, h:4.3},
+  salledesorts:{dir:'salledesorts', w:4.35, h:4.35}
+};
+let BUILDING_MATS = {};
+const BUILDING_FX = {
+  chateau:{kind:'brazier', x:0.73, y:0.9, size:0.44},
+  mine:{kind:'smoke', x:0.55, y:1.35, size:0.5},
+  scierie:{kind:'smoke', x:0.58, y:1.25, size:0.48},
+  autel:{kind:'soul-flame', x:0, y:0.66, size:0.48},
+  caserne:{kind:'torch', x:0.78, y:0.87, size:0.32},
+  muraille:{kind:'torch', x:0.7, y:0.88, size:0.28},
+  tour:{kind:'brazier', x:0.7, y:1.35, size:0.36},
+  forge:{kind:'brazier', x:0.48, y:0.82, size:0.4},
+  chantier:{kind:'torch', x:-0.62, y:0.92, size:0.3},
+  labo:{kind:'alchemy', x:0.45, y:1.15, size:0.46},
+  salledesorts:{kind:'rune', x:0, y:0.72, size:0.58}
+};
+const FX_KINDS = ['torch','brazier','smoke','soul-flame','alchemy','rune'];
+let FX_MATS = {}, TROOP_MATS = {};
+function initBuildingSprites(){
+  const loader = new THREE.TextureLoader();
+  Object.entries(BUILDING_ART).forEach(([type,art])=>{
+    BUILDING_MATS[type] = [];
+    for(let level=1; level<=5; level++){
+      const texture = loader.load(`assets/buildings/levels/${art.dir}/level-${level}.webp`);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
+      BUILDING_MATS[type][level] = new THREE.SpriteMaterial({
+        map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
+      });
+    }
+  });
+}
+function initAnimatedArt(){
+  const loader = new THREE.TextureLoader();
+  FX_KINDS.forEach(kind=>{
+    FX_MATS[kind] = [];
+    for(let frame=0; frame<8; frame++){
+      const texture = loader.load(`assets/fx/${kind}/frame-${frame}.webp`);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      FX_MATS[kind][frame] = new THREE.SpriteMaterial({
+        map:texture, transparent:true, depthTest:false, depthWrite:false, blending:THREE.AdditiveBlending
+      });
+    }
+  });
+  ['guerrier','archer','brute'].forEach(type=>{
+    TROOP_MATS[type] = {walk:[],attack:[]};
+    ['walk','attack'].forEach(action=>{
+      for(let frame=0; frame<7; frame++){
+        const texture = loader.load(`assets/troops/${type}-${action}/frame-${frame}.webp`);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        TROOP_MATS[type][action][frame] = new THREE.SpriteMaterial({
+          map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
+        });
+      }
+    });
+  });
+}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -890,11 +960,37 @@ function animateScene(){
     if(m.userData.pulse){ const s=1+Math.sin(three.clock*4)*0.12; m.scale.setScalar(m.userData.baseScale*s); }
   });
   (three.waveMeshes||[]).forEach((m,i)=>{ m.rotation.y = Math.sin(three.clock*1.6+i)*0.18; });
+  const fxFrame = Math.floor(three.clock*10)%8;
+  (three.fxSprites||[]).forEach(fx=>{ if(FX_MATS[fx.userData.fxKind]) fx.material=FX_MATS[fx.userData.fxKind][fxFrame]; });
   three.renderer.render(three.scene, three.camera);
 }
 
 function makeBuilding(type, level){
   const g = new THREE.Group();
+  const art = BUILDING_ART[type];
+  const visualLevel = Math.max(1,Math.min(5,level||1));
+  if(art && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
+    const sprite = new THREE.Sprite(BUILDING_MATS[type][visualLevel]);
+    sprite.scale.set(art.w, art.h, 1);
+    sprite.position.set(0, 0.04, 0);
+    sprite.center.set(0.5, 0);
+    g.add(sprite);
+    const fxDef = BUILDING_FX[type];
+    if(fxDef && FX_MATS[fxDef.kind]){
+      const fx = new THREE.Sprite(FX_MATS[fxDef.kind][0]);
+      fx.scale.set(fxDef.size,fxDef.size,1);
+      fx.position.set(fxDef.x,fxDef.y,0.03);
+      fx.userData.fxKind=fxDef.kind;
+      g.add(fx);
+      if(!three.fxSprites) three.fxSprites=[];
+      three.fxSprites.push(fx);
+      if(typeof battleThree!=='undefined'){
+        if(!battleThree.fxSprites) battleThree.fxSprites=[];
+        battleThree.fxSprites.push(fx);
+      }
+    }
+    return g;
+  }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
   if(type==='chateau'){
@@ -1066,6 +1162,7 @@ function updateScene(){
   while(three.group.children.length) three.group.remove(three.group.children[0]);
   three.tileMeshes = {};
   three.waveMeshes = [];
+  three.fxSprites = [];
   three.plotInstancedMesh = null;
   three.plotIndexMap = [];
   const occupied = buildOccupiedMap(); // idx -> anchorIdx (couvre aussi les ancres elles-mêmes)
@@ -1413,11 +1510,20 @@ function animateBattleScene(){
   battleThree.camera.position.set(radius*Math.sin(polar)*Math.sin(az), radius*Math.cos(polar), radius*Math.sin(polar)*Math.cos(az));
   battleThree.camera.lookAt(0,0.4,0);
   if(battleThree.running) simulateBattleStep(dt);
+  const fxFrame = Math.floor(battleThree.clock*10)%8;
+  (battleThree.fxSprites||[]).forEach(fx=>{ if(FX_MATS[fx.userData.fxKind]) fx.material=FX_MATS[fx.userData.fxKind][fxFrame]; });
+  battleThree.troops.forEach(t=>{
+    if(!t.sprite || !TROOP_MATS[t.type]) return;
+    const action = t.animState==='attack'?'attack':'walk';
+    const frame = Math.floor(battleThree.clock*(action==='attack'?9:7))%7;
+    t.sprite.material = TROOP_MATS[t.type][action][frame];
+  });
   battleThree.renderer.render(battleThree.scene, battleThree.camera);
 }
 function buildEnemyScene(enemyState){
   while(battleThree.group.children.length) battleThree.group.remove(battleThree.group.children[0]);
   battleThree.buildings = {};
+  battleThree.fxSprites = [];
   Object.entries(enemyState.buildings||{}).forEach(([idxStr,b])=>{
     const idx = Number(idxStr);
     if(Number.isNaN(idx)) return;
@@ -1460,22 +1566,17 @@ function spawnTroops(count, composition){
     const def = TROOP_TYPES[type];
     for(let i=0;i<counts[type];i++){
       const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.34,8), new THREE.MeshStandardMaterial({color:def.color, roughness:0.7}));
-      body.position.y=0.22; g.add(body);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshStandardMaterial({color:def.headColor, roughness:0.6}));
-      head.position.y=0.46; g.add(head);
-      if(type==='archer'){
-        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.1,0.015,6,10,Math.PI), new THREE.MeshStandardMaterial({color:0x6b4a2f}));
-        bow.position.set(0.12,0.3,0); bow.rotation.y=Math.PI/2; g.add(bow);
-      } else if(type==='brute'){
-        g.scale.set(1.2,1.15,1.2);
-      }
-      g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+      const troopSprite = new THREE.Sprite(TROOP_MATS[type].walk[0]);
+      const troopSize = type==='brute'?1.35:1.05;
+      troopSprite.scale.set(troopSize,troopSize,1);
+      troopSprite.position.y=0.03;
+      troopSprite.center.set(0.5,0);
+      g.add(troopSprite);
       const spawnX = (Math.random()-0.5)*7;
       const spawnZ = 6.3+Math.random()*1.3;
       g.position.set(spawnX,0,spawnZ);
       battleThree.group.add(g);
-      battleThree.troops.push({ mesh:g, hp:troopHp*def.hpMult, maxHp:troopHp*def.hpMult, target:null,
+      battleThree.troops.push({ mesh:g, sprite:troopSprite, type, animState:'walk', hp:troopHp*def.hpMult, maxHp:troopHp*def.hpMult, target:null,
         speed:(1.5+Math.random()*0.3)*def.speedMult, dps:troopDps*def.dpsMult*troopPowerMult,
         range:def.range, defRes:def.defRes, alive:true, isHero:false });
     }
@@ -1521,10 +1622,15 @@ function simulateBattleStep(dt){
     const dist = dir.length();
     const range = t.range || 0.75;
     if(dist > range){
+      t.animState='walk';
       dir.normalize();
       t.mesh.position.addScaledVector(dir, t.speed*dt);
-      t.mesh.rotation.y = Math.atan2(dir.x,dir.z);
+      if(t.sprite){
+        const sx=Math.abs(t.sprite.scale.x);
+        t.sprite.scale.x = dir.x<0?-sx:sx;
+      }
     } else {
+      t.animState='attack';
       const rageMult = performance.now() < battleThree.rageUntil ? 1.6 : 1;
       t.target.hp -= t.dps*dt*rageMult;
       if(t.target.hp<=0 && !t.target.destroyed){
