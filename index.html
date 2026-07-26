@@ -23,8 +23,6 @@
   html,body{margin:0;padding:0;}
   body{
     background:
-      linear-gradient(rgba(5,7,12,.68),rgba(5,4,5,.92)),
-      url('assets/backgrounds/main-menu.png') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -162,9 +160,6 @@
   .login{max-width:400px; margin:60px auto; background:var(--stone-dark); border:1px solid var(--line); border-top:2px solid var(--ember-bright);
     border-radius:5px; padding:30px 26px; text-align:center; position:relative; z-index:2;
     box-shadow:0 24px 70px rgba(0,0,0,0.7);}
-  #loginScreen{background:linear-gradient(180deg,rgba(42,34,29,.92),rgba(14,12,13,.96));backdrop-filter:blur(7px);
-    box-shadow:0 24px 80px rgba(0,0,0,.88),0 0 0 1px rgba(255,170,77,.08) inset;}
-  #gameScreen .village{background:radial-gradient(circle at 50% 42%,rgba(89,100,128,.10),transparent 48%),rgba(12,11,13,.94);}
   .login h2{font-family:'Cinzel Decorative',serif; margin-top:0;}
   .login input{width:100%; background:var(--stone); border:1px solid var(--line); color:var(--bone); font-family:'EB Garamond',serif;
     font-size:16px; padding:11px 12px; border-radius:4px; margin:14px 0; text-align:center;}
@@ -184,9 +179,9 @@
 <div class="wrap">
 
   <div class="titleblock">
-    <div class="eyebrow">La Veille Creuse</div>
-    <h1>Ashfall</h1>
-    <div class="subtitle">The Hollow Vigil · Bâtis. Récolte. Assiège.</div>
+    <div class="eyebrow">Par-delà les cendres</div>
+    <h1>Ashfall: The Hollow Vigil</h1>
+    <div class="subtitle">Bâtis. Récolte. Assiège tes rivaux.</div>
   </div>
 
   <div id="loginScreen" class="login">
@@ -222,11 +217,21 @@
       </div>
     </div>
 
-    <div id="view-battle" class="village hide">
-      <div class="battlewrap">
-        <div class="timelabel" style="margin-top:0;">Ton attaque vient de tes Casernes. Ta défense vient de tes Murailles et Tours.</div>
+    <div id="view-battle" class="village hide" style="padding:0; overflow:hidden;">
+      <div class="battlewrap" id="battleIntro" style="padding:20px;">
+        <div class="timelabel" style="margin-top:0;">Ton armée vient de tes Casernes. La défense adverse vient de ses Murailles et Tours.</div>
         <button class="findbtn" id="findBtn" onclick="findEnemy()">Chercher un adversaire</button>
         <div id="enemyZone"></div>
+      </div>
+      <div id="battleFieldWrap" class="hide" style="position:relative; width:100%; height:min(62vh,540px); min-height:340px;">
+        <canvas id="battleCanvas" style="display:block; width:100%; height:100%;"></canvas>
+        <div id="battleHud" style="position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none;">
+          <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">⏱ <span id="battleTimer">40</span>s</div>
+          <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">💥 <span id="battlePct">0</span>% · <span id="battleStars">☆☆☆</span></div>
+        </div>
+        <div id="battleResultOverlay" class="hide" style="position:absolute; inset:0; background:rgba(6,5,4,0.82); display:flex; align-items:center; justify-content:center;">
+          <div class="enemycard" style="max-width:340px; text-align:center;" id="battleResultCard"></div>
+        </div>
       </div>
     </div>
 
@@ -279,9 +284,13 @@ const BUILDINGS = {
               baseCost:{or:350,bois:300,ames:30}, buildTime:50,
               upgradeCost:l=>({or:280*Math.pow(1.6,l-1),bois:220*Math.pow(1.6,l-1),ames:25*l}), upgradeTime:l=>50*Math.pow(1.4,l-1),
               maxCount:()=>1 },
+  chantier: { name:"Chantier", icon:"👷", desc:"Un ouvrier de plus, une construction de plus en parallèle.", maxLevel:1,
+              baseCost:{or:400,bois:400,ames:50}, buildTime:40,
+              upgradeCost:()=>({or:0,bois:0,ames:0}), upgradeTime:()=>0,
+              maxCount:ch=>Math.min(3,Math.floor(ch/2)) },
 };
 const COLS = 6, ROWS = 6, GRID_SIZE = COLS*ROWS, CENTER = 14;
-const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge"];
+const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier"];
 
 function distFromCenter(i){
   const r=Math.floor(i/COLS), c=i%COLS, cr=Math.floor(CENTER/COLS), cc=CENTER%COLS;
@@ -365,6 +374,8 @@ function updateOnlineBadge(){ document.getElementById('onlineDot').classList.tog
 function fmt(n){ n=Math.floor(n); if(n>=1000000) return (n/1000000).toFixed(1)+"M"; if(n>=1000) return (n/1000).toFixed(1)+"k"; return n.toString(); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(showToast._t); showToast._t=setTimeout(()=>t.classList.remove('show'),1900); }
 function chateauLevel(st){ const c = Object.values(st.buildings).find(b=>b.type==='chateau'); return c ? c.level : 1; }
+function activeBuilders(st){ return Object.values(st.buildings).filter(b=>b.until && b.until>Date.now()).length; }
+function maxBuilders(st){ return 1 + countOfType(st,'chantier'); }
 function countOfType(st,type){ return Object.values(st.buildings).filter(b=>b.type===type).length; }
 function forgeSpeedMult(){ const f=Object.values(state.buildings).find(b=>b.type==='forge'); return f ? 1-Math.min(0.4,f.level*0.07) : 1; }
 function canAfford(cost){ return state.resources.or>=cost.or && state.resources.bois>=cost.bois && state.resources.ames>=cost.ames; }
@@ -375,6 +386,10 @@ function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':'
 function powerOf(st, statType){
   return Object.values(st.buildings).filter(b=>BUILDINGS[b.type] && BUILDINGS[b.type].stat===statType)
     .reduce((sum,b)=>sum + BUILDINGS[b.type].baseStat*b.level, 0);
+}
+function powerScore(st){
+  const levels = Object.values(st.buildings||{}).reduce((sum,b)=>sum+b.level,0);
+  return chateauLevel(st)*10 + levels + Math.round((st.trophies||0)*0.3);
 }
 function isShielded(st){ return st.shieldUntil && st.shieldUntil > Date.now(); }
 function costForNext(type){
@@ -533,32 +548,15 @@ const ICON_DRAW = {
       '#7a828a', INK, s*0.035);
     outlinedPath(ctx,c=>{ c.arc(s*0.5,s*0.54,s*0.045,0,Math.PI*2); }, '#ff8c3a', null);
     gloss(ctx,s*0.42,s*0.5,s*0.06,s*0.03,0.2);
+  },
+  chantier:(ctx,s)=>{
+    outlinedPath(ctx,c=>{ c.moveTo(s*0.5,s*0.16); c.lineTo(s*0.82,s*0.72); c.lineTo(s*0.18,s*0.72); c.closePath(); }, '#8a5a2e', INK, s*0.045);
+    outlinedPath(ctx,c=>{ c.moveTo(s*0.5,s*0.3); c.lineTo(s*0.5,s*0.68); c.lineTo(s*0.36,s*0.68); c.closePath(); }, '#6b4423', null);
+    outlinedPath(ctx,c=>{ c.rect(s*0.56,s*0.2,s*0.16,s*0.1); }, '#c9ced4', INK, s*0.035);
+    gloss(ctx,s*0.36,s*0.4,s*0.06,s*0.1,-0.5);
   }
 };
 let ICON_MATS = {};
-const BUILDING_ART = {
-  chateau:{src:'assets/buildings/townhall.png', w:4.8, h:4.8, y:2.15},
-  mine:{src:'assets/buildings/mine.png', w:3.15, h:3.15, y:1.38},
-  scierie:{src:'assets/buildings/sawmill.png', w:3.15, h:3.15, y:1.38},
-  autel:{src:'assets/buildings/altar.png', w:2.9, h:2.9, y:1.22},
-  caserne:{src:'assets/buildings/barracks.png', w:3.45, h:3.45, y:1.52},
-  muraille:{src:'assets/buildings/wall.png', w:3.45, h:2.3, y:0.92},
-  tour:{src:'assets/buildings/tower.png', w:3.1, h:4.25, y:1.94},
-  forge:{src:'assets/buildings/forge.png', w:3.3, h:3.3, y:1.45}
-};
-let BUILDING_MATS = {};
-function initBuildingSprites(){
-  const loader = new THREE.TextureLoader();
-  Object.entries(BUILDING_ART).forEach(([type,art])=>{
-    const tex=loader.load(art.src, ()=>{ tex.anisotropy=Math.min(8,three.renderer.capabilities.getMaxAnisotropy()); });
-    tex.minFilter=THREE.LinearMipMapLinearFilter;
-    tex.magFilter=THREE.LinearFilter;
-    BUILDING_MATS[type]=new THREE.SpriteMaterial({
-      map:tex, transparent:true, alphaTest:.08, depthTest:true, depthWrite:false,
-      color:0xffffff
-    });
-  });
-}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -586,7 +584,7 @@ function roundRectPath(ctx,x,y,w,h,r){
   ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
-const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65 };
+const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95 };
 function stoneMat(color,rough){ return new THREE.MeshStandardMaterial({map:TEX.stone, color, roughness:rough!==undefined?rough:0.95, metalness:0.05}); }
 function woodMat(color){ return new THREE.MeshStandardMaterial({map:TEX.wood, color, roughness:0.9}); }
 function roofMat(color){ return new THREE.MeshStandardMaterial({map:TEX.roof, color, roughness:0.85}); }
@@ -637,7 +635,6 @@ function initScene(){
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
-  initBuildingSprites();
 
   // Lighting: dark, warm, torch-lit
   three.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
@@ -735,7 +732,7 @@ function animateScene(){
   three.renderer.render(three.scene, three.camera);
 }
 
-function makeProceduralBuilding(type, level){
+function makeBuilding(type, level){
   const g = new THREE.Group();
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
@@ -844,6 +841,18 @@ function makeProceduralBuilding(type, level){
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.14,8,8), glowMat(roofBright,1.4));
     tip.position.set(0.3,1.42,0); g.add(tip);
     const pl = new THREE.PointLight(roofBright,0.8,2); pl.position.set(0.3,1.42,0); g.add(pl);
+  } else if(type==='chantier'){
+    const tentBase = new THREE.Mesh(new THREE.ConeGeometry(0.55,0.6,4), woodMat(0x6b4a2f));
+    tentBase.rotation.y=Math.PI/4; tentBase.position.y=0.3; g.add(tentBase);
+    const flap = new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.35), woodMat(0x3c2a1c));
+    flap.position.set(0,0.24,0.32); g.add(flap);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.7,6), woodMat(0x2c2015));
+    post.position.set(0.5,0.35,0.3); g.add(post);
+    const hammerHead = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.08,0.08), stoneMat(0x8a8f94,0.6));
+    hammerHead.position.set(0.5,0.66,0.3); hammerHead.rotation.z=0.3; g.add(hammerHead);
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8), glowMat(roofBright,1.5));
+    lantern.position.set(-0.45,0.35,0.35); g.add(lantern);
+    const pl2 = new THREE.PointLight(roofBright,0.6,1.8); pl2.position.copy(lantern.position); g.add(pl2);
   }
   const s = 0.9 + tierBoost;
   g.scale.setScalar(s);
@@ -854,29 +863,6 @@ function makeProceduralBuilding(type, level){
     icon.position.set(0, (ICON_HEIGHT[type]||1.2), 0);
     g.add(icon);
   }
-  return g;
-}
-
-function makeBuilding(type, level){
-  const art=BUILDING_ART[type];
-  const mat=BUILDING_MATS[type];
-  if(!art || !mat) return makeProceduralBuilding(type,level);
-  const g=new THREE.Group();
-  const sprite=new THREE.Sprite(mat.clone());
-  const tierScale=1+Math.min(.12,(level-1)*.018);
-  sprite.scale.set(art.w*tierScale,art.h*tierScale,1);
-  sprite.position.set(0,art.y*tierScale,0);
-  sprite.renderOrder=4;
-  g.add(sprite);
-  const plate=new THREE.Mesh(
-    new THREE.CircleGeometry(type==='chateau'?1.48:type==='muraille'?1.04:1.12,32),
-    new THREE.MeshBasicMaterial({color:0x050608,transparent:true,opacity:.42,depthWrite:false})
-  );
-  plate.rotation.x=-Math.PI/2;
-  plate.scale.z=type==='muraille'?.52:.72;
-  plate.position.y=.025;
-  g.add(plate);
-  g.userData.artSprite=sprite;
   return g;
 }
 
@@ -943,8 +929,9 @@ function closePanel(){ document.getElementById('overlay').classList.remove('show
 /* ================= Build menu ================= */
 function openBuildMenu(idx){
   const chLevel = chateauLevel(state);
+  const buildersFull = activeBuilders(state) >= maxBuilders(state);
   let html = `<button class="close-x" onclick="closePanel()">✕</button><h2>Bâtir sur cette parcelle</h2>
-    <div class="desc">Choisis ce que les cendres feront pousser ici.</div>`;
+    <div class="desc">Choisis ce que les cendres feront pousser ici. Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés !':''}</div>`;
   let any=false;
   PLOT_TYPE_ORDER.forEach(t=>{
     const def = BUILDINGS[t];
@@ -952,7 +939,7 @@ function openBuildMenu(idx){
     if(count>=max) return;
     any=true;
     const cost = costForNext(t);
-    const afford = canAfford(cost);
+    const afford = canAfford(cost) && !buildersFull;
     html += `<div class="opt"><span class="oicon">${def.icon}</span><div class="omain">
       <div class="oname">${def.name} <span style="color:var(--bone-dim);font-size:11px;">(${count}/${max})</span></div>
       <div class="ocost">${costString(cost)} · ⏱ ${Math.round(def.buildTime*forgeSpeedMult())}s</div>
@@ -965,6 +952,7 @@ function openBuildMenu(idx){
 function startBuild(idx,type){
   const cost = costForNext(type);
   if(!canAfford(cost)) return;
+  if(activeBuilders(state) >= maxBuilders(state)){ showToast(`Tous tes ouvriers sont occupés (${activeBuilders(state)}/${maxBuilders(state)})`); return; }
   spend(cost);
   const def = BUILDINGS[type];
   const time = def.buildTime*forgeSpeedMult()*1000;
@@ -993,9 +981,12 @@ function openBuildingPanel(idx){
       html += `<div class="statline"><span>${statLabel(def.stat)}</span><span>${def.baseStat*b.level}</span></div>`;
     }
     if(b.level < def.maxLevel){
-      const cost = def.upgradeCost(b.level), time = def.upgradeTime(b.level)*forgeSpeedMult(), afford = canAfford(cost);
+      const cost = def.upgradeCost(b.level), time = def.upgradeTime(b.level)*forgeSpeedMult();
+      const buildersFull = activeBuilders(state) >= maxBuilders(state);
+      const afford = canAfford(cost) && !buildersFull;
       html += `<div class="statline"><span>Amélioration → Nv.${b.level+1}</span><span>${costString(cost)}</span></div>
-      <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">Améliorer · ⏱ ${Math.round(time)}s</button>`;
+      <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">Améliorer · ⏱ ${Math.round(time)}s</button>
+      <div class="timelabel">Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés':''}</div>`;
     } else { html += `<div class="timelabel">Niveau maximum atteint.</div>`; }
   }
   document.getElementById('panel').innerHTML = html;
@@ -1014,6 +1005,7 @@ function startUpgrade(idx){
   const b = state.buildings[idx], def = BUILDINGS[b.type];
   const cost = def.upgradeCost(b.level);
   if(!canAfford(cost)) return;
+  if(activeBuilders(state) >= maxBuilders(state)){ showToast(`Tous tes ouvriers sont occupés (${activeBuilders(state)}/${maxBuilders(state)})`); return; }
   spend(cost);
   const time = def.upgradeTime(b.level)*forgeSpeedMult()*1000;
   b.constructStart = Date.now(); b.until = Date.now()+time; b.pendingLevel = b.level+1;
@@ -1055,13 +1047,21 @@ function gameTick(){
 
 /* ================= Battle ================= */
 function botEnemy(){
-  const chLevel = chateauLevel(state);
+  const chLevel = Math.max(1, chateauLevel(state) + Math.round(Math.random()*2-1));
   const defLv = Math.max(1, Math.round(chLevel*0.7 + Math.random()*2));
   const or = Math.round(200 + chLevel*150 + Math.random()*300);
   const bois = Math.round(200 + chLevel*150 + Math.random()*300);
-  return { isBot:true, name:"Les Errants (bot)", trophies:Math.round((state.trophies||0)*0.8),
-    resources:{or,bois,ames:Math.round(or*0.05)},
-    buildings:{ f1:{type:'muraille', level:defLv}, f2:{type:'tour', level:Math.max(1,Math.round(defLv*0.7))} } };
+  const buildings = {};
+  buildings[CENTER] = {type:'chateau', level:chLevel};
+  const spots = ALL_INDICES.slice(0,8);
+  buildings[spots[0]] = {type:'muraille', level:defLv};
+  buildings[spots[1]] = {type:'tour', level:Math.max(1,Math.round(defLv*0.7))};
+  buildings[spots[2]] = {type:'mine', level:Math.max(1,Math.round(chLevel*0.6))};
+  buildings[spots[3]] = {type:'scierie', level:Math.max(1,Math.round(chLevel*0.6))};
+  if(chLevel>=2) buildings[spots[4]] = {type:'muraille', level:defLv};
+  if(chLevel>=3) buildings[spots[5]] = {type:'tour', level:Math.max(1,defLv-1)};
+  return { isBot:true, name:"Les Errants (bot)", trophies:Math.round((state.trophies||0)*0.85),
+    resources:{or,bois,ames:Math.round(or*0.05)}, buildings };
 }
 
 async function findEnemy(){
@@ -1070,91 +1070,268 @@ async function findEnemy(){
   btn.disabled = true; btn.textContent = "Recherche en cours…";
   zone.innerHTML = "";
   let enemy = null, enemyLabel = "";
+  const myPower = powerScore(state);
   try{
     const list = await window.storage.list('village:', true);
     let others = (list.keys||[]).filter(k=>k!==storageKey);
     others.sort(()=>Math.random()-0.5);
-    others = others.slice(0,5);
+    others = others.slice(0,8);
+    const candidates = [];
     for(const key of others){
       try{
         const res = await window.storage.get(key, true);
         const eState = JSON.parse(res.value);
         if(isShielded(eState)) continue;
-        enemy = eState; enemy._key = key;
-        enemyLabel = key.replace('village:','').replace(/_/g,' ');
-        break;
+        eState._key = key;
+        candidates.push(eState);
       }catch(e){ continue; }
+    }
+    if(candidates.length){
+      candidates.sort((a,b)=>Math.abs(powerScore(a)-myPower) - Math.abs(powerScore(b)-myPower));
+      enemy = candidates[0];
+      enemyLabel = enemy._key.replace('village:','').replace(/_/g,' ');
     }
   }catch(e){ /* fall through to bot */ }
   if(!enemy){ enemy = botEnemy(); enemyLabel = enemy.name; }
 
   const myAtk = powerOf(state,'attaque');
   const enDef = powerOf(enemy,'defense') + 5;
+  const troopCount = Math.max(3, Math.min(30, Math.round(myAtk/6)));
   window._currentEnemy = enemy; window._currentEnemyLabel = enemyLabel;
 
   zone.innerHTML = `<div class="enemycard">
     <h3>🏴 ${enemyLabel}</h3>
     <div class="tagline">${enemy.isBot ? "Une garnison errante, sans maître." : "Une cité rivale, forgée par un autre gardien."} ${enemy.trophies!==undefined?`· 🏆 ${fmt(enemy.trophies||0)}`:''}</div>
     <div class="vsrow">
-      <div class="vscol"><div class="who">Ton attaque</div><div class="num">${myAtk}</div></div>
+      <div class="vscol"><div class="who">Tes troupes</div><div class="num">${troopCount}</div></div>
       <div class="vs-x">VS</div>
       <div class="vscol"><div class="who">Leur défense</div><div class="num">${enDef}</div></div>
     </div>
-    <div class="timelabel">Butin potentiel : 🪙 ${fmt(Math.round((enemy.resources.or||0)*0.2))} · 🪵 ${fmt(Math.round((enemy.resources.bois||0)*0.2))}</div>
-    <button class="actionbtn" style="margin-top:14px;" onclick="launchAssault()">Lancer l'assaut</button>
-    <div class="battlelog hide" id="battlelog"></div>
-    <div id="battleResult"></div>
+    <div class="timelabel">Butin potentiel (à 100% de destruction) : 🪙 ${fmt(Math.min(600,Math.round((enemy.resources.or||0)*0.6)))} · 🪵 ${fmt(Math.min(600,Math.round((enemy.resources.bois||0)*0.6)))}</div>
+    <button class="actionbtn" style="margin-top:14px;" onclick="deployAssault()">Lancer l'assaut</button>
   </div>`;
   btn.disabled = false; btn.textContent = "Chercher un autre adversaire";
 }
 
-async function launchAssault(){
-  const enemy = window._currentEnemy;
-  const myAtk = powerOf(state,'attaque');
-  const enDef = powerOf(enemy,'defense') + 5;
-  const log = document.getElementById('battlelog');
-  log.classList.remove('hide');
-  log.textContent = "Tes gardiens s'élancent vers les portes…";
-  sfxAttackStart();
+/* ---- Champ de bataille 3D : déploiement de troupes, combat en temps réel ---- */
+const BUILDING_BASE_HP = { chateau:420, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90 };
+let battleThree = { renderer:null, scene:null, camera:null, group:null, ready:false, clock:0, buildings:{}, troops:[],
+  running:false, elapsed:0, maxDuration:40, destroyedCount:0, totalCount:0, townHallDestroyed:false, _lastT:0, _defTick:0 };
 
-  const chance = myAtk / (myAtk + enDef);
-  await new Promise(r=>setTimeout(r,900));
-  log.textContent = "Le choc des armes résonne dans les cendres…";
-  await new Promise(r=>setTimeout(r,900));
-
-  const won = Math.random() < chance;
-  const resultEl = document.getElementById('battleResult');
-  if(won){
-    const lootOr = Math.min(500, Math.round((enemy.resources.or||0)*0.2));
-    const lootBois = Math.min(500, Math.round((enemy.resources.bois||0)*0.2));
-    state.resources.or += lootOr; state.resources.bois += lootBois;
-    state.trophies = (state.trophies||0) + 20;
-    if(!enemy.isBot && enemy._key){
-      enemy.resources.or = Math.max(0,(enemy.resources.or||0)-lootOr);
-      enemy.resources.bois = Math.max(0,(enemy.resources.bois||0)-lootBois);
-      enemy.trophies = Math.max(0,(enemy.trophies||0)-14);
-      enemy.shieldUntil = Date.now() + 3*60*60*1000;
-      try{ await window.storage.set(enemy._key, JSON.stringify(enemy), true); }catch(e){}
-    }
-    log.textContent = "Les portes cèdent. La garnison ennemie recule.";
-    sfxVictory();
-    resultEl.innerHTML = `<div class="result win">🏆 Victoire</div>
-      <div class="lootrow"><span>🪙 +${fmt(lootOr)}</span><span>🪵 +${fmt(lootBois)}</span><span>🏆 +20</span></div>`;
-    renderResources(); saveState();
-    showToast("Victoire ! Butin rapporté.");
-  } else {
-    state.trophies = Math.max(0,(state.trophies||0)-8);
-    if(!enemy.isBot && enemy._key){
-      enemy.trophies = (enemy.trophies||0)+6;
-      enemy.shieldUntil = Date.now() + 1*60*60*1000;
-      try{ await window.storage.set(enemy._key, JSON.stringify(enemy), true); }catch(e){}
-    }
-    log.textContent = "Tes gardiens sont repoussés dans les cendres.";
-    sfxDefeat();
-    resultEl.innerHTML = `<div class="result lose">💀 Défaite</div><div class="timelabel">🏆 -8 · Reviens quand ta Caserne sera plus forte.</div>`;
-    renderResources(); saveState();
-    showToast("Défaite — tes gardiens battent en retraite.");
+function initBattleScene(){
+  if(battleThree.ready || !window.THREE) return;
+  const canvas = document.getElementById('battleCanvas');
+  battleThree.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  battleThree.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  battleThree.renderer.shadowMap.enabled = true;
+  battleThree.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  battleThree.scene = new THREE.Scene();
+  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.05);
+  battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  battleThree.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
+  const moon = new THREE.DirectionalLight(0x6f7aa0,0.4); moon.position.set(-7,11,-5); moon.castShadow=true;
+  moon.shadow.mapSize.set(1024,1024);
+  moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
+  battleThree.scene.add(moon);
+  const ember = new THREE.PointLight(0xe0832f,1.8,12,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
+  const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(9,48), groundMat);
+  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
+  battleThree.group = new THREE.Group(); battleThree.scene.add(battleThree.group);
+  battleThree.ready = true;
+  resizeBattleScene();
+  window.addEventListener('resize', resizeBattleScene);
+  animateBattleScene();
+}
+function resizeBattleScene(){
+  if(!battleThree.renderer) return;
+  const wrap = document.getElementById('battleFieldWrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  if(w<10||h<10) return;
+  battleThree.renderer.setSize(w,h,false);
+  battleThree.camera.aspect = w/h; battleThree.camera.updateProjectionMatrix();
+}
+function animateBattleScene(){
+  requestAnimationFrame(animateBattleScene);
+  if(!battleThree.ready) return;
+  const now = performance.now();
+  const dt = battleThree._lastT ? Math.min(0.05,(now-battleThree._lastT)/1000) : 0.016;
+  battleThree._lastT = now;
+  battleThree.clock += dt;
+  const az = 0.5 + Math.sin(battleThree.clock*0.05)*0.3;
+  const radius = 14, polar = 0.95;
+  battleThree.camera.position.set(radius*Math.sin(polar)*Math.sin(az), radius*Math.cos(polar), radius*Math.sin(polar)*Math.cos(az));
+  battleThree.camera.lookAt(0,0.4,0);
+  if(battleThree.running) simulateBattleStep(dt);
+  battleThree.renderer.render(battleThree.scene, battleThree.camera);
+}
+function buildEnemyScene(enemyState){
+  while(battleThree.group.children.length) battleThree.group.remove(battleThree.group.children[0]);
+  battleThree.buildings = {};
+  Object.entries(enemyState.buildings||{}).forEach(([idxStr,b])=>{
+    const idx = Number(idxStr);
+    if(Number.isNaN(idx)) return;
+    const def = BUILDINGS[b.type]; if(!def) return;
+    const {x,z} = gridToWorld(idx);
+    const mesh = makeBuilding(b.type, b.level);
+    mesh.position.set(x,0,z);
+    battleThree.group.add(mesh);
+    const baseHp = BUILDING_BASE_HP[b.type]||120;
+    const maxHp = Math.round(baseHp*(0.7+0.3*b.level));
+    const barY = (ICON_HEIGHT[b.type]||1.2)+0.55;
+    const barBg = new THREE.Sprite(new THREE.SpriteMaterial({color:0x1a1613}));
+    barBg.scale.set(0.95,0.14,1); barBg.position.set(x,barY,z);
+    const barFg = new THREE.Sprite(new THREE.SpriteMaterial({color:0x5cb85c}));
+    barFg.scale.set(0.9,0.1,1); barFg.position.set(x,barY,z+0.001);
+    battleThree.group.add(barBg); battleThree.group.add(barFg);
+    battleThree.buildings[idx] = { type:b.type, level:b.level, hp:maxHp, maxHp, mesh, barFg, barBg,
+      worldPos:new THREE.Vector3(x,0,z), destroyed:false, isTownHall: b.type==='chateau' };
+  });
+  battleThree.totalCount = Object.keys(battleThree.buildings).length;
+  battleThree.destroyedCount = 0;
+  battleThree.townHallDestroyed = false;
+}
+function spawnTroops(count){
+  battleThree.troops.forEach(t=>battleThree.group.remove(t.mesh));
+  battleThree.troops = [];
+  const troopHp = 30 + chateauLevel(state)*4;
+  for(let i=0;i<count;i++){
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({color:0xa1481f, roughness:0.7});
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.34,8), bodyMat);
+    body.position.y=0.22; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshStandardMaterial({color:0xd6cbaa, roughness:0.6}));
+    head.position.y=0.46; g.add(head);
+    g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+    const spawnX = (Math.random()-0.5)*7;
+    const spawnZ = 6.3+Math.random()*1.3;
+    g.position.set(spawnX,0,spawnZ);
+    battleThree.group.add(g);
+    battleThree.troops.push({ mesh:g, hp:troopHp, maxHp:troopHp, target:null, speed:1.5+Math.random()*0.35, dps:9, alive:true });
   }
+}
+function nearestAliveBuilding(pos){
+  let best=null, bestDist=Infinity;
+  Object.values(battleThree.buildings).forEach(b=>{
+    if(b.destroyed) return;
+    const d = pos.distanceTo(b.worldPos);
+    if(d<bestDist){ bestDist=d; best=b; }
+  });
+  return best;
+}
+function simulateBattleStep(dt){
+  battleThree.elapsed += dt;
+  const remain = Math.max(0, battleThree.maxDuration - battleThree.elapsed);
+  const timerEl = document.getElementById('battleTimer'); if(timerEl) timerEl.textContent = Math.ceil(remain);
+
+  battleThree.troops.forEach(t=>{
+    if(!t.alive) return;
+    if(!t.target || t.target.destroyed) t.target = nearestAliveBuilding(t.mesh.position);
+    if(!t.target) return;
+    const dir = new THREE.Vector3().subVectors(t.target.worldPos, t.mesh.position);
+    const dist = dir.length();
+    if(dist > 0.75){
+      dir.normalize();
+      t.mesh.position.addScaledVector(dir, t.speed*dt);
+      t.mesh.rotation.y = Math.atan2(dir.x,dir.z);
+    } else {
+      t.target.hp -= t.dps*dt;
+      if(t.target.hp<=0 && !t.target.destroyed){
+        t.target.destroyed = true;
+        battleThree.destroyedCount++;
+        if(t.target.isTownHall) battleThree.townHallDestroyed = true;
+        battleThree.group.remove(t.target.mesh);
+        battleThree.group.remove(t.target.barFg);
+        battleThree.group.remove(t.target.barBg);
+      } else {
+        const frac = Math.max(0,t.target.hp/t.target.maxHp);
+        t.target.barFg.scale.x = 0.9*frac;
+        t.target.barFg.material.color.setHex(frac>0.5?0x5cb85c:(frac>0.2?0xd9b657:0xc04141));
+      }
+    }
+  });
+
+  battleThree._defTick += dt;
+  if(battleThree._defTick >= 1){
+    battleThree._defTick = 0;
+    const activeDef = Object.values(battleThree.buildings).filter(b=>!b.destroyed && (b.type==='tour'||b.type==='muraille'));
+    activeDef.forEach(b=>{
+      const alive = battleThree.troops.filter(t=>t.alive);
+      if(alive.length===0) return;
+      const target = alive[Math.floor(Math.random()*alive.length)];
+      const dmg = (BUILDINGS[b.type].baseStat*b.level)*0.55;
+      target.hp -= dmg;
+      if(target.hp<=0){ target.alive=false; battleThree.group.remove(target.mesh); }
+    });
+  }
+
+  const pct = battleThree.totalCount? Math.round((battleThree.destroyedCount/battleThree.totalCount)*100) : 0;
+  const pctEl = document.getElementById('battlePct'); if(pctEl) pctEl.textContent = pct;
+  let stars = 0;
+  if(battleThree.townHallDestroyed) stars = Math.max(stars,1);
+  if(pct>=50) stars = Math.max(stars,2);
+  if(pct>=100) stars = 3;
+  const starsEl = document.getElementById('battleStars'); if(starsEl) starsEl.textContent = '★'.repeat(stars)+'☆'.repeat(3-stars);
+
+  const allDead = battleThree.troops.length>0 && battleThree.troops.every(t=>!t.alive);
+  if(remain<=0 || battleThree.destroyedCount>=battleThree.totalCount || allDead) endBattle();
+}
+function deployAssault(){
+  const enemy = window._currentEnemy;
+  document.getElementById('battleIntro').classList.add('hide');
+  document.getElementById('battleFieldWrap').classList.remove('hide');
+  document.getElementById('battleResultOverlay').classList.add('hide');
+  initBattleScene();
+  setTimeout(()=>{
+    resizeBattleScene();
+    buildEnemyScene(enemy);
+    const troopCount = Math.max(3, Math.min(30, Math.round(powerOf(state,'attaque')/6)));
+    spawnTroops(troopCount);
+    battleThree.elapsed = 0; battleThree.maxDuration = 40; battleThree.running = true;
+    sfxAttackStart();
+  }, 60);
+}
+function endBattle(){
+  if(!battleThree.running) return;
+  battleThree.running = false;
+  const enemy = window._currentEnemy;
+  const pct = battleThree.totalCount? Math.round((battleThree.destroyedCount/battleThree.totalCount)*100) : 0;
+  let stars = 0;
+  if(battleThree.townHallDestroyed) stars = Math.max(stars,1);
+  if(pct>=50) stars = Math.max(stars,2);
+  if(pct>=100) stars = 3;
+
+  const lootFrac = Math.min(0.6, (pct/100)*0.6);
+  const lootOr = Math.min(600, Math.round((enemy.resources.or||0)*lootFrac));
+  const lootBois = Math.min(600, Math.round((enemy.resources.bois||0)*lootFrac));
+  const trophyDelta = stars===3?25:stars===2?14:stars===1?6:-6;
+
+  state.resources.or += lootOr; state.resources.bois += lootBois;
+  state.trophies = Math.max(0,(state.trophies||0)+trophyDelta);
+
+  if(!enemy.isBot && enemy._key){
+    enemy.resources.or = Math.max(0,(enemy.resources.or||0)-lootOr);
+    enemy.resources.bois = Math.max(0,(enemy.resources.bois||0)-lootBois);
+    enemy.trophies = Math.max(0,(enemy.trophies||0) - Math.round(trophyDelta*0.7));
+    enemy.shieldUntil = Date.now() + (stars>=2? 3:1.5)*60*60*1000;
+    window.storage.set(enemy._key, JSON.stringify(enemy), true).catch(()=>{});
+  }
+
+  if(stars>=2) sfxVictory(); else sfxDefeat();
+  renderResources(); saveState();
+
+  const card = document.getElementById('battleResultCard');
+  card.innerHTML = `<div class="result ${stars>=2?'win':'lose'}">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
+    <div class="timelabel" style="margin:8px 0;">${pct}% de destruction</div>
+    <div class="lootrow"><span>🪙 +${fmt(lootOr)}</span><span>🪵 +${fmt(lootBois)}</span><span>🏆 ${trophyDelta>=0?'+':''}${trophyDelta}</span></div>
+    <button class="actionbtn" style="margin-top:14px;" onclick="closeBattleField()">Retour</button>`;
+  document.getElementById('battleResultOverlay').classList.remove('hide');
+  showToast(stars>=2 ? "Victoire ! Butin rapporté." : "Assaut repoussé ou incomplet.");
+}
+function closeBattleField(){
+  document.getElementById('battleFieldWrap').classList.add('hide');
+  document.getElementById('battleIntro').classList.remove('hide');
+  document.getElementById('battleResultOverlay').classList.add('hide');
 }
 
 /* ================= Leaderboard ================= */
