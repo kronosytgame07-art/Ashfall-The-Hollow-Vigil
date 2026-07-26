@@ -1211,10 +1211,11 @@ function initAnimatedArt(){
     texture.colorSpace=THREE.SRGBColorSpace;
     VILLAGER_MATS.work[frame-1]=new THREE.SpriteMaterial({map:texture,transparent:true,alphaTest:.04,depthTest:true,depthWrite:false});
   }
-  for(let frame=0;frame<6;frame++){
-    const texture=loader.load(`assets/village/construction/frame-${frame}.webp`);texture.colorSpace=THREE.SRGBColorSpace;
-    CONSTRUCTION_MATS[frame]=new THREE.SpriteMaterial({map:texture,transparent:true,alphaTest:.04,depthTest:false,depthWrite:false});
-  }
+  // Le chantier doit rester parfaitement ancré : une seule structure statique.
+  // Les anciens cadres avaient des recadrages différents et produisaient un effet diaporama.
+  const constructionTexture=loader.load('assets/village/construction/frame-0.webp');
+  constructionTexture.colorSpace=THREE.SRGBColorSpace;
+  CONSTRUCTION_MATS[0]=new THREE.SpriteMaterial({map:constructionTexture,transparent:true,alphaTest:.04,depthTest:false,depthWrite:false});
   OBSTACLE_TYPES.forEach(type=>{
     const texture=loader.load(`assets/village/obstacles/${type}.webp`);
     texture.colorSpace=THREE.SRGBColorSpace;
@@ -1609,7 +1610,7 @@ function animateScene(){
   });
   const fxFrame = Math.floor(three.clock*10)%8;
   (three.fxSprites||[]).forEach(fx=>{ if(FX_MATS[fx.userData.fxKind]) fx.material=FX_MATS[fx.userData.fxKind][fxFrame]; });
-  (three.constructionSprites||[]).forEach((sprite,i)=>{if(CONSTRUCTION_MATS.length)sprite.material=CONSTRUCTION_MATS[(Math.floor(three.clock*6)+i)%CONSTRUCTION_MATS.length];});
+  // La structure du chantier ne change pas de cadrage entre deux images.
   if(three.clock-three.lastLifeSync>1){ensureVillageLife();three.lastLifeSync=three.clock;}
   animateVillageLife(.016);
   three.renderer.render(three.scene, three.camera);
@@ -1622,7 +1623,8 @@ function makeBuilding(type, level){
   const footprint=FOOTPRINT[type]||1,tileSpan=footprint*2.1;
   if(art && BUILDING_TRIM[type] && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
     const trim=BUILDING_TRIM[type][visualLevel-1],opaqueWidth=trim[0]/512;
-    const fullScale=(tileSpan*1.16)/Math.max(.2,opaqueWidth);
+    // La largeur opaque épouse l'empreinte de cases au lieu de la dépasser de 16 %.
+    const fullScale=(tileSpan*1.02)/Math.max(.2,opaqueWidth);
     const sprite = new THREE.Sprite(BUILDING_MATS[type][visualLevel]);
     sprite.scale.set(fullScale*art.scaleX,fullScale*art.scaleY,1);
     // Le sprite contient déjà son socle et son ombre peinte : aucune plaque 3D dessous.
@@ -1867,7 +1869,11 @@ function animateVillageLife(dt){
     v.state=build&&dist<.8?'work':'walk';
     if(v.state==='walk'){
       if(dist<.25){v.target=randomVillagePoint();}
-      else{const speed=build?6.5:2.35;v.mesh.position.x+=dx/dist*dt*speed;v.mesh.position.z+=dz/dist*dt*speed;}
+      else{
+        // Promenade calme dans le village, sprint uniquement lorsqu'un chantier attend l'ouvrier.
+        const speed=build?4.2:1.35;
+        v.mesh.position.x+=dx/dist*dt*speed;v.mesh.position.z+=dz/dist*dt*speed;
+      }
     }
     v.phase+=dt*(v.state==='work'?7:5);
     const direction=v.state==='work'?'work':directionFromDelta(dx,dz);
@@ -1883,7 +1889,10 @@ function animateVillageLife(dt){
 }
 function makeConstructionSite(type){
   const size=FOOTPRINT[type]||1,g=new THREE.Group(),sprite=new THREE.Sprite(CONSTRUCTION_MATS[0]);
-  const scale=Math.max(3.15,size*2.42);sprite.scale.set(scale,scale,1);sprite.position.y=.03;sprite.center.set(.5,.055);
+  const tileSpan=size*2.1;
+  // Le cadre 0 possède 143 px opaques sur 256 : on ajuste sa base à la largeur exacte des cases.
+  const scale=(tileSpan*1.02)/(143/256);
+  sprite.scale.set(scale,scale,1);sprite.position.y=.018;sprite.center.set(.5,.09);
   g.add(sprite);three.constructionSprites.push(sprite);return g;
 }
 function updateScene(){
@@ -2032,7 +2041,7 @@ function previewBuildingPlacement(idx){
   if(!valid){showToast('Cette position est occupée ou verrouillée.');return;}
   if(placementGhost)three.group.remove(placementGhost);
   placementIndex=idx;placementGhost=makeBuilding(placementType,1);
-  const p=footprintCenterWorld(idx,size);placementGhost.position.set(p.x,.08,p.z);placementGhost.userData.isPlacementGhost=true;
+  const p=footprintCenterWorld(idx,size);placementGhost.position.set(p.x,0,p.z);placementGhost.userData.isPlacementGhost=true;
   three.group.add(placementGhost);sfxClick();
 }
 function confirmBuildingPlacement(){

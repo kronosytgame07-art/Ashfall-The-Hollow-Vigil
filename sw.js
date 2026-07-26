@@ -1,10 +1,10 @@
-const CACHE='ashfall-v10';
+const CACHE='ashfall-v11';
 const CORE=['./','./index.html','./manifest.json','./assets/app-icon.svg','./assets/vendor/three-r128.min.js',
   './assets/scenery/ash.webp','./assets/scenery/forest.webp','./assets/scenery/ice.webp','./assets/scenery/swamp.webp','./assets/scenery/volcano.webp',
   ...['gold','wood','soul','gems','trophy','attack','build','settings'].map(n=>`./assets/ui/icons/${n}.webp`),
   ...['front','back','left','right'].flatMap(d=>[1,2,3,4].map(n=>`./assets/village/villager/${d}-${n}.webp`)),
   ...[1,2,3,4,5,6].map(n=>`./assets/village/villager/work-${n}.webp`),
-  ...[0,1,2,3,4,5].map(n=>`./assets/village/construction/frame-${n}.webp`),
+  './assets/village/construction/frame-0.webp',
   ...['guerrier','archer','brute','hero'].flatMap(t=>['front','back','left','right'].flatMap(d=>[0,1,2,3].map(n=>`./assets/troops/${t}-walk-${d}/frame-${n}.webp`))),
   ...['guerrier','archer','brute','hero'].flatMap(t=>['front','back','left','right'].flatMap(d=>[0,1,2,3].map(n=>`./assets/troops/${t}-attack-${d}/frame-${n}.webp`))),
   ...['dead-tree','pine','iron-rock','moss-rock','thorns','bones','crystal','stump'].map(n=>`./assets/village/obstacles/${n}.webp`)];
