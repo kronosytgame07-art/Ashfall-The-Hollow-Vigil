@@ -216,15 +216,73 @@
     body{padding-top:58px}.titleblock{display:none}.bonfire-row{display:none}.onlinebar{margin:2px 0}
     .resbar{grid-template-columns:repeat(5,minmax(0,1fr));margin:5px 0}.res{padding:5px 6px;gap:5px}.res .icon{width:27px;height:27px}.res .val{font-size:13px}.res .lbl{font-size:8px}
     #tutorialBanner{position:fixed!important;z-index:90;inset:58px 8px auto;max-height:calc(100dvh - 70px);overflow:auto}
+    #sceneWrap,#battleFieldWrap{height:calc(100dvh - 158px)!important;min-height:220px!important}
+    .foot{display:none}
   }
+  /* ===== Premium shell / unified scenery stage ===== */
+  body{padding-top:14px;background:#070606}
+  .boot-screen{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;overflow:hidden;background:#050404;color:#eadfc5;transition:opacity .55s ease,visibility .55s}
+  .boot-screen.done{opacity:0;visibility:hidden;pointer-events:none}
+  .boot-screen::before{content:"";position:absolute;inset:-4%;background:linear-gradient(rgba(3,2,2,.28),rgba(3,2,2,.82)),url("assets/scenery/ash.webp") center/cover;animation:bootBreath 8s ease-in-out infinite alternate}
+  .boot-screen::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,transparent 0 12%,rgba(0,0,0,.84) 72%)}
+  .boot-card{position:relative;z-index:1;width:min(520px,86vw);text-align:center;padding:34px 28px}
+  .boot-sigil{width:76px;height:76px;margin:0 auto 18px;display:grid;place-items:center;border:1px solid #b76a32;transform:rotate(45deg);background:radial-gradient(circle,#7b321b,#160d0a 68%);box-shadow:0 0 50px rgba(224,92,34,.34),inset 0 0 22px #000}
+  .boot-sigil span{transform:rotate(-45deg);font-size:36px;filter:drop-shadow(0 0 12px #ff6b25)}
+  .boot-title{font-family:Georgia,serif;font-size:clamp(27px,5vw,46px);letter-spacing:.08em;text-transform:uppercase;text-shadow:0 4px 18px #000;margin-bottom:7px}
+  .boot-sub{font-size:12px;letter-spacing:.35em;text-transform:uppercase;color:#b99c79}
+  .boot-track{height:6px;margin:28px auto 9px;max-width:390px;background:#120d0b;border:1px solid #463226;overflow:hidden;box-shadow:inset 0 2px 5px #000}
+  .boot-progress{height:100%;width:0;background:linear-gradient(90deg,#7a2518,#ef8a32,#ffe0a0);box-shadow:0 0 14px #f06c27;transition:width .22s ease}
+  .boot-status{font-size:11px;color:#998770;letter-spacing:.12em}
+  @keyframes bootBreath{from{transform:scale(1.02)}to{transform:scale(1.075)}}
+
+  .titleblock{margin:0 0 10px}.titleblock h1{letter-spacing:.035em}
+  .login{max-width:520px;margin:24px auto;padding:0;overflow:hidden;border:1px solid #68452e;border-radius:14px;background:#100c0a;box-shadow:0 30px 90px #000}
+  .login::before{content:"";display:block;height:210px;background:linear-gradient(0deg,#100c0a 0,transparent 55%),url("assets/scenery/volcano.webp") center 25%/cover;filter:saturate(.84)}
+  .login-content{padding:0 34px 32px;margin-top:-34px;position:relative}
+  .login h2{font-size:24px;text-shadow:0 3px 12px #000}.login input{border-radius:9px;background:#090706;border-color:#68452e;box-shadow:inset 0 3px 12px #000}
+  .findbtn,.actionbtn,.opt button{border:1px solid rgba(255,210,139,.25);border-radius:8px;background:linear-gradient(180deg,#d1662c,#742716);box-shadow:inset 0 1px rgba(255,255,255,.2),0 4px 0 #32120d,0 8px 20px rgba(0,0,0,.38)}
+  .quickmenu{padding:5px;border:1px solid rgba(214,203,170,.16);border-radius:15px;background:rgba(8,6,5,.78);backdrop-filter:blur(12px)}
+  .mutebtn{border-radius:10px;background:linear-gradient(145deg,#30261e,#110e0c)}
+  .nav-glyph{font-family:Georgia,serif;font-size:11px;font-weight:700;letter-spacing:.05em;color:#e5cfaa}
+  .resource-glyph{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;font-family:Georgia,serif;font-size:11px;font-weight:800;background:radial-gradient(circle at 35% 28%,#594330,#17110e 70%);border:1px solid #7b5c3c;box-shadow:inset 0 0 10px #000,0 2px 6px #000}
+  .resource-glyph.gem{color:#92ebff;border-color:#3b9fb5}.resource-glyph.soul{color:#ff9863;border-color:#9c4228}.resource-glyph.rank{color:#d9b5ff;border-color:#70528c}
+  .tabbar{gap:4px;padding:5px;border:1px solid var(--line);border-radius:12px;background:rgba(9,7,6,.9)}
+  .tabbar .tab{flex:1;border:0;border-radius:8px;background:transparent}.tabbar .tab.active{background:linear-gradient(180deg,#4d3021,#21140f);box-shadow:inset 0 0 0 1px #9c5731,0 4px 14px #000}
+  .village{border-color:#5b4130;border-radius:15px;box-shadow:0 18px 55px #000;overflow:hidden}
+  .overlay{background:radial-gradient(circle at 50% 35%,rgba(53,34,24,.35),rgba(3,3,3,.92));backdrop-filter:blur(8px)}
+  .panel{border:1px solid #765038;border-top:1px solid #d18348;border-radius:14px;background:linear-gradient(145deg,rgba(52,39,30,.98),rgba(15,12,10,.99) 58%);box-shadow:inset 0 1px rgba(255,255,255,.08),0 28px 90px #000}
+  .panel::before{content:"";position:absolute;inset:7px;border:1px solid rgba(214,203,170,.07);border-radius:10px;pointer-events:none}
+  .opt,.connection-card,.skin-card{border-radius:10px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(0,0,0,.24))}
+
+  #sceneWrap{--stage-zoom:1;isolation:isolate;background:#050404;overflow:hidden}
+  .scene-stage{position:absolute;inset:0;transform:scale(var(--stage-zoom));transform-origin:50% 50%;will-change:transform;transition:transform .08s linear}
+  .scenery-art{position:absolute;inset:-1px;background-position:center;background-size:100% 100%;background-repeat:no-repeat;transform:scale(1.008);animation:sceneryLife 13s ease-in-out infinite alternate;pointer-events:none}
+  .scenery-art::after{content:"";position:absolute;inset:0;background:
+    radial-gradient(ellipse at 18% 62%,var(--skin-glow,rgba(255,95,35,.22)),transparent 11%),
+    radial-gradient(ellipse at 82% 43%,var(--skin-glow,rgba(255,95,35,.18)),transparent 12%),
+    linear-gradient(112deg,transparent 35%,rgba(255,255,255,.035) 49%,transparent 63%);
+    mix-blend-mode:screen;opacity:.65;animation:sceneryGlow 3.2s ease-in-out infinite alternate}
+  .scenery-mist{position:absolute;inset:0;pointer-events:none;overflow:hidden;background:linear-gradient(100deg,transparent 15%,rgba(210,220,225,.07) 44%,transparent 72%);mix-blend-mode:screen;animation:mistDrift 12s linear infinite}
+  #gameCanvas{position:absolute;inset:0;z-index:2}
+  .scene-vignette{position:absolute;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 70px 18px rgba(0,0,0,.46)}
+  .collect-hint{z-index:5;padding:5px 12px!important;left:50%!important;right:auto!important;transform:translateX(-50%);white-space:nowrap;background:rgba(5,4,3,.62);border:1px solid rgba(214,203,170,.15);border-radius:14px}
+  @keyframes sceneryLife{from{transform:scale(1.008) translate3d(-.12%,0,0)}to{transform:scale(1.02) translate3d(.12%,-.16%,0)}}
+  @keyframes sceneryGlow{from{opacity:.35;filter:brightness(.92)}to{opacity:.82;filter:brightness(1.14)}}
+  @keyframes mistDrift{from{transform:translateX(-22%)}to{transform:translateX(22%)}}
+  body.reduced-motion .scenery-art,body.reduced-motion .scenery-art::after,body.reduced-motion .scenery-mist{animation:none}
 </style>
 </head>
 <body>
+<div class="boot-screen" id="bootScreen" role="status" aria-live="polite">
+  <div class="boot-card"><div class="boot-sigil"><span>🔥</span></div><div class="boot-title">Ashfall</div><div class="boot-sub">The Hollow Vigil</div>
+    <div class="boot-track"><div class="boot-progress" id="bootProgress"></div></div><div class="boot-status" id="bootStatus">Réveil des braises…</div>
+  </div>
+</div>
 <div class="rotate-device" role="alert"><div><span class="phone">📱</span><h2>Tourne ton appareil</h2><p>Ashfall se joue en format paysage pour garder la cité et les contrôles entièrement visibles.</p></div></div>
 <nav class="quickmenu" aria-label="Réglages rapides">
-  <button class="mutebtn" id="muteBtn" onclick="toggleSound()" title="Couper ou activer le son" aria-label="Couper ou activer le son">🔊</button>
-  <button class="mutebtn" onclick="openUiModal('optionsModal')" title="Options" aria-label="Ouvrir les options">⚙️</button>
-  <button class="mutebtn" onclick="openConnectionMenu()" title="Connexion" aria-label="Ouvrir le menu connexion">👤</button>
+  <button class="mutebtn nav-glyph" id="muteBtn" onclick="toggleSound()" title="Couper ou activer le son" aria-label="Couper ou activer le son">SON</button>
+  <button class="mutebtn nav-glyph" onclick="openUiModal('optionsModal')" title="Options" aria-label="Ouvrir les options">OPT</button>
+  <button class="mutebtn nav-glyph" onclick="openConnectionMenu()" title="Connexion" aria-label="Ouvrir le menu connexion">ID</button>
 </nav>
 <div class="wrap">
 
@@ -235,11 +293,12 @@
   </div>
 
   <div id="loginScreen" class="login">
-    <h2>🔥 Réveille-toi, Gardien</h2>
-    <p class="subtitle">Choisis le nom sous lequel ta cité sera connue en ligne.</p>
-    <input id="nameInput" maxlength="18" placeholder="Nom du gardien" autocomplete="off">
-    <button class="findbtn" onclick="login()">Entrer dans les cendres</button>
-    <div class="timelabel" id="loginMsg"></div>
+    <div class="login-content"><h2>Réveille-toi, Gardien</h2>
+      <p class="subtitle">Les portes de la Vigie attendent ton serment.</p>
+      <input id="nameInput" maxlength="18" placeholder="Nom du gardien" autocomplete="off" aria-label="Nom du gardien">
+      <button class="findbtn" onclick="login()">⚔ Entrer dans les cendres</button>
+      <div class="timelabel" id="loginMsg"></div>
+    </div>
   </div>
 
   <div id="gameScreen" class="hide">
@@ -258,24 +317,28 @@
     <div class="bonfire-row"><div class="bonfire"><div class="swords">⚔️</div><div class="flame"></div></div></div>
 
     <div class="resbar">
-      <div class="res or"><span class="icon">🪙</span><div><span class="val" id="res-or">0</span><span class="lbl">Or</span></div></div>
-      <div class="res bois"><span class="icon">🪵</span><div><span class="val" id="res-bois">0</span><span class="lbl">Bois</span></div></div>
-      <div class="res ames"><span class="icon">🔥</span><div><span class="val" id="res-ames">0</span><span class="lbl">Âmes</span></div></div>
-      <div class="res gems"><span class="icon">💎</span><div><span class="val" id="res-gems">0</span><span class="lbl">Gemmes</span></div></div>
-      <div class="res trophy"><span class="icon">🏆</span><div><span class="val" id="res-trophy">0</span><span class="lbl">Trophées</span></div></div>
+      <div class="res or"><span class="resource-glyph">OR</span><div><span class="val" id="res-or">0</span><span class="lbl">Or</span></div></div>
+      <div class="res bois"><span class="resource-glyph">B</span><div><span class="val" id="res-bois">0</span><span class="lbl">Bois</span></div></div>
+      <div class="res ames"><span class="resource-glyph soul">Â</span><div><span class="val" id="res-ames">0</span><span class="lbl">Âmes</span></div></div>
+      <div class="res gems"><span class="resource-glyph gem">◆</span><div><span class="val" id="res-gems">0</span><span class="lbl">Gemmes</span></div></div>
+      <div class="res trophy"><span class="resource-glyph rank">♛</span><div><span class="val" id="res-trophy">0</span><span class="lbl">Trophées</span></div></div>
     </div>
 
     <div class="tabbar">
-      <button class="tab active" id="tab-village" onclick="switchTab('village')" aria-pressed="true">🏰 Village</button>
-      <button class="tab" id="tab-battle" onclick="switchTab('battle')" aria-pressed="false">⚔️ Assaut</button>
-      <button class="tab" id="tab-leaderboard" onclick="switchTab('leaderboard')" aria-pressed="false">🏆 Classement</button>
-      <button class="tab" id="tab-achievements" onclick="switchTab('achievements')" aria-pressed="false">🏅 Hauts faits</button>
-      <button class="tab" id="tab-build" onclick="openConstructionHub()" aria-pressed="false">🛠️ Construire</button>
+      <button class="tab active" id="tab-village" onclick="switchTab('village')" aria-pressed="true">Village</button>
+      <button class="tab" id="tab-battle" onclick="switchTab('battle')" aria-pressed="false">Assaut</button>
+      <button class="tab" id="tab-leaderboard" onclick="switchTab('leaderboard')" aria-pressed="false">Classement</button>
+      <button class="tab" id="tab-achievements" onclick="switchTab('achievements')" aria-pressed="false">Hauts faits</button>
+      <button class="tab" id="tab-build" onclick="openConstructionHub()" aria-pressed="false">Construire</button>
     </div>
 
     <div id="view-village" class="village" style="padding:0; overflow:hidden;">
       <div id="sceneWrap" style="position:relative; width:100%; height:min(62vh,540px); min-height:340px; cursor:grab;">
-        <canvas id="gameCanvas" style="display:block; width:100%; height:100%;"></canvas>
+        <div class="scene-stage" id="sceneStage">
+          <div class="scenery-art" id="sceneryArt"></div><div class="scenery-mist"></div>
+          <canvas id="gameCanvas" style="display:block; width:100%; height:100%;"></canvas>
+          <div class="scene-vignette"></div>
+        </div>
         <div class="collect-hint" style="position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:var(--bone-dim); pointer-events:none; text-shadow:0 1px 2px #000;">pincer : zoomer · toucher : agir</div>
       </div>
     </div>
@@ -484,7 +547,7 @@ function applyUiPrefs(){
     el.classList.toggle('on',on); el.textContent=on?'Oui':'Non'; el.setAttribute('aria-pressed',String(on));
   });
   soundOn=uiPrefs.volume>0;
-  const mute=document.getElementById('muteBtn'); if(mute) mute.textContent=soundOn?'🔊':'🔇';
+  const mute=document.getElementById('muteBtn'); if(mute){mute.textContent=soundOn?'SON':'OFF';mute.setAttribute('aria-pressed',String(!soundOn));}
   if(masterGain&&audioCtx) masterGain.gain.setTargetAtTime(uiPrefs.volume,audioCtx.currentTime,.04);
 }
 function setMasterVolume(value){ uiPrefs.volume=Math.max(0,Math.min(1,Number(value)/100)); saveUiPrefs(); applyUiPrefs(); if(uiPrefs.volume>0) ensureAudio(); }
@@ -636,7 +699,7 @@ function switchTab(tab){
 
 /* ================= Rendering: village 3D (Three.js) ================= */
 let three = { renderer:null, scene:null, camera:null, raycaster:null, mouse:null, group:null,
-  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 40, dragging:false, lastX:0, lastY:0,
+  camAzimuth: Math.PI/4, camPolar: 0.95, camRadius: 52, stageZoom:1, dragging:false, lastX:0, lastY:0,
   downX:0,downY:0,moved:false,pointers:new Map(),pinchDistance:0,tileMeshes:{}, clock:0, ready:false };
 
 function gridToWorld(i){
@@ -1099,8 +1162,11 @@ function applyMapSkinVisual(){
   if(three.scene.fog)three.scene.fog.color.setHex(skin.fog);
   if(three.emberLight)three.emberLight.color.setHex(skin.accent);
   if(three.particles)three.particles.material.color.setHex(skin.accent);
-  const wrap=document.getElementById('sceneWrap');
-  if(wrap){wrap.style.backgroundImage=`linear-gradient(rgba(5,4,3,.08),rgba(5,4,3,.2)),url("${skin.scenery}")`;wrap.style.backgroundSize='100% 100%';wrap.style.backgroundPosition='center';}
+  const art=document.getElementById('sceneryArt');
+  if(art){
+    art.style.backgroundImage=`linear-gradient(rgba(5,4,3,.04),rgba(5,4,3,.14)),url("${skin.scenery}")`;
+    art.style.setProperty('--skin-glow',skinId==='ice'?'rgba(100,210,255,.24)':skinId==='forest'?'rgba(80,220,160,.2)':skinId==='swamp'?'rgba(170,255,80,.22)':'rgba(255,85,25,.24)');
+  }
 }
 
 function initScene(){
@@ -1179,7 +1245,10 @@ function initScene(){
     if(!three.pointers.has(e.pointerId))return; three.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(three.pointers.size===2){
       const p=[...three.pointers.values()],d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
-      if(three.pinchDistance) three.camRadius=Math.max(16,Math.min(58,three.camRadius+(three.pinchDistance-d)*.08));
+      if(three.pinchDistance){
+        three.stageZoom=Math.max(1,Math.min(1.65,three.stageZoom+(d-three.pinchDistance)*.0026));
+        wrap.style.setProperty('--stage-zoom',three.stageZoom.toFixed(3));
+      }
       three.pinchDistance=d;three.moved=true;return;
     }
     const dx=e.clientX-three.lastX,dy=e.clientY-three.lastY;
@@ -1193,7 +1262,11 @@ function initScene(){
     if(!three.pointers.size){three.dragging=false;wrap.style.cursor='grab';if(wasTap)villageTap(e.clientX,e.clientY);}
   }
   wrap.addEventListener('pointerup',endVillagePointer);wrap.addEventListener('pointercancel',endVillagePointer);
-  wrap.addEventListener('wheel', e=>{ e.preventDefault(); three.camRadius = Math.max(16, Math.min(58, three.camRadius + e.deltaY*0.015)); }, {passive:false});
+  wrap.addEventListener('wheel', e=>{
+    e.preventDefault();
+    three.stageZoom=Math.max(1,Math.min(1.65,three.stageZoom-e.deltaY*.0008));
+    wrap.style.setProperty('--stage-zoom',three.stageZoom.toFixed(3));
+  }, {passive:false});
   window.addEventListener('resize', resizeScene);
   resizeScene();
   three.ready = true;
@@ -1249,16 +1322,11 @@ function makeBuilding(type, level){
   const footprint=FOOTPRINT[type]||1,tileSpan=footprint*2.1;
   if(art && BUILDING_TRIM[type] && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
     const trim=BUILDING_TRIM[type][visualLevel-1],opaqueWidth=trim[0]/512;
-    const fullScale=(tileSpan*.88)/Math.max(.2,opaqueWidth);
-    const skinGround=MAP_SKINS[state?.mapSkin||'ash']?.ground||0x373128;
-    const baseColor=type==='chateau'?new THREE.Color(skinGround).lerp(new THREE.Color(0x8a6b45),.28).getHex():skinGround;
-    const base=new THREE.Mesh(new THREE.BoxGeometry(tileSpan*.9,.12,tileSpan*.9),new THREE.MeshStandardMaterial({color:baseColor,emissive:baseColor,emissiveIntensity:.16,roughness:1}));
-    base.position.y=.035;base.receiveShadow=true;g.add(base);
-    const shadow=new THREE.Mesh(new THREE.CircleGeometry(tileSpan*.34,32),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.42,depthWrite:false}));
-    shadow.rotation.x=-Math.PI/2;shadow.scale.set(1,.58,1);shadow.position.y=.105;g.add(shadow);
+    const fullScale=(tileSpan*1.16)/Math.max(.2,opaqueWidth);
     const sprite = new THREE.Sprite(BUILDING_MATS[type][visualLevel]);
     sprite.scale.set(fullScale*art.scaleX,fullScale*art.scaleY,1);
-    sprite.position.set(0,.11,0);
+    // Le sprite contient déjà son socle et son ombre peinte : aucune plaque 3D dessous.
+    sprite.position.set(0,.018,0);
     sprite.center.set(.5,1-trim[2]/512);
     sprite.userData.isBuildingArt=true;
     g.add(sprite);
@@ -2505,6 +2573,19 @@ function sfxDefeat(){ playTone(130,0.4,'sawtooth',0.13); playTone(90,0.6,'sine',
 /* Allow Enter key on login */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadUiPrefs();
+  const bootAssets=Object.values(MAP_SKINS).map(s=>s.scenery);
+  let loaded=0;
+  const progress=document.getElementById('bootProgress'),status=document.getElementById('bootStatus');
+  const finishBoot=()=>{
+    progress.style.width='100%';status.textContent='La Vigie est prête';
+    setTimeout(()=>document.getElementById('bootScreen').classList.add('done'),350);
+  };
+  Promise.all(bootAssets.map(src=>new Promise(resolve=>{
+    const img=new Image();
+    const done=()=>{loaded++;progress.style.width=`${12+loaded/bootAssets.length*82}%`;status.textContent=`Assemblage du royaume · ${loaded}/${bootAssets.length}`;resolve();};
+    img.onload=done;img.onerror=done;img.src=src;
+  }))).then(finishBoot);
+  setTimeout(finishBoot,5000);
   const inp = document.getElementById('nameInput');
   if(inp) inp.addEventListener('keydown', e=>{ if(e.key==='Enter') login(); });
   document.querySelectorAll('.ui-modal').forEach(modal=>modal.addEventListener('pointerdown',e=>{if(e.target===modal)closeUiModal(modal.id);}));
