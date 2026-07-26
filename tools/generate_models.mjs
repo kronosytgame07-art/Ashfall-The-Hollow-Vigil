@@ -47,6 +47,24 @@ class Model {
     const mid=a.map((v,i)=>(v+b[i])/2),d=sub(b,a),len=Math.hypot(...d);
     this.box(mat,mid,[w,w,len],Math.atan2(d[0],d[2]));
   }
+  beam3(mat,a,b,w){
+    const d=norm(sub(b,a)),helper=Math.abs(d[1])>.92?[1,0,0]:[0,1,0],u=norm(cross(d,helper)),v=norm(cross(d,u)),h=w/2;
+    const ring=p=>[
+      add(add(p,u.map(n=>n*h)),v.map(n=>n*h)),
+      add(add(p,u.map(n=>-n*h)),v.map(n=>n*h)),
+      add(add(p,u.map(n=>-n*h)),v.map(n=>-n*h)),
+      add(add(p,u.map(n=>n*h)),v.map(n=>-n*h))
+    ],ra=ring(a),rb=ring(b);
+    this.quad(mat,ra[0],ra[1],ra[2],ra[3]);this.quad(mat,rb[3],rb[2],rb[1],rb[0]);
+    for(let i=0;i<4;i++)this.quad(mat,ra[i],rb[i],rb[(i+1)%4],ra[(i+1)%4]);
+  }
+  roofPanel(mat,side,ridgeY,eaveY,halfW,depth,overhang=.15){
+    const x0=side*halfW,x1=0,z0=-depth/2-overhang,z1=depth/2+overhang,t=.12;
+    const a=[x0,eaveY,z0],b=[x0,eaveY,z1],c=[x1,ridgeY,z1],d=[x1,ridgeY,z0];
+    const down=[0,-t,0],a2=add(a,down),b2=add(b,down),c2=add(c,down),d2=add(d,down);
+    this.quad(mat,a,b,c,d);this.quad(mat,d2,c2,b2,a2);
+    this.quad(mat,a,a2,b2,b);this.quad(mat,b,b2,c2,c);this.quad(mat,c,c2,d2,d);this.quad(mat,d,d2,a2,a);
+  }
   stairs(mat,start,width,stepH,stepD,count,dir=1){
     for(let k=0;k<count;k++)this.box(mat,[start[0],start[1]+stepH*(k+.5),start[2]+dir*stepD*(k+.5)],[width,stepH,stepD]);
   }
@@ -68,70 +86,86 @@ function timberFrame(m,w,d,y){
 function base(m,w,d){m.box("basalt",[0,.16,0],[w,.32,d]);m.box("stone",[0,.38,0],[w*.91,.18,d*.91])}
 
 function townHall(){
-  const m=new Model("Town Hall Level 1");base(m,5.8,5.8);
-  // Corps central massif, entièrement contenu dans l'empreinte Godot 3×3 (6 m × 6 m).
-  m.box("stone",[0,1.8,0],[4.45,2.85,4.35]);
-  m.box("stone2",[0,.68,0],[4.75,.36,4.65]);
-  m.box("stone2",[0,3.18,0],[4.78,.28,4.68]);
-  // Assises de pierre irrégulières et contreforts donnent une vraie lecture de maçonnerie.
-  for(let row=0;row<5;row++){
-    const y=.82+row*.48,shift=row%2?.28:0;
-    for(let x=-1.72+shift;x<=1.8;x+=.72){
-      m.box(row%2?"stone2":"stone",[x,y,2.205],[.62,.09,.12]);
-      m.box(row%2?"stone":"stone2",[x,y,-2.205],[.62,.09,.12]);
-    }
+  const m=new Model("Ashfall Gothic Town Hall Level 1");base(m,5.8,5.8);
+  // Soubassement et grande halle à colombages, inspirés de la référence fournie.
+  m.box("stone",[0,.82,0],[4.85,.9,4.4]);
+  m.box("darkwood",[0,2.08,0],[4.55,1.75,4.15]);
+  m.box("stone2",[0,.48,0],[5.25,.24,4.85]);
+  for(let x=-2.1;x<=2.1;x+=.7){
+    m.box((Math.round(x*10)%2)?"stone":"stone2",[x,.72,2.22],[.59,.32,.28]);
+    m.box("stone",[x,.72,-2.22],[.59,.32,.28]);
   }
-  for(const x of [-1.82,1.82]){
-    m.box("stone2",[x,1.68,2.27],[.38,2.55,.48]);
-    m.box("stone2",[x,1.68,-2.27],[.38,2.55,.48]);
+  // Charpente principale : poteaux, traverses et croix de Saint-André réellement en relief.
+  for(const x of [-2.18,-1.1,0,1.1,2.18]){
+    m.box("wood",[x,2.08,2.12],[.16,2.45,.18]);
+    m.box("wood",[x,2.08,-2.12],[.16,2.45,.18]);
   }
-  // Quatre tours distinctes, avec couronnes et toitures coniques.
-  for(const [x,z] of [[-2.1,-2.05],[2.1,-2.05],[-2.1,2.05],[2.1,2.05]]){
-    m.cylinder("stone2",[x,2.35,z],.65,3.9,12,.56);
-    m.cylinder("iron",[x,3.68,z],.61,.14,12);
-    crenels(m,.72,4.4,8,x,z);
-    m.cone("roof",[x,4.88,z],.9,1.28,12);
-    m.cone("iron",[x,5.58,z],.07,.42,8);
+  for(const y of [1.05,2.05,2.95]){
+    m.box("wood",[0,y,2.14],[4.55,.15,.18]);
+    m.box("wood",[0,y,-2.14],[4.55,.15,.18]);
   }
-  // Toit central à deux volumes, faîtage métallique et cheminée.
-  m.cone("roof",[0,4.18,0],3.08,2.28,4);
-  m.box("darkwood",[0,4.1,0],[.18,.2,4.58]);
-  m.cylinder("stone2",[1.18,4.42,-.72],.28,1.5,10,.22);
-  m.cylinder("iron",[1.18,5.18,-.72],.34,.12,10);
-  // Portail profond, ferrures, heurtoir et arche composée de voussoirs.
-  m.box("basalt",[0,1.34,2.24],[1.5,2.15,.28]);
-  m.box("darkwood",[0,1.31,2.405],[1.08,1.92,.16]);
-  for(const x of [-.39,0,.39])m.box("iron",[x,1.31,2.505],[.065,1.76,.045]);
-  for(const y of [.72,1.28,1.84])m.box("iron",[0,y,2.515],[.96,.07,.05]);
-  m.cylinder("gold",[.24,1.25,2.57],.105,.08,12);
-  for(let i=0;i<7;i++){
-    const a=Math.PI-(i*Math.PI/6),x=Math.cos(a)*.73,y=1.9+Math.sin(a)*.73;
-    m.box("stone2",[x,y,2.46],[.34,.3,.3],-a);
+  for(const x of [-1.65,-.55,.55,1.65]){
+    m.beam3("wood",[x-.42,1.13,2.24],[x+.42,1.95,2.24],.11);
+    m.beam3("wood",[x+.42,1.13,-2.24],[x-.42,1.95,-2.24],.11);
   }
-  m.stairs("stone",[0,.4,2.44],1.85,.16,.3,5,1);
-  // Fenêtres en retrait avec croisée de fer et lumière chaude.
-  for(const x of [-1.28,1.28]){
-    m.box("basalt",[x,2.08,2.235],[.72,1.02,.18]);
-    windowGlow(m,x,2.08,2.34,.48,.75);
-    m.box("iron",[x,2.08,2.39],[.055,.78,.04]);
-    m.box("iron",[x,2.08,2.40],[.5,.055,.04]);
+  // Pignons triangulaires et toit monumental très pentu.
+  m.tri("darkwood",[-2.28,3.0,2.08],[2.28,3.0,2.08],[0,5.72,2.08]);
+  m.tri("darkwood",[2.28,3.0,-2.08],[-2.28,3.0,-2.08],[0,5.72,-2.08]);
+  for(const z of [-2.11,2.11]){
+    m.beam3("wood",[-2.24,3.02,z],[0,5.7,z],.18);
+    m.beam3("wood",[2.24,3.02,z],[0,5.7,z],.18);
+    m.box("wood",[0,4.15,z],[.16,2.2,.2]);
+    m.box("wood",[0,3.5,z],[2.55,.14,.2]);
   }
-  for(const x of [-1.15,1.15]){
-    windowGlow(m,2.235,2.05,x,.32,.68);
-    windowGlow(m,-2.235,2.05,x,.32,.68);
+  m.roofPanel("roof",-1,5.82,2.83,2.78,4.55,.24);
+  m.roofPanel("roof",1,5.82,2.83,2.78,4.55,.24);
+  m.box("iron",[0,5.82,0],[.16,.16,4.95]);
+  // Rangées de tuiles sombres/orangées qui cassent l'aspect parfaitement lisse.
+  for(let row=0;row<7;row++){
+    const t=row/7,y=2.98+(5.72-2.98)*t,x=2.55*(1-t);
+    for(const side of [-1,1])m.beam3(row%3?"roof":"cloth",[side*x,y,-2.32],[side*x,y,2.32],.075);
   }
-  // Braseros, bannières déchirées et emblème de l'HDV.
-  for(const x of [-2.58,2.58]){
-    torch(m,x,1.58,2.43);
-    m.box("iron",[x,1.42,2.34],[.5,.08,.08]);
+  // Grand porche frontal, perron et garde-corps de pierre.
+  m.box("darkwood",[0,1.55,2.27],[1.45,2.25,.22]);
+  m.box("wood",[0,2.67,2.38],[2.25,.24,.28]);
+  for(const x of [-.92,.92])m.box("wood",[x,1.72,2.38],[.22,2.05,.24]);
+  m.stairs("stone",[0,.36,.72],2.45,.15,.3,6,1);
+  for(const x of [-1.42,1.42]){
+    m.box("stone2",[x,.78,2.72],[.4,1.05,.42]);
+    m.box("stone",[x,.94,2.45],[.22,.72,.7]);
   }
-  m.box("iron",[0,4.95,-.1],[.08,2.35,.08]);
-  m.box("cloth",[.48,5.52,-.1],[.92,.76,.05]);
-  m.box("gold",[.18,5.54,-.135],[.12,.46,.035]);
-  m.box("gold",[.48,5.54,-.14],[.5,.1,.035]);
-  for(const x of [-1.34,1.34]){
-    m.box("iron",[x,3.18,2.43],[.055,1.25,.055]);
-    m.box("cloth",[x+(x<0?.23:-.23),2.85,2.45],[.42,.72,.045]);
+  // Double porte avec ferrures et lueurs intérieures.
+  m.box("basalt",[0,1.62,2.36],[1.3,2.18,.18]);
+  m.box("darkwood",[0,1.59,2.48],[1.02,1.94,.16]);
+  for(const x of [-.36,0,.36])m.box("iron",[x,1.59,2.58],[.055,1.75,.04]);
+  for(const y of [.9,1.52,2.17])m.box("iron",[0,y,2.59],[.95,.065,.04]);
+  windowGlow(m,0,1.57,2.61,.32,.6);
+  // Fenêtres chaudes sur la façade et les côtés.
+  for(const x of [-1.55,1.55]){
+    m.box("basalt",[x,1.85,2.22],[.65,.95,.2]);windowGlow(m,x,1.85,2.34,.4,.68);
+    m.box("iron",[x,1.85,2.39],[.045,.68,.035]);m.box("iron",[x,1.85,2.39],[.4,.045,.035]);
+  }
+  for(const z of [-1.25,.25,1.25]){
+    m.box("ember",[2.29,1.75,z],[.04,.62,.4]);m.box("ember",[-2.29,1.75,z],[.04,.62,.4]);
+  }
+  // Lucarne secondaire sur le pan droit.
+  m.box("darkwood",[1.18,4.05,.55],[.95,1.15,.75]);
+  m.cone("roof",[1.18,4.78,.55],.86,.72,4);
+  windowGlow(m,1.18,4.1,1.0,.42,.55);
+  // Cheminée massive en pierres appareillées.
+  m.box("stone",[1.63,4.2,-.72],[.78,3.4,.82]);
+  for(let y=2.72;y<5.75;y+=.38)m.box(y%1>.5?"stone2":"basalt",[1.63,y,-.29],[.82,.09,.08]);
+  m.box("stone2",[1.63,5.88,-.72],[1.0,.25,1.02]);
+  for(const x of [1.38,1.88])for(const z of [-.97,-.47])m.box("stone2",[x,6.12,z],[.24,.32,.24]);
+  // Bannière, lanternes, bois mort et braises périphériques.
+  m.box("iron",[-2.55,1.55,2.7],[.08,2.7,.08]);
+  m.box("iron",[-2.16,2.78,2.7],[.82,.08,.08]);
+  m.box("cloth",[-2.18,2.12,2.72],[.62,1.22,.05]);
+  m.box("gold",[-2.18,2.18,2.755],[.1,.62,.025]);
+  for(const x of [-.92,.92]){torch(m,x,2.02,2.68);m.box("iron",[x,2.02,2.49],[.4,.06,.06]);}
+  for(const [x,z] of [[-2.25,-1.8],[2.35,1.65],[1.95,-2.1]]){
+    m.beam3("darkwood",[x,.3,z],[x+(x>0?.42:-.42),1.45,z+.18],.13);
+    m.cone("ember",[x,.32,z],.13,.35,7);
   }
   return m;
 }
