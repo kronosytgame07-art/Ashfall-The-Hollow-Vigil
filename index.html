@@ -270,6 +270,122 @@
   @keyframes sceneryGlow{from{opacity:.35;filter:brightness(.92)}to{opacity:.82;filter:brightness(1.14)}}
   @keyframes mistDrift{from{transform:translateX(-22%)}to{transform:translateX(22%)}}
   body.reduced-motion .scenery-art,body.reduced-motion .scenery-art::after,body.reduced-motion .scenery-mist{animation:none}
+
+  /* ===== PWA game viewport: one screen, never a scrolling web page ===== */
+  html{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    width:100%;height:var(--app-height,100dvh);min-height:0;max-height:var(--app-height,100dvh);
+    overflow:hidden;overscroll-behavior:none;
+  }
+  @media (display-mode:standalone), (display-mode:fullscreen), (orientation:landscape) and (max-height:600px){
+    body{
+      position:fixed;inset:0;
+      padding:max(4px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right))
+        max(4px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+    }
+    .wrap{height:100%;max-width:1200px;display:block}
+    .titleblock,.bonfire-row,.foot{display:none!important}
+    #loginScreen{height:calc(100% - 8px);max-height:560px;margin:4px auto;display:flex;flex-direction:column;justify-content:flex-end}
+    #loginScreen::before{flex:1;min-height:100px;height:auto}
+    #loginScreen .login-content{flex:0 0 auto}
+    #gameScreen:not(.hide){
+      height:100%;min-height:0;display:grid;
+      grid-template-rows:44px 52px minmax(0,1fr);
+      gap:4px;
+    }
+    #gameScreen>.onlinebar{display:none}
+    #gameScreen>.resbar{
+      grid-row:1;margin:0;padding:0 174px 0 0;
+      display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;align-items:stretch;
+    }
+    #gameScreen>.resbar .res{min-width:0;height:44px;margin:0;padding:3px 7px;gap:5px;border-radius:8px}
+    #gameScreen>.resbar .resource-glyph{width:29px;height:29px;font-size:10px}
+    #gameScreen>.resbar .val{font-size:13px;line-height:1}
+    #gameScreen>.resbar .lbl{font-size:7.5px;line-height:1.1}
+    #gameScreen>.tabbar{
+      grid-row:2;position:static;inset:auto;margin:0;padding:4px;height:52px;
+      display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;
+    }
+    #gameScreen>.tabbar .tab{min-height:42px;padding:4px 2px;font-size:clamp(8px,1.7vw,11px);white-space:nowrap}
+    #gameScreen>#view-village,#gameScreen>#view-battle,#gameScreen>#view-leaderboard,#gameScreen>#view-achievements{
+      grid-row:3;min-width:0;min-height:0;height:100%;margin:0;overflow:hidden;
+    }
+    #sceneWrap,#battleFieldWrap{width:100%!important;height:100%!important;min-height:0!important;max-height:none!important}
+    #view-battle:not(.hide){overflow:auto}
+    #view-leaderboard:not(.hide),#view-achievements:not(.hide){overflow:auto;padding:10px}
+    .quickmenu{
+      position:fixed;top:max(4px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));
+      height:44px;padding:3px;gap:3px;border-radius:11px;
+    }
+    .quickmenu .mutebtn{width:48px;height:36px;min-height:36px;border-radius:8px}
+    .overlay{padding:max(6px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+    .panel{max-height:calc(var(--app-height,100dvh) - 12px);padding:14px 16px}
+    .toast{bottom:max(8px,env(safe-area-inset-bottom))}
+  }
+  @media (display-mode:standalone) and (min-height:601px){
+    #gameScreen:not(.hide){grid-template-rows:52px 56px minmax(0,1fr)}
+  }
+
+  /* ===== Full-screen village: the map is the game, UI floats above it ===== */
+  #gameScreen:not(.hide){
+    position:fixed;inset:0;z-index:10;width:100%;height:var(--app-height,100dvh);
+    display:block;overflow:hidden;background:#050404;
+  }
+  #gameScreen>.onlinebar,#gameScreen>.bonfire-row,#gameScreen>.foot{display:none!important}
+  #gameScreen>#view-village{
+    position:absolute;inset:0;z-index:0;width:100%;height:100%;min-height:0;
+    margin:0;padding:0;border:0;border-radius:0;box-shadow:none;background:#050404;overflow:hidden;
+  }
+  #gameScreen>#view-village #sceneWrap{width:100%!important;height:100%!important;min-height:0!important;border-radius:0}
+  #gameScreen>.resbar{
+    position:absolute;z-index:40;top:max(8px,env(safe-area-inset-top));left:50%;right:auto;
+    width:min(650px,calc(100% - 380px));transform:translateX(-50%);
+    margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;
+  }
+  #gameScreen>.resbar .res{
+    min-width:0;height:48px;margin:0;padding:4px 8px;gap:6px;
+    border-radius:11px;background:linear-gradient(145deg,rgba(49,38,30,.94),rgba(13,10,8,.94));
+    backdrop-filter:blur(10px);box-shadow:inset 0 1px rgba(255,255,255,.08),0 5px 16px rgba(0,0,0,.55);
+  }
+  #gameScreen>.resbar .resource-glyph{width:31px;height:31px;flex:0 0 31px}
+  #gameScreen>.tabbar{
+    position:absolute;z-index:42;left:50%;right:auto;bottom:max(10px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);width:min(720px,calc(100% - 24px));height:auto;
+    margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;
+    border:0;background:transparent;backdrop-filter:none;
+  }
+  #gameScreen>.tabbar .tab{
+    min-height:62px;padding:6px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    border:1px solid rgba(214,203,170,.25);border-radius:13px;
+    background:linear-gradient(145deg,rgba(52,41,32,.96),rgba(12,10,8,.96));
+    color:#c7b999;font-size:10px;line-height:1.05;text-shadow:0 1px 3px #000;
+    box-shadow:inset 0 1px rgba(255,255,255,.1),0 5px 18px rgba(0,0,0,.72);backdrop-filter:blur(10px);
+  }
+  #gameScreen>.tabbar .tab::before{font-family:Georgia,serif;font-size:23px;line-height:1;color:#e2c593;filter:drop-shadow(0 2px 3px #000)}
+  #tab-village::before{content:"♜"}#tab-battle::before{content:"⚔"}#tab-leaderboard::before{content:"♛"}#tab-achievements::before{content:"✥"}#tab-build::before{content:"⌂"}
+  #gameScreen>.tabbar .tab.active{color:#fff0cf;border-color:#e0832f;background:linear-gradient(145deg,rgba(130,61,29,.98),rgba(38,20,14,.98));box-shadow:inset 0 0 0 1px rgba(255,183,93,.22),0 0 22px rgba(224,90,35,.3),0 5px 18px #000}
+  #gameScreen .collect-hint{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 72px)!important}
+  #gameScreen>#view-battle,#gameScreen>#view-leaderboard,#gameScreen>#view-achievements{
+    position:absolute;z-index:20;inset:0;width:100%;height:100%;min-height:0;margin:0;
+    padding:70px 16px 88px;border:0;border-radius:0;background:rgba(7,6,5,.94);overflow:auto;
+  }
+  #gameScreen>#view-battle #battleFieldWrap{position:absolute!important;inset:0;width:100%!important;height:100%!important;min-height:0!important}
+  #gameScreen>#view-battle #battleIntro{position:relative;z-index:2}
+  #tutorialBanner{z-index:100!important}
+  @media (max-width:900px){
+    #gameScreen>.resbar{
+      top:max(4px,env(safe-area-inset-top));left:max(6px,env(safe-area-inset-left));right:174px;
+      width:auto;transform:none;gap:3px;
+    }
+    #gameScreen>.resbar .res{height:44px;padding:3px 5px;gap:4px}
+    #gameScreen>.resbar .resource-glyph{width:28px;height:28px;flex-basis:28px;font-size:9px}
+    #gameScreen>.resbar .val{font-size:12px}#gameScreen>.resbar .lbl{font-size:7px}
+    #gameScreen>.tabbar{bottom:max(6px,env(safe-area-inset-bottom));width:min(650px,calc(100% - 16px));gap:4px}
+    #gameScreen>.tabbar .tab{min-height:56px;border-radius:11px;font-size:8px;padding:4px 2px}
+    #gameScreen>.tabbar .tab::before{font-size:20px}
+    #gameScreen .collect-hint{bottom:calc(max(6px,env(safe-area-inset-bottom)) + 63px)!important}
+    #gameScreen>#view-battle,#gameScreen>#view-leaderboard,#gameScreen>#view-achievements{padding:56px 8px 72px}
+  }
 </style>
 </head>
 <body>
@@ -1327,7 +1443,11 @@ function makeBuilding(type, level){
     sprite.scale.set(fullScale*art.scaleX,fullScale*art.scaleY,1);
     // Le sprite contient déjà son socle et son ombre peinte : aucune plaque 3D dessous.
     sprite.position.set(0,.018,0);
-    sprite.center.set(.5,1-trim[2]/512);
+    // L'ancre n'est pas la dernière ligne opaque (pointe avant du losange),
+    // mais le centre du socle isométrique peint dans le sprite.
+    // Ainsi le PNG fini reprend exactement le centre occupé par le gabarit de construction.
+    const paintedBaseCenter=trim[2]-trim[1]*.13;
+    sprite.center.set(.5,1-paintedBaseCenter/512);
     sprite.userData.isBuildingArt=true;
     g.add(sprite);
     const fxDef = BUILDING_FX[type];
@@ -2572,6 +2692,14 @@ function sfxDefeat(){ playTone(130,0.4,'sawtooth',0.13); playTone(90,0.6,'sine',
 
 /* Allow Enter key on login */
 document.addEventListener('DOMContentLoaded', ()=>{
+  const syncAppViewport=()=>{
+    const h=Math.round(window.visualViewport?.height||window.innerHeight);
+    document.documentElement.style.setProperty('--app-height',`${h}px`);
+    if(three?.ready)resizeScene();
+  };
+  syncAppViewport();
+  window.visualViewport?.addEventListener('resize',syncAppViewport);
+  window.addEventListener('orientationchange',()=>setTimeout(syncAppViewport,120));
   loadUiPrefs();
   const bootAssets=Object.values(MAP_SKINS).map(s=>s.scenery);
   let loaded=0;

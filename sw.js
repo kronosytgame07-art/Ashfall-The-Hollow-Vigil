@@ -1,4 +1,4 @@
-const CACHE='ashfall-v5';
+const CACHE='ashfall-v6';
 const CORE=['./','./index.html','./manifest.json','./assets/app-icon.svg','./assets/vendor/three-r128.min.js',
   './assets/scenery/ash.webp','./assets/scenery/forest.webp','./assets/scenery/ice.webp','./assets/scenery/swamp.webp','./assets/scenery/volcano.webp'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
