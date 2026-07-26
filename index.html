@@ -324,13 +324,29 @@ const BUILDINGS = {
               baseCost:{or:500,bois:250,ames:120}, buildTime:80,
               upgradeCost:l=>({or:380*Math.pow(1.6,l-1),bois:180*Math.pow(1.6,l-1),ames:90*l}), upgradeTime:l=>80*Math.pow(1.4,l-1),
               maxCount:()=>1 },
+  camp:     { name:"Camp Militaire", icon:"⛺", desc:"Les gardiens y dorment, s'équipent et se préparent. Chaque niveau augmente le logement de l'armée.", maxLevel:5, stat:"housing", baseStat:6,
+              baseCost:{or:250,bois:300,ames:10}, buildTime:55,
+              upgradeCost:l=>({or:220*Math.pow(1.55,l-1),bois:260*Math.pow(1.55,l-1),ames:12*l}), upgradeTime:l=>55*Math.pow(1.4,l-1),
+              maxCount:ch=>Math.min(2,1+Math.floor((ch-1)/3)) },
 };
-const FOOTPRINT = { chateau:3, salledesorts:2, labo:2, caserne:2, tour:2,
+const BUILDING_UNLOCK = { mine:1, scierie:1, caserne:1, camp:1, autel:2, muraille:2, tour:2, chantier:2, forge:3, labo:4, salledesorts:5 };
+const REQUIRED_BY_TH = {
+  1:['mine','scierie','caserne','camp'],
+  2:['autel','muraille','tour','chantier'],
+  3:['forge'],
+  4:['labo'],
+  5:['salledesorts']
+};
+function missingTownHallRequirements(st, level){
+  return (REQUIRED_BY_TH[level]||[]).filter(type=>!Object.values(st.buildings||{}).some(b=>b.type===type));
+}
+function housingCapacity(st){ return Math.max(3, Math.min(60, powerOf(st,'housing'))); }
+const FOOTPRINT = { camp:4, chateau:3, salledesorts:2, labo:2, caserne:2, tour:2,
   mine:1, scierie:1, autel:1, forge:1, chantier:1, muraille:1 };
 const COLS = 44, ROWS = 44, GRID_SIZE = COLS*ROWS;
 const TRUE_CENTER_R = Math.floor((ROWS-1)/2), TRUE_CENTER_C = Math.floor((COLS-1)/2);
 const CENTER = (TRUE_CENTER_R - Math.floor((FOOTPRINT.chateau-1)/2))*COLS + (TRUE_CENTER_C - Math.floor((FOOTPRINT.chateau-1)/2));
-const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo","salledesorts"];
+const PLOT_TYPE_ORDER = ["mine","scierie","caserne","camp","autel","muraille","tour","chantier","forge","labo","salledesorts"];
 
 function footprintTiles(anchor, size){
   const r0 = Math.floor(anchor/COLS), c0 = anchor%COLS;
@@ -457,7 +473,7 @@ function canAfford(cost){ return state.resources.or>=cost.or && state.resources.
 function spend(cost){ state.resources.or-=cost.or; state.resources.bois-=cost.bois; state.resources.ames-=cost.ames; }
 function costString(c){ const p=[]; if(c.or) p.push(`🪙 ${fmt(c.or)}`); if(c.bois) p.push(`🪵 ${fmt(c.bois)}`); if(c.ames) p.push(`🔥 ${fmt(c.ames)}`); return p.length?p.join('  ·  '):"Gratuit"; }
 function resIcon(r){ return r==='or'?'🪙':r==='bois'?'🪵':'🔥'; }
-function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':s==='troopPower'?'Puissance des troupes +%':s==='spells'?'Charges de sorts':'Vitesse +%'; }
+function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':s==='troopPower'?'Puissance des troupes +%':s==='spells'?'Charges de sorts':s==='housing'?'Logement des troupes':'Vitesse +%'; }
 function powerOf(st, statType){
   return Object.values(st.buildings).filter(b=>BUILDINGS[b.type] && BUILDINGS[b.type].stat===statType)
     .reduce((sum,b)=>sum + BUILDINGS[b.type].baseStat*b.level, 0);
@@ -671,6 +687,11 @@ const ICON_DRAW = {
     gloss(ctx,s*0.34,s*0.42,s*0.06,s*0.09,-0.5);
   }
 };
+ICON_DRAW.camp=(ctx,s)=>{
+  outlinedPath(ctx,c=>{ c.moveTo(s*0.18,s*0.78); c.lineTo(s*0.50,s*0.24); c.lineTo(s*0.82,s*0.78); c.closePath(); }, '#8f2c25', INK, s*0.05);
+  outlinedPath(ctx,c=>{ c.moveTo(s*0.50,s*0.24); c.lineTo(s*0.50,s*0.78); }, null, '#e2b15a', s*0.035);
+  outlinedPath(ctx,c=>{ c.moveTo(s*0.25,s*0.82); c.lineTo(s*0.75,s*0.82); }, null, '#d6cbaa', s*0.055);
+};
 let ICON_MATS = {};
 const BUILDING_ART = {
   chateau:{dir:'chateau', scaleX:0.98, scaleY:0.98}, mine:{dir:'mine', scaleX:1.04, scaleY:1.04},
@@ -678,7 +699,8 @@ const BUILDING_ART = {
   caserne:{dir:'caserne', scaleX:1.02, scaleY:1.02}, muraille:{dir:'muraille', scaleX:1.05, scaleY:1.05},
   tour:{dir:'tour', scaleX:0.96, scaleY:1.15}, forge:{dir:'forge', scaleX:1.05, scaleY:1.05},
   chantier:{dir:'chantier', scaleX:1.04, scaleY:1.04}, labo:{dir:'labo', scaleX:1.02, scaleY:1.02},
-  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03}
+  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03},
+  camp:{dir:'camp', scaleX:0.98, scaleY:0.98}
 };
 let BUILDING_MATS = {}, TERRAIN_TEX = {};
 const BUILDING_FX = {
@@ -692,7 +714,8 @@ const BUILDING_FX = {
   forge:{kind:'brazier', x:0.48, y:0.82, size:0.4},
   chantier:{kind:'torch', x:-0.62, y:0.92, size:0.3},
   labo:{kind:'alchemy', x:0.45, y:1.15, size:0.46},
-  salledesorts:{kind:'rune', x:0, y:0.72, size:0.58}
+  salledesorts:{kind:'rune', x:0, y:0.72, size:0.58},
+  camp:{kind:'brazier', x:0, y:1.05, size:0.52}
 };
 const FX_KINDS = ['torch','brazier','smoke','soul-flame','alchemy','rune'];
 let FX_MATS = {}, TROOP_MATS = {};
@@ -777,7 +800,7 @@ function roundRectPath(ctx,x,y,w,h,r){
   ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
-const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95, labo:0.85, salledesorts:1.9 };
+const ICON_HEIGHT = { chateau:3.1, camp:3.3, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95, labo:0.85, salledesorts:1.9 };
 function stoneMat(color,rough){ return new THREE.MeshStandardMaterial({map:TEX.stone, color, roughness:rough!==undefined?rough:0.95, metalness:0.05}); }
 function woodMat(color){ return new THREE.MeshStandardMaterial({map:TEX.wood, color, roughness:0.9}); }
 function roofMat(color){ return new THREE.MeshStandardMaterial({map:TEX.roof, color, roughness:0.85}); }
@@ -1259,6 +1282,7 @@ function openBuildMenu(idx){
   let any=false;
   PLOT_TYPE_ORDER.forEach(t=>{
     const def = BUILDINGS[t];
+    if((BUILDING_UNLOCK[t]||1)>chLevel) return;
     const count = countOfType(state,t), max = def.maxCount(chLevel);
     if(count>=max) return;
     any=true;
@@ -1277,6 +1301,8 @@ function openBuildMenu(idx){
   document.getElementById('overlay').classList.add('show');
 }
 function startBuild(idx,type){
+  const def = BUILDINGS[type];
+  if(!def || (BUILDING_UNLOCK[type]||1)>chateauLevel(state)){ showToast("Améliore ton Château pour débloquer ce bâtiment."); return; }
   const cost = costForNext(type);
   if(!canAfford(cost)) return;
   if(activeBuilders(state) >= maxBuilders(state)){ showToast(`Tous tes ouvriers sont occupés (${activeBuilders(state)}/${maxBuilders(state)})`); return; }
@@ -1287,7 +1313,6 @@ function startBuild(idx,type){
   const size = FOOTPRINT[type]||1;
   if(!canPlaceFootprint(idx, size, unlockedSet, occupied)){ showToast("Espace insuffisant pour bâtir ici."); return; }
   spend(cost);
-  const def = BUILDINGS[type];
   const time = def.buildTime*forgeSpeedMult()*1000;
   state.buildings[idx] = {type, level:1, until:Date.now()+time, constructStart:Date.now(), stored:0, pendingLevel:1};
   sfxBuild();
@@ -1311,14 +1336,22 @@ function openBuildingPanel(idx){
       <div class="progresswrap"><div class="progressbar"><div style="width:${pct}%"></div></div></div>
       <button class="actionbtn collect" ${b.stored<1?'disabled':''} onclick="collect(${idx})">Récolter ${fmt(b.stored)} ${resIcon(def.produces)}</button>`;
     } else if(def.stat){
-      html += `<div class="statline"><span>${statLabel(def.stat)}</span><span>${def.stat==='troopPower' ? '+'+(def.baseStat*b.level*2)+'%' : def.baseStat*b.level}</span></div>`;
+      const statValue = def.stat==='troopPower' ? '+'+(def.baseStat*b.level*2)+'%' : def.baseStat*b.level;
+      html += `<div class="statline"><span>${statLabel(def.stat)}</span><span>${statValue}</span></div>`;
+      if(def.stat==='housing') html += `<div class="timelabel">Capacité totale actuelle : ${housingCapacity(state)} troupes.</div>`;
+    }
+    const missing = b.type==='chateau' ? missingTownHallRequirements(state,b.level) : [];
+    if(missing.length){
+      const names = missing.map(type=>`${BUILDINGS[type].icon} ${BUILDINGS[type].name}`).join(' · ');
+      html += `<div class="desc" style="margin-top:12px;border:1px solid rgba(192,65,65,.65);background:rgba(92,24,24,.24);color:#efb0a6;">
+        🔒 Amélioration verrouillée — construis d'abord : ${names}</div>`;
     }
     if(b.level < def.maxLevel){
       const cost = def.upgradeCost(b.level), time = def.upgradeTime(b.level)*forgeSpeedMult();
       const buildersFull = activeBuilders(state) >= maxBuilders(state);
-      const afford = canAfford(cost) && !buildersFull;
+      const afford = canAfford(cost) && !buildersFull && missing.length===0;
       html += `<div class="statline"><span>Amélioration → Nv.${b.level+1}</span><span>${costString(cost)}</span></div>
-      <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">Améliorer · ⏱ ${Math.round(time)}s</button>
+      <button class="actionbtn" ${afford?'':'disabled'} onclick="startUpgrade(${idx})">${missing.length?'🔒 Verrouillé':`Améliorer · ⏱ ${Math.round(time)}s`}</button>
       <div class="timelabel">Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés':''}</div>`;
     } else { html += `<div class="timelabel">Niveau maximum atteint.</div>`; }
   }
@@ -1338,6 +1371,13 @@ function collect(idx){
 }
 function startUpgrade(idx){
   const b = state.buildings[idx], def = BUILDINGS[b.type];
+  if(b.type==='chateau'){
+    const missing = missingTownHallRequirements(state,b.level);
+    if(missing.length){
+      showToast(`🔒 Construis d'abord : ${missing.map(type=>BUILDINGS[type].name).join(', ')}`);
+      return;
+    }
+  }
   const cost = def.upgradeCost(b.level);
   if(!canAfford(cost)) return;
   if(activeBuilders(state) >= maxBuilders(state)){ showToast(`Tous tes ouvriers sont occupés (${activeBuilders(state)}/${maxBuilders(state)})`); return; }
@@ -1393,6 +1433,8 @@ function botEnemy(){
   buildings[spots[1]] = {type:'tour', level:Math.max(1,Math.round(defLv*0.7))};
   buildings[spots[2]] = {type:'mine', level:Math.max(1,Math.round(chLevel*0.6))};
   buildings[spots[3]] = {type:'scierie', level:Math.max(1,Math.round(chLevel*0.6))};
+  const campAnchor = CENTER + 7*COLS + 7;
+  buildings[campAnchor] = {type:'camp', level:Math.max(1,Math.min(5,chLevel))};
   if(chLevel>=2) buildings[spots[4]] = {type:'muraille', level:defLv};
   if(chLevel>=3) buildings[spots[5]] = {type:'tour', level:Math.max(1,defLv-1)};
   return { isBot:true, name:"Les Errants (bot)", trophies:Math.round((state.trophies||0)*0.85),
@@ -1431,7 +1473,7 @@ async function findEnemy(){
 
   const myAtk = powerOf(state,'attaque');
   const enDef = powerOf(enemy,'defense') + 5;
-  const troopCount = Math.max(3, Math.min(30, Math.round(myAtk/6)));
+  const troopCount = housingCapacity(state);
   window._currentEnemy = enemy; window._currentEnemyLabel = enemyLabel;
 
   zone.innerHTML = `<div class="enemycard">
@@ -1463,7 +1505,7 @@ function selectComposition(comp, el){
 }
 
 /* ---- Champ de bataille 3D : déploiement de troupes, combat en temps réel ---- */
-const BUILDING_BASE_HP = { chateau:420, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90, labo:130, salledesorts:150 };
+const BUILDING_BASE_HP = { chateau:420, camp:260, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90, labo:130, salledesorts:150 };
 const TROOP_TYPES = {
   guerrier: { hpMult:1,   dpsMult:1,   speedMult:1,    range:0.75, color:0xa1481f, headColor:0xd6cbaa, defRes:0 },
   archer:   { hpMult:0.65,dpsMult:1.3, speedMult:1.15, range:2.6,  color:0x8fb8cc, headColor:0xd6cbaa, defRes:0 },
@@ -1857,7 +1899,7 @@ function deployAssault(){
     buildZoneOverlay();
     battleThree.troops.forEach(t=>battleThree.group.remove(t.mesh));
     battleThree.troops = [];
-    const troopCount = Math.max(3, Math.min(30, Math.round(powerOf(state,'attaque')/6)));
+    const troopCount = housingCapacity(state);
     battleThree.troopBudget = computeTroopBudget(troopCount, window._troopComposition||'equilibree');
     battleThree.selectedTroopType = 'guerrier';
     battleThree.firstDeployDone = false;

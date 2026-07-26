@@ -43,10 +43,15 @@ Pour l'héberger en ligne gratuitement via **GitHub Pages** :
 
 Pour rester honnête sur le périmètre : pas de clans ni de guerres de clans, pas de campagne solo, pas de vrai serveur de validation (les actions restent calculées côté client — un joueur techniquement averti pourrait modifier ses propres données), pas de doublages ni de musique composée par un vrai musicien (la boucle mélodique est générée par code). Le pathfinding des troupes reste en ligne droite au sein d'un même trajet (pas de contournement fin des obstacles, juste une pénalité de distance si un mur bloque le chemin direct). Pas de pièges ni de décorations achetables dans les bases ennemies. Pas de comportement "cible uniquement les défenses" façon Ballon/Chevaucheur de cochon — nos trois types de troupes ciblent tous indifféremment n'importe quel bâtiment. Côté murailles : pas de glisser-déplacer en rangée (jusqu'à 8 à la fois comme dans le vrai jeu — chez nous, un mur se déplace individuellement), pas de choix Or/Élixir au-delà d'un certain niveau (nos murs se paient toujours avec le même mélange de ressources), et pas d'anneaux de remparts (objet magique premium, hors sujet ici puisqu'il n'y a pas de monnaie premium dans ce prototype). Trois.js est chargé depuis un CDN (cdnjs) : une connexion internet est nécessaire au premier chargement.
 
+## Progression stratégique
+
+- ⛺ **Camp Militaire 4×4** : chaque niveau ajoute 6 logements, jusqu'au niveau 5.
+- 🔒 **Verrou du Château** : chaque nouveauté du niveau actuel doit être construite avant l'amélioration suivante.
+
 ## Structure
 
 - `index.html` — le jeu complet (HTML/CSS/JS), un seul fichier, sans dépendance de build.
-- `assets/buildings/levels/` — 55 sprites WebP : 11 bâtiments, du niveau 1 au niveau 5.
+- `assets/buildings/levels/` — 60 sprites WebP : 12 bâtiments, du niveau 1 au niveau 5.
 - `assets/fx/` — boucles animées séparées (torches, brasiers, fumée, âmes, alchimie et runes).
 - `assets/troops/` — cycles de marche et d’attaque du Guerrier, de l’Archer, de la Brute et du Roi des Cendres.
 - `assets/terrain/` — 24 tuiles isométriques pour le village, les parcelles, les bordures et l’arène.
