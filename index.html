@@ -1400,26 +1400,56 @@ function initBattleScene(){
   battleThree.ready = true;
   battleThree.camRadius = 34;
   const wrap = document.getElementById('battleFieldWrap');
-  wrap.addEventListener('click', e=>{
-    if(!battleThree.ready) return;
+  wrap.style.touchAction = 'none';
+  const activePointers = new Map();
+  function pointerToGroundXZ(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
-    const mouse = new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
+    const mouse = new THREE.Vector2(((clientX-rect.left)/rect.width)*2-1, -((clientY-rect.top)/rect.height)*2+1);
     const ray = new THREE.Raycaster(); ray.setFromCamera(mouse, battleThree.camera);
     const dir = ray.ray.direction, origin = ray.ray.origin;
-    if(Math.abs(dir.y)<1e-6) return;
-    const t = -origin.y/dir.y; if(t<0) return;
-    const x = origin.x+dir.x*t, z = origin.z+dir.z*t;
+    if(Math.abs(dir.y)<1e-6) return null;
+    const t = -origin.y/dir.y; if(t<0) return null;
+    return { x: origin.x+dir.x*t, z: origin.z+dir.z*t };
+  }
+  function snapToMicroGrid(x,z){
+    const res = 0.7; // micro-case : le doigt/clic s'arrondit à la position de grille la plus proche
+    return { x: Math.round(x/res)*res, z: Math.round(z/res)*res };
+  }
+  function tryDeployAt(clientX, clientY, streak){
+    const pos = pointerToGroundXZ(clientX, clientY);
+    if(!pos) return false;
+    let {x,z} = snapToMicroGrid(pos.x, pos.z);
+    if(streak>0){ const off=(streak%2===0?1:-1)*Math.ceil(streak/2)*0.7; x += off; } // troupes en ligne lors d'un appui prolongé
     const type = battleThree.selectedTroopType;
-    if((battleThree.troopBudget[type]||0)<=0){ showToast("Plus de troupes de ce type."); return; }
-    if(!isDeployable(x,z)){ showToast("🚫 Zone anti-déploiement — trop près d'un bâtiment."); return; }
+    if((battleThree.troopBudget[type]||0)<=0) return false;
+    if(!isDeployable(x,z)){ if(streak===0) showToast("🚫 Zone anti-déploiement — trop près d'un bâtiment."); return false; }
     deployTroopAt(type, x, z);
     updateTroopBar();
     sfxClick();
-    if(!battleThree.firstDeployDone){
-      battleThree.firstDeployDone = true;
-      startBattlePhase();
-    }
+    if(!battleThree.firstDeployDone){ battleThree.firstDeployDone = true; startBattlePhase(); }
+    return true;
+  }
+  wrap.addEventListener('pointerdown', e=>{
+    if(!battleThree.ready) return;
+    e.preventDefault();
+    try{ wrap.setPointerCapture(e.pointerId); }catch(err){}
+    const posRef = {x:e.clientX, y:e.clientY, streak:0};
+    tryDeployAt(posRef.x, posRef.y, 0);
+    posRef.streak = 1;
+    const intervalId = setInterval(()=>{ tryDeployAt(posRef.x, posRef.y, posRef.streak); posRef.streak++; }, 210); // appui prolongé ~4-5/s
+    activePointers.set(e.pointerId, {posRef, intervalId});
   });
+  wrap.addEventListener('pointermove', e=>{
+    const p = activePointers.get(e.pointerId);
+    if(p){ p.posRef.x = e.clientX; p.posRef.y = e.clientY; }
+  });
+  function releasePointer(e){
+    const p = activePointers.get(e.pointerId);
+    if(p){ clearInterval(p.intervalId); activePointers.delete(e.pointerId); }
+  }
+  wrap.addEventListener('pointerup', releasePointer);
+  wrap.addEventListener('pointercancel', releasePointer);
+  wrap.addEventListener('pointerleave', releasePointer);
   resizeBattleScene();
   window.addEventListener('resize', resizeBattleScene);
   animateBattleScene();
@@ -1481,10 +1511,10 @@ function buildEnemyScene(enemyState){
 /* ---- Zone anti-spawn : ombre des bâtiments + bordure de déploiement libre ---- */
 const NO_SPAWN_HALO = 1.12; // légèrement plus qu'une demi-case : un écart de 1 case reste bloqué, un écart de 2 cases laisse un trou
 function buildingAABBList(){
-  return Object.values(battleThree.buildings).filter(b=>!b.destroyed).map(b=>{
+  return Object.entries(battleThree.buildings).filter(([idx,b])=>!b.destroyed).map(([idxStr,b])=>{
     const size = FOOTPRINT[b.type]||1;
     const half = size*2.1/2;
-    return { minX:b.worldPos.x-half, maxX:b.worldPos.x+half, minZ:b.worldPos.z-half, maxZ:b.worldPos.z+half };
+    return { idx:Number(idxStr), type:b.type, minX:b.worldPos.x-half, maxX:b.worldPos.x+half, minZ:b.worldPos.z-half, maxZ:b.worldPos.z+half };
   });
 }
 function isDeployable(x,z){
@@ -1597,14 +1627,41 @@ function spawnHero(){
   battleThree.troops.push({ mesh:g, hp:heroHp, maxHp:heroHp, target:null, speed:1.35, dps:24*troopPowerMult,
     range:0.9, defRes:0.15, alive:true, isHero:true });
 }
+function segmentHitsAABB(x0,z0,x1,z1,box){
+  let tmin=0, tmax=1;
+  const axes = [[x1-x0, box.minX, box.maxX, x0], [z1-z0, box.minZ, box.maxZ, z0]];
+  for(const [d,mn,mx,p0] of axes){
+    if(Math.abs(d)<1e-9){
+      if(p0<mn || p0>mx) return false;
+    } else {
+      let t1=(mn-p0)/d, t2=(mx-p0)/d;
+      if(t1>t2){ const tmp=t1; t1=t2; t2=tmp; }
+      tmin=Math.max(tmin,t1); tmax=Math.min(tmax,t2);
+      if(tmin>tmax) return false;
+    }
+  }
+  return true;
+}
+function pathBlockedByWall(fromX, fromZ, targetIdx, toX, toZ){
+  const walls = buildingAABBList().filter(b=>b.type==='muraille' && b.idx!==targetIdx);
+  for(const w of walls){ if(segmentHitsAABB(fromX,fromZ,toX,toZ,w)) return true; }
+  return false;
+}
 function nearestAliveBuilding(pos){
-  let best=null, bestDist=Infinity;
-  Object.values(battleThree.buildings).forEach(b=>{
+  const candidates = [];
+  Object.entries(battleThree.buildings).forEach(([idxStr,b])=>{
     if(b.destroyed) return;
+    const idx = Number(idxStr);
     const d = pos.distanceTo(b.worldPos);
-    if(d<bestDist){ bestDist=d; best=b; }
+    const blocked = pathBlockedByWall(pos.x, pos.z, idx, b.worldPos.x, b.worldPos.z);
+    candidates.push({ b, eff: d + (blocked ? 6 : 0) }); // un mur sur le chemin ajoute l'équivalent de ~3 cases de détour
   });
-  return best;
+  if(!candidates.length) return null;
+  candidates.sort((a,c)=>a.eff-c.eff);
+  const top = candidates.slice(0, Math.min(3, candidates.length));
+  const r = Math.random();
+  const pick = r<0.7 ? top[0] : (r<0.9 && top[1] ? top[1] : (top[2]||top[0]));
+  return pick.b;
 }
 function simulateBattleStep(dt){
   battleThree.elapsed += dt;
