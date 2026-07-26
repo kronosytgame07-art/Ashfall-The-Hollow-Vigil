@@ -23,6 +23,8 @@
   html,body{margin:0;padding:0;}
   body{
     background:
+      linear-gradient(rgba(5,7,12,.48),rgba(5,4,5,.72)),
+      url('assets/backgrounds/main-menu.webp') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -503,6 +505,7 @@ function initTextures(){
   },256);
   TEX.ground.repeat.set(6,6);
   initIconSprites();
+  initBuildingSprites();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -612,6 +615,28 @@ const ICON_DRAW = {
   }
 };
 let ICON_MATS = {};
+const BUILDING_ART = {
+  chateau:{src:'assets/buildings/townhall.webp', w:3.3, h:3.3},
+  mine:{src:'assets/buildings/mine.webp', w:2.2, h:2.2},
+  scierie:{src:'assets/buildings/sawmill.webp', w:2.2, h:2.2},
+  autel:{src:'assets/buildings/altar.webp', w:2.05, h:2.05},
+  caserne:{src:'assets/buildings/barracks.webp', w:2.35, h:2.35},
+  muraille:{src:'assets/buildings/wall.webp', w:2.3, h:1.53},
+  tour:{src:'assets/buildings/tower.webp', w:2.0, h:2.74},
+  forge:{src:'assets/buildings/forge.webp', w:2.25, h:2.25}
+};
+let BUILDING_MATS = {};
+function initBuildingSprites(){
+  const loader = new THREE.TextureLoader();
+  Object.entries(BUILDING_ART).forEach(([type,art])=>{
+    const texture = loader.load(art.src);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
+    BUILDING_MATS[type] = new THREE.SpriteMaterial({
+      map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
+    });
+  });
+}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -730,18 +755,21 @@ function initScene(){
   const canvas = document.getElementById('gameCanvas');
   three.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   three.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  three.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  three.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  three.renderer.toneMappingExposure = 1.25;
   three.renderer.shadowMap.enabled = true;
   three.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   three.scene = new THREE.Scene();
-  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.028);
+  three.scene.fog = new THREE.FogExp2(0x17120f, 0.028);
   three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 140);
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
 
   // Lighting: dark, warm, torch-lit
-  three.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
-  const moon = new THREE.DirectionalLight(0x6f7aa0, 0.4);
+  three.scene.add(new THREE.AmbientLight(0x777080, 1.35));
+  const moon = new THREE.DirectionalLight(0xaab8e0, 0.75);
   moon.position.set(-10,15,-7); moon.castShadow = true;
   moon.shadow.mapSize.set(1536,1536);
   moon.shadow.camera.left=-16; moon.shadow.camera.right=16; moon.shadow.camera.top=16; moon.shadow.camera.bottom=-16;
@@ -754,7 +782,9 @@ function initScene(){
   const halfSize = ((COLS-1)/2)*2.1 + 1.2;
   const groundSize = halfSize*2;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
-  const groundMatMain = new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1});
+  const groundMatMain = new THREE.MeshStandardMaterial({
+    map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42
+  });
   groundMatMain.map.repeat.set(groundSize/3.2, groundSize/3.2);
   const ground = new THREE.Mesh(groundGeo, groundMatMain);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
@@ -841,6 +871,16 @@ function animateScene(){
 
 function makeBuilding(type, level){
   const g = new THREE.Group();
+  const art = BUILDING_ART[type];
+  if(art && BUILDING_MATS[type]){
+    const sprite = new THREE.Sprite(BUILDING_MATS[type]);
+    const tierScale = 1 + Math.min(0.18, (level-1)*0.025);
+    sprite.scale.set(art.w*tierScale, art.h*tierScale, 1);
+    sprite.position.set(0, 0.04, 0);
+    sprite.center.set(0.5, 0);
+    g.add(sprite);
+    return g;
+  }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
   if(type==='chateau'){
@@ -1291,18 +1331,23 @@ function initBattleScene(){
   const canvas = document.getElementById('battleCanvas');
   battleThree.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   battleThree.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  battleThree.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  battleThree.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  battleThree.renderer.toneMappingExposure = 1.25;
   battleThree.renderer.shadowMap.enabled = true;
   battleThree.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   battleThree.scene = new THREE.Scene();
-  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.05);
+  battleThree.scene.fog = new THREE.FogExp2(0x17120f, 0.03);
   battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  battleThree.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
-  const moon = new THREE.DirectionalLight(0x6f7aa0,0.4); moon.position.set(-7,11,-5); moon.castShadow=true;
+  battleThree.scene.add(new THREE.AmbientLight(0x777080,1.35));
+  const moon = new THREE.DirectionalLight(0xaab8e0,0.75); moon.position.set(-7,11,-5); moon.castShadow=true;
   moon.shadow.mapSize.set(1024,1024);
   moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
   battleThree.scene.add(moon);
   const ember = new THREE.PointLight(0xe0832f,1.8,12,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
-  const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
+  const groundMat = TEX.ground
+    ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42})
+    : new THREE.MeshStandardMaterial({color:0x342c25});
   const ground = new THREE.Mesh(new THREE.CircleGeometry(9,48), groundMat);
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
   battleThree.group = new THREE.Group(); battleThree.scene.add(battleThree.group);
