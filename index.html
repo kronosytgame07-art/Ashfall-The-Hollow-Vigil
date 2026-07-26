@@ -23,8 +23,6 @@
   html,body{margin:0;padding:0;}
   body{
     background:
-      linear-gradient(rgba(5,7,12,.48),rgba(5,4,5,.72)),
-      url('assets/backgrounds/main-menu.webp') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -220,6 +218,7 @@
       <div class="tab active" id="tab-village" onclick="switchTab('village')">🏰 Village</div>
       <div class="tab" id="tab-battle" onclick="switchTab('battle')">⚔️ Assaut</div>
       <div class="tab" id="tab-leaderboard" onclick="switchTab('leaderboard')">🏆 Classement</div>
+      <div class="tab" id="tab-achievements" onclick="switchTab('achievements')">🏅 Hauts faits</div>
     </div>
 
     <div id="view-village" class="village" style="padding:0; overflow:hidden;">
@@ -241,6 +240,10 @@
           <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">⏱ <span id="battleTimer">40</span>s</div>
           <div style="background:rgba(10,8,7,0.75); border:1px solid var(--line-strong); border-radius:4px; padding:8px 14px; font-family:'Cinzel',serif; font-size:13px;">💥 <span id="battlePct">0</span>% · <span id="battleStars">☆☆☆</span></div>
         </div>
+        <div id="spellBar" class="hide" style="position:absolute; bottom:10px; left:0; right:0; display:flex; justify-content:center; gap:8px;">
+          <button class="findbtn" id="spellRageBtn" style="padding:9px 16px; font-size:11.5px;" onclick="castSpell('rage')">🔥 Rage</button>
+          <button class="findbtn" id="spellHealBtn" style="padding:9px 16px; font-size:11.5px; background:linear-gradient(180deg, var(--gold-bright), var(--gold-old));" onclick="castSpell('soin')">✨ Soin</button>
+        </div>
         <div id="battleResultOverlay" class="hide" style="position:absolute; inset:0; background:rgba(6,5,4,0.82); display:flex; align-items:center; justify-content:center;">
           <div class="enemycard" style="max-width:340px; text-align:center;" id="battleResultCard"></div>
         </div>
@@ -251,6 +254,13 @@
       <div class="battlewrap">
         <div class="timelabel" style="margin-top:0; margin-bottom:12px;">Les gardiens les plus redoutés des cendres.</div>
         <div id="lbZone" class="lb-table"><div class="timelabel" style="padding:16px;">Chargement…</div></div>
+      </div>
+    </div>
+
+    <div id="view-achievements" class="village hide">
+      <div class="battlewrap">
+        <div class="timelabel" style="margin-top:0; margin-bottom:12px;">Les épreuves que les cendres se souviennent d'avoir vu accomplir.</div>
+        <div id="achZone" class="lb-table"></div>
       </div>
     </div>
 
@@ -304,9 +314,13 @@ const BUILDINGS = {
               baseCost:{or:450,bois:300,ames:80}, buildTime:70,
               upgradeCost:l=>({or:320*Math.pow(1.6,l-1),bois:220*Math.pow(1.6,l-1),ames:60*l}), upgradeTime:l=>70*Math.pow(1.4,l-1),
               maxCount:()=>1 },
+  salledesorts: { name:"Salle des Sorts", icon:"📜", desc:"Des parchemins d'âmes noircies, prêts à être invoqués en plein combat.", maxLevel:3, stat:"spells", baseStat:1, single:true,
+              baseCost:{or:500,bois:250,ames:120}, buildTime:80,
+              upgradeCost:l=>({or:380*Math.pow(1.6,l-1),bois:180*Math.pow(1.6,l-1),ames:90*l}), upgradeTime:l=>80*Math.pow(1.4,l-1),
+              maxCount:()=>1 },
 };
 const COLS = 6, ROWS = 6, GRID_SIZE = COLS*ROWS, CENTER = 14;
-const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo"];
+const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo","salledesorts"];
 
 function distFromCenter(i){
   const r=Math.floor(i/COLS), c=i%COLS, cr=Math.floor(CENTER/COLS), cc=CENTER%COLS;
@@ -325,7 +339,8 @@ function dismissTutorial(){ document.getElementById('tutorialBanner').classList.
 function sanitizeName(n){ return n.trim().replace(/[^a-zA-Z0-9_\- ]/g,'').slice(0,18).trim(); }
 
 function freshState(){
-  const s = { resources:{or:400,bois:400,ames:40}, trophies:0, shieldUntil:null, buildings:{} };
+  const s = { resources:{or:400,bois:400,ames:40}, trophies:0, shieldUntil:null, buildings:{},
+    stats:{wins:0, battles:0, collects:0}, achievementsClaimed:[] };
   s.buildings[CENTER] = {type:"chateau", level:1, until:null, stored:0};
   return s;
 }
@@ -346,6 +361,8 @@ async function login(){
   }catch(e){ state = freshState(); isNewPlayer = true; }
   if(state.trophies===undefined) state.trophies = 0;
   if(state.shieldUntil===undefined) state.shieldUntil = null;
+  if(!state.stats) state.stats = {wins:0, battles:0, collects:0};
+  if(!state.achievementsClaimed) state.achievementsClaimed = [];
 
   document.getElementById('loginScreen').classList.add('hide');
   document.getElementById('gameScreen').classList.remove('hide');
@@ -401,7 +418,7 @@ function canAfford(cost){ return state.resources.or>=cost.or && state.resources.
 function spend(cost){ state.resources.or-=cost.or; state.resources.bois-=cost.bois; state.resources.ames-=cost.ames; }
 function costString(c){ const p=[]; if(c.or) p.push(`🪙 ${fmt(c.or)}`); if(c.bois) p.push(`🪵 ${fmt(c.bois)}`); if(c.ames) p.push(`🔥 ${fmt(c.ames)}`); return p.length?p.join('  ·  '):"Gratuit"; }
 function resIcon(r){ return r==='or'?'🪙':r==='bois'?'🪵':'🔥'; }
-function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':s==='troopPower'?'Puissance des troupes +%':'Vitesse +%'; }
+function statLabel(s){ return s==='defense'?'Défense':s==='attaque'?'Attaque':s==='troopPower'?'Puissance des troupes +%':s==='spells'?'Charges de sorts':'Vitesse +%'; }
 function powerOf(st, statType){
   return Object.values(st.buildings).filter(b=>BUILDINGS[b.type] && BUILDINGS[b.type].stat===statType)
     .reduce((sum,b)=>sum + BUILDINGS[b.type].baseStat*b.level, 0);
@@ -423,10 +440,13 @@ function switchTab(tab){
   document.getElementById('tab-village').classList.toggle('active', tab==='village');
   document.getElementById('tab-battle').classList.toggle('active', tab==='battle');
   document.getElementById('tab-leaderboard').classList.toggle('active', tab==='leaderboard');
+  document.getElementById('tab-achievements').classList.toggle('active', tab==='achievements');
   document.getElementById('view-village').classList.toggle('hide', tab!=='village');
   document.getElementById('view-battle').classList.toggle('hide', tab!=='battle');
   document.getElementById('view-leaderboard').classList.toggle('hide', tab!=='leaderboard');
+  document.getElementById('view-achievements').classList.toggle('hide', tab!=='achievements');
   if(tab==='leaderboard') loadLeaderboard();
+  if(tab==='achievements') renderAchievements();
   if(tab==='village') setTimeout(resizeScene, 30);
 }
 
@@ -483,7 +503,6 @@ function initTextures(){
   },256);
   TEX.ground.repeat.set(6,6);
   initIconSprites();
-  initBuildingSprites();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -582,31 +601,17 @@ const ICON_DRAW = {
     outlinedPath(ctx,c=>{ c.moveTo(s*0.3,s*0.6); c.quadraticCurveTo(s*0.5,s*0.68,s*0.7,s*0.6); c.lineTo(s*0.76,s*0.76); c.quadraticCurveTo(s*0.5,s*0.88,s*0.24,s*0.76); c.closePath(); },
       '#a685d6', INK, s*0.035);
     gloss(ctx,s*0.4,s*0.65,s*0.05,s*0.08,-0.4);
+  },
+  salledesorts:(ctx,s)=>{
+    outlinedPath(ctx,c=>{ c.moveTo(s*0.22,s*0.32); c.lineTo(s*0.78,s*0.32); c.lineTo(s*0.78,s*0.68); c.lineTo(s*0.22,s*0.68); c.closePath(); },
+      '#d6cbaa', INK, s*0.04);
+    outlinedPath(ctx,c=>{ c.rect(s*0.18,s*0.28,s*0.64,s*0.09); }, '#8a5a2e', INK, s*0.03);
+    outlinedPath(ctx,c=>{ c.rect(s*0.18,s*0.63,s*0.64,s*0.09); }, '#8a5a2e', INK, s*0.03);
+    outlinedPath(ctx,c=>{ c.arc(s*0.5,s*0.5,s*0.09,0,Math.PI*2); }, '#a685d6', INK, s*0.03);
+    gloss(ctx,s*0.34,s*0.42,s*0.06,s*0.09,-0.5);
   }
 };
 let ICON_MATS = {};
-const BUILDING_ART = {
-  chateau:{src:'assets/buildings/townhall.webp', w:3.3, h:3.3},
-  mine:{src:'assets/buildings/mine.webp', w:2.2, h:2.2},
-  scierie:{src:'assets/buildings/sawmill.webp', w:2.2, h:2.2},
-  autel:{src:'assets/buildings/altar.webp', w:2.05, h:2.05},
-  caserne:{src:'assets/buildings/barracks.webp', w:2.35, h:2.35},
-  muraille:{src:'assets/buildings/wall.webp', w:2.3, h:1.53},
-  tour:{src:'assets/buildings/tower.webp', w:2.0, h:2.74},
-  forge:{src:'assets/buildings/forge.webp', w:2.25, h:2.25}
-};
-let BUILDING_MATS = {};
-function initBuildingSprites(){
-  const loader = new THREE.TextureLoader();
-  Object.entries(BUILDING_ART).forEach(([type,art])=>{
-    const texture = loader.load(art.src);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
-    BUILDING_MATS[type] = new THREE.SpriteMaterial({
-      map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
-    });
-  });
-}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -634,7 +639,7 @@ function roundRectPath(ctx,x,y,w,h,r){
   ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
-const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95, labo:0.85 };
+const ICON_HEIGHT = { chateau:3.1, mine:1.05, scierie:1.15, autel:0.85, caserne:1.05, muraille:0.72, tour:2.05, forge:1.65, chantier:0.95, labo:0.85, salledesorts:1.9 };
 function stoneMat(color,rough){ return new THREE.MeshStandardMaterial({map:TEX.stone, color, roughness:rough!==undefined?rough:0.95, metalness:0.05}); }
 function woodMat(color){ return new THREE.MeshStandardMaterial({map:TEX.wood, color, roughness:0.9}); }
 function roofMat(color){ return new THREE.MeshStandardMaterial({map:TEX.roof, color, roughness:0.85}); }
@@ -677,21 +682,18 @@ function initScene(){
   const canvas = document.getElementById('gameCanvas');
   three.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   three.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  three.renderer.outputColorSpace = THREE.SRGBColorSpace;
-  three.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  three.renderer.toneMappingExposure = 1.25;
   three.renderer.shadowMap.enabled = true;
   three.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   three.scene = new THREE.Scene();
-  three.scene.fog = new THREE.FogExp2(0x17120f, 0.028);
+  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.045);
   three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
 
   // Lighting: dark, warm, torch-lit
-  three.scene.add(new THREE.AmbientLight(0x777080, 1.35));
-  const moon = new THREE.DirectionalLight(0xaab8e0, 0.75);
+  three.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
+  const moon = new THREE.DirectionalLight(0x6f7aa0, 0.4);
   moon.position.set(-7,11,-5); moon.castShadow = true;
   moon.shadow.mapSize.set(1024,1024);
   moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
@@ -702,9 +704,7 @@ function initScene(){
 
   // Ground
   const groundGeo = new THREE.CircleGeometry(9,48);
-  const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({
-    map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42
-  }));
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}));
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
   const ringGeo = new THREE.RingGeometry(8.6,9.4,48);
   const ring = new THREE.Mesh(ringGeo, stoneMat(0x2a251f,1));
@@ -789,16 +789,6 @@ function animateScene(){
 
 function makeBuilding(type, level){
   const g = new THREE.Group();
-  const art = BUILDING_ART[type];
-  if(art && BUILDING_MATS[type]){
-    const sprite = new THREE.Sprite(BUILDING_MATS[type]);
-    const tierScale = 1 + Math.min(0.18, (level-1)*0.025);
-    sprite.scale.set(art.w*tierScale, art.h*tierScale, 1);
-    sprite.position.set(0, 0.04, 0);
-    sprite.center.set(0.5, 0);
-    g.add(sprite);
-    return g;
-  }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
   if(type==='chateau'){
@@ -935,6 +925,21 @@ function makeBuilding(type, level){
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.3,6), woodMat(0x2c2015));
       leg.position.set(x,0.15,z); g.add(leg);
     });
+  } else if(type==='salledesorts'){
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.6,0.5,10), stoneMat(0x3a332b));
+    base.position.y=0.25; g.add(base);
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.18,0.9,8), stoneMat(0x4a4136));
+    pillar.position.y=0.95; g.add(pillar);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22,12,12), glowMat(0x7a5ba6,1.8));
+    orb.position.y=1.55; g.add(orb);
+    const pl4 = new THREE.PointLight(0xa685d6,1.3,3); pl4.position.y=1.55; g.add(pl4);
+    for(let i=0;i<3;i++){
+      const scroll = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.24,6), new THREE.MeshStandardMaterial({color:0xc9bfa4, roughness:0.8}));
+      const ang = (i/3)*Math.PI*2 + Math.random()*0.4;
+      scroll.position.set(Math.cos(ang)*0.4, 0.7+i*0.15, Math.sin(ang)*0.4);
+      scroll.rotation.z = Math.PI/2;
+      g.add(scroll);
+    }
   }
   const s = 0.9 + tierBoost;
   g.scale.setScalar(s);
@@ -1079,8 +1084,10 @@ function collect(idx){
   const b = state.buildings[idx], def = BUILDINGS[b.type];
   state.resources[def.produces] += b.stored;
   const amt = b.stored; b.stored = 0;
+  state.stats.collects = (state.stats.collects||0)+1;
   sfxCollect();
   closePanel(); renderAll(); saveState();
+  checkAchievements();
   showToast(`+${fmt(amt)} ${resIcon(def.produces)} récoltés`);
 }
 function startUpgrade(idx){
@@ -1210,7 +1217,7 @@ function selectComposition(comp, el){
 }
 
 /* ---- Champ de bataille 3D : déploiement de troupes, combat en temps réel ---- */
-const BUILDING_BASE_HP = { chateau:420, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90, labo:130 };
+const BUILDING_BASE_HP = { chateau:420, mine:110, scierie:110, autel:140, caserne:170, muraille:90, tour:190, forge:140, chantier:90, labo:130, salledesorts:150 };
 const TROOP_TYPES = {
   guerrier: { hpMult:1,   dpsMult:1,   speedMult:1,    range:0.75, color:0xa1481f, headColor:0xd6cbaa, defRes:0 },
   archer:   { hpMult:0.65,dpsMult:1.3, speedMult:1.15, range:2.6,  color:0x8fb8cc, headColor:0xd6cbaa, defRes:0 },
@@ -1224,30 +1231,26 @@ const COMPOSITIONS = {
 const HERO_UNLOCK_LEVEL = 2;
 function heroAvailable(st){ return chateauLevel(st) >= HERO_UNLOCK_LEVEL; }
 let battleThree = { renderer:null, scene:null, camera:null, group:null, ready:false, clock:0, buildings:{}, troops:[],
-  running:false, elapsed:0, maxDuration:40, destroyedCount:0, totalCount:0, townHallDestroyed:false, _lastT:0, _defTick:0, _healTick:0 };
+  running:false, elapsed:0, maxDuration:40, destroyedCount:0, totalCount:0, townHallDestroyed:false, _lastT:0, _defTick:0, _healTick:0,
+  spellCharges:0, rageUntil:0 };
 
 function initBattleScene(){
   if(battleThree.ready || !window.THREE) return;
   const canvas = document.getElementById('battleCanvas');
   battleThree.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   battleThree.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  battleThree.renderer.outputColorSpace = THREE.SRGBColorSpace;
-  battleThree.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  battleThree.renderer.toneMappingExposure = 1.25;
   battleThree.renderer.shadowMap.enabled = true;
   battleThree.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   battleThree.scene = new THREE.Scene();
-  battleThree.scene.fog = new THREE.FogExp2(0x17120f, 0.03);
+  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.05);
   battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  battleThree.scene.add(new THREE.AmbientLight(0x777080,1.35));
-  const moon = new THREE.DirectionalLight(0xaab8e0,0.75); moon.position.set(-7,11,-5); moon.castShadow=true;
+  battleThree.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
+  const moon = new THREE.DirectionalLight(0x6f7aa0,0.4); moon.position.set(-7,11,-5); moon.castShadow=true;
   moon.shadow.mapSize.set(1024,1024);
   moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
   battleThree.scene.add(moon);
   const ember = new THREE.PointLight(0xe0832f,1.8,12,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
-  const groundMat = TEX.ground
-    ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42})
-    : new THREE.MeshStandardMaterial({color:0x342c25});
+  const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
   const ground = new THREE.Mesh(new THREE.CircleGeometry(9,48), groundMat);
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
   battleThree.group = new THREE.Group(); battleThree.scene.add(battleThree.group);
@@ -1387,7 +1390,8 @@ function simulateBattleStep(dt){
       t.mesh.position.addScaledVector(dir, t.speed*dt);
       t.mesh.rotation.y = Math.atan2(dir.x,dir.z);
     } else {
-      t.target.hp -= t.dps*dt;
+      const rageMult = performance.now() < battleThree.rageUntil ? 1.6 : 1;
+      t.target.hp -= t.dps*dt*rageMult;
       if(t.target.hp<=0 && !t.target.destroyed){
         t.target.destroyed = true;
         battleThree.destroyedCount++;
@@ -1454,8 +1458,33 @@ function deployAssault(){
     const troopCount = Math.max(3, Math.min(30, Math.round(powerOf(state,'attaque')/6)));
     spawnTroops(troopCount, window._troopComposition||'equilibree');
     battleThree.elapsed = 0; battleThree.maxDuration = 40; battleThree.running = true; battleThree._healTick = 0;
+    battleThree.rageUntil = 0;
+    const spellDef = BUILDINGS['salledesorts'];
+    const spellBuilding = Object.values(state.buildings).find(b=>b.type==='salledesorts');
+    battleThree.spellCharges = spellBuilding ? spellBuilding.level : 0;
+    document.getElementById('spellBar').classList.toggle('hide', battleThree.spellCharges<=0);
+    updateSpellButtons();
     sfxAttackStart();
   }, 60);
+}
+function updateSpellButtons(){
+  const has = battleThree.spellCharges > 0;
+  const rageBtn = document.getElementById('spellRageBtn'), healBtn = document.getElementById('spellHealBtn');
+  if(rageBtn){ rageBtn.disabled = !has; rageBtn.textContent = `🔥 Rage (${battleThree.spellCharges})`; }
+  if(healBtn){ healBtn.disabled = !has; healBtn.textContent = `✨ Soin (${battleThree.spellCharges})`; }
+}
+function castSpell(kind){
+  if(!battleThree.running || battleThree.spellCharges<=0) return;
+  battleThree.spellCharges--;
+  updateSpellButtons();
+  sfxCollect();
+  if(kind==='rage'){
+    battleThree.rageUntil = performance.now() + 6000;
+    showToast("🔥 Sort de Rage : tes troupes frappent plus fort !");
+  } else if(kind==='soin'){
+    battleThree.troops.forEach(t=>{ if(t.alive) t.hp = Math.min(t.maxHp, t.hp + t.maxHp*0.5); });
+    showToast("✨ Sort de Soin : tes troupes sont ranimées.");
+  }
 }
 function endBattle(){
   if(!battleThree.running) return;
@@ -1474,6 +1503,8 @@ function endBattle(){
 
   state.resources.or += lootOr; state.resources.bois += lootBois;
   state.trophies = Math.max(0,(state.trophies||0)+trophyDelta);
+  state.stats.battles = (state.stats.battles||0)+1;
+  if(stars>=1) state.stats.wins = (state.stats.wins||0)+1;
 
   if(!enemy.isBot && enemy._key){
     enemy.resources.or = Math.max(0,(enemy.resources.or||0)-lootOr);
@@ -1485,6 +1516,7 @@ function endBattle(){
 
   if(stars>=2) sfxVictory(); else sfxDefeat();
   renderResources(); saveState();
+  checkAchievements();
 
   const card = document.getElementById('battleResultCard');
   card.innerHTML = `<div class="result ${stars>=2?'win':'lose'}">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
@@ -1498,6 +1530,7 @@ function closeBattleField(){
   document.getElementById('battleFieldWrap').classList.add('hide');
   document.getElementById('battleIntro').classList.remove('hide');
   document.getElementById('battleResultOverlay').classList.add('hide');
+  document.getElementById('spellBar').classList.add('hide');
 }
 
 /* ================= Leaderboard ================= */
@@ -1527,6 +1560,58 @@ async function loadLeaderboard(){
   }catch(e){
     zone.innerHTML = `<div class="timelabel" style="padding:16px;">Classement indisponible hors-ligne.</div>`;
   }
+}
+
+/* ================= Hauts faits ================= */
+const ACHIEVEMENTS = [
+  { id:'premiere_mine', name:"Premier filon", desc:"Bâtis ta première Mine de Fer.",
+    check:st=>Object.values(st.buildings).some(b=>b.type==='mine'), reward:{or:150,bois:0,ames:0} },
+  { id:'premiere_scierie', name:"Premières poutres", desc:"Bâtis ta première Scierie.",
+    check:st=>Object.values(st.buildings).some(b=>b.type==='scierie'), reward:{or:0,bois:150,ames:0} },
+  { id:'chateau_2', name:"Un château qui grandit", desc:"Atteins le Château niveau 2.",
+    check:st=>chateauLevel(st)>=2, reward:{or:250,bois:250,ames:0} },
+  { id:'chateau_4', name:"Le cœur de la cité", desc:"Atteins le Château niveau 4.",
+    check:st=>chateauLevel(st)>=4, reward:{or:600,bois:600,ames:50} },
+  { id:'dix_batiments', name:"Une cité qui s'étend", desc:"Possède au moins 10 bâtiments.",
+    check:st=>Object.keys(st.buildings).length>=10, reward:{or:300,bois:300,ames:20} },
+  { id:'premiere_victoire', name:"Premier sang", desc:"Remporte au moins 1 étoile lors d'un assaut.",
+    check:st=>(st.stats&&st.stats.wins||0)>=1, reward:{or:200,bois:100,ames:30} },
+  { id:'cinq_victoires', name:"Gardien redouté", desc:"Remporte 5 assauts.",
+    check:st=>(st.stats&&st.stats.wins||0)>=5, reward:{or:500,bois:400,ames:80} },
+  { id:'labo_batie', name:"Alchimie noire", desc:"Bâtis un Laboratoire.",
+    check:st=>Object.values(st.buildings).some(b=>b.type==='labo'), reward:{or:0,bois:0,ames:100} },
+  { id:'trophees_100', name:"Cent trophées", desc:"Atteins 100 trophées.",
+    check:st=>(st.trophies||0)>=100, reward:{or:400,bois:400,ames:60} },
+  { id:'cinquante_recoltes', name:"Main calleuse", desc:"Récolte des ressources 50 fois.",
+    check:st=>(st.stats&&st.stats.collects||0)>=50, reward:{or:300,bois:300,ames:0} },
+];
+function checkAchievements(){
+  let changed = false;
+  ACHIEVEMENTS.forEach(a=>{
+    if(state.achievementsClaimed.includes(a.id)) return;
+    if(a.check(state)){
+      state.achievementsClaimed.push(a.id);
+      state.resources.or += a.reward.or||0;
+      state.resources.bois += a.reward.bois||0;
+      state.resources.ames += a.reward.ames||0;
+      showToast(`🏅 Haut fait débloqué : ${a.name}`);
+      sfxComplete();
+      changed = true;
+    }
+  });
+  if(changed){ renderResources(); saveState(); }
+}
+function renderAchievements(){
+  const zone = document.getElementById('achZone');
+  zone.innerHTML = ACHIEVEMENTS.map(a=>{
+    const done = state.achievementsClaimed.includes(a.id);
+    const rewardStr = costString(a.reward);
+    return `<div class="lb-row ${done?'me':''}">
+      <span class="lb-rank" style="width:22px;">${done?'✅':'🔒'}</span>
+      <span class="lb-name">${a.name}<br><span style="color:var(--bone-dim); font-size:11.5px; font-weight:normal;">${a.desc}</span></span>
+      <span class="lb-trophy" style="font-size:11px;">${rewardStr}</span>
+    </div>`;
+  }).join('');
 }
 
 /* ================= Audio: ambiance + effets (100% généré, aucun fichier) ================= */
