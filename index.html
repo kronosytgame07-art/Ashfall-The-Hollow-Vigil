@@ -562,6 +562,7 @@ function initTextures(){
   initIconSprites();
   initBuildingSprites();
   initAnimatedArt();
+  initTerrainArt();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -672,19 +673,14 @@ const ICON_DRAW = {
 };
 let ICON_MATS = {};
 const BUILDING_ART = {
-  chateau:{dir:'chateau', w:6.15, h:6.15},
-  mine:{dir:'mine', w:2.2, h:2.2},
-  scierie:{dir:'scierie', w:2.2, h:2.2},
-  autel:{dir:'autel', w:2.05, h:2.05},
-  caserne:{dir:'caserne', w:4.3, h:4.3},
-  muraille:{dir:'muraille', w:2.25, h:2.25},
-  tour:{dir:'tour', w:4.0, h:4.8},
-  forge:{dir:'forge', w:2.25, h:2.25},
-  chantier:{dir:'chantier', w:2.2, h:2.2},
-  labo:{dir:'labo', w:4.3, h:4.3},
-  salledesorts:{dir:'salledesorts', w:4.35, h:4.35}
+  chateau:{dir:'chateau', scaleX:0.98, scaleY:0.98}, mine:{dir:'mine', scaleX:1.04, scaleY:1.04},
+  scierie:{dir:'scierie', scaleX:1.04, scaleY:1.04}, autel:{dir:'autel', scaleX:0.98, scaleY:0.98},
+  caserne:{dir:'caserne', scaleX:1.02, scaleY:1.02}, muraille:{dir:'muraille', scaleX:1.05, scaleY:1.05},
+  tour:{dir:'tour', scaleX:0.96, scaleY:1.15}, forge:{dir:'forge', scaleX:1.05, scaleY:1.05},
+  chantier:{dir:'chantier', scaleX:1.04, scaleY:1.04}, labo:{dir:'labo', scaleX:1.02, scaleY:1.02},
+  salledesorts:{dir:'salledesorts', scaleX:1.03, scaleY:1.03}
 };
-let BUILDING_MATS = {};
+let BUILDING_MATS = {}, TERRAIN_TEX = {};
 const BUILDING_FX = {
   chateau:{kind:'brazier', x:0.73, y:0.9, size:0.44},
   mine:{kind:'smoke', x:0.55, y:1.35, size:0.5},
@@ -726,7 +722,7 @@ function initAnimatedArt(){
       });
     }
   });
-  ['guerrier','archer','brute'].forEach(type=>{
+  ['guerrier','archer','brute','hero'].forEach(type=>{
     TROOP_MATS[type] = {walk:[],attack:[]};
     ['walk','attack'].forEach(action=>{
       for(let frame=0; frame<7; frame++){
@@ -737,6 +733,21 @@ function initAnimatedArt(){
         });
       }
     });
+  });
+}
+function initTerrainArt(){
+  const loader = new THREE.TextureLoader();
+  const names = ['ash-1','ash-2','ash-3','ash-4','stone-1','stone-2','buildable','rune','scorched','rubble','path','plaza',
+    'border-n','border-e','border-s','border-w','corner-in','corner-out','arena-dark','arena-blood','arena-ember','arena-platform','arena-ritual','arena-rune'];
+  names.forEach(name=>{
+    const texture = loader.load(`assets/terrain/${name}.webp`);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
+    TERRAIN_TEX[name] = texture;
+  });
+  ['ash-1','ash-2','ash-3','ash-4','stone-1','stone-2'].forEach(name=>{
+    TERRAIN_TEX[name].wrapS = TERRAIN_TEX[name].wrapT = THREE.RepeatWrapping;
+    TERRAIN_TEX[name].repeat.set(Math.max(1,COLS/4),Math.max(1,ROWS/4));
   });
 }
 function initIconSprites(){
@@ -881,7 +892,7 @@ function initScene(){
   const halfSize = (COLS/2)*2.1;
   const groundSize = halfSize*2;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
-  const groundMatMain = new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1});
+  const groundMatMain = new THREE.MeshStandardMaterial({map:TERRAIN_TEX['ash-1']||TEX.ground, roughness:1});
   const ground = new THREE.Mesh(groundGeo, groundMatMain);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
   const borderGeo = new THREE.PlaneGeometry(groundSize+4, groundSize+4);
@@ -977,7 +988,8 @@ function makeBuilding(type, level){
   const visualLevel = Math.max(1,Math.min(5,level||1));
   if(art && BUILDING_MATS[type] && BUILDING_MATS[type][visualLevel]){
     const sprite = new THREE.Sprite(BUILDING_MATS[type][visualLevel]);
-    sprite.scale.set(art.w, art.h, 1);
+    const tileSpan = (FOOTPRINT[type]||1)*2.1;
+    sprite.scale.set(tileSpan*art.scaleX, tileSpan*art.scaleY, 1);
     sprite.position.set(0, 0.04, 0);
     sprite.center.set(0.5, 0);
     g.add(sprite);
@@ -988,12 +1000,6 @@ function makeBuilding(type, level){
       fx.position.set(fxDef.x,fxDef.y,0.03);
       fx.userData.fxKind=fxDef.kind;
       g.add(fx);
-      if(!three.fxSprites) three.fxSprites=[];
-      three.fxSprites.push(fx);
-      if(typeof battleThree!=='undefined'){
-        if(!battleThree.fxSprites) battleThree.fxSprites=[];
-        battleThree.fxSprites.push(fx);
-      }
     }
     return g;
   }
@@ -1189,7 +1195,10 @@ function updateScene(){
     } else {
       mesh = makeBuilding(b.type, b.level);
       mesh.position.set(x,0,z);
-      mesh.traverse(o=>{ if(o.userData && o.userData.wave) three.waveMeshes.push(o); });
+      mesh.traverse(o=>{
+        if(o.userData && o.userData.wave) three.waveMeshes.push(o);
+        if(o.userData && o.userData.fxKind) three.fxSprites.push(o);
+      });
       const readyToCollect = def.produces && b.stored >= (def.baseCap*b.level*0.999);
       if(readyToCollect){
         const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), glowMat(0xd9b657,1.8));
@@ -1207,7 +1216,7 @@ function updateScene(){
   for(let i=0;i<GRID_SIZE;i++){ if(occupied[i]===undefined) emptyIndices.push(i); }
   if(emptyIndices.length){
     const padGeo = new THREE.PlaneGeometry(1.7,1.7);
-    const padMat = new THREE.MeshStandardMaterial({map:TEX.plot, transparent:true, roughness:1, depthWrite:false});
+    const padMat = new THREE.MeshStandardMaterial({map:TERRAIN_TEX.buildable||TEX.plot, transparent:true, alphaTest:0.03, roughness:1, depthWrite:false});
     const inst = new THREE.InstancedMesh(padGeo, padMat, emptyIndices.length);
     inst.receiveShadow = true;
     const dummy = new THREE.Object3D();
@@ -1488,7 +1497,8 @@ function initBattleScene(){
   moon.shadow.camera.left=-22; moon.shadow.camera.right=22; moon.shadow.camera.top=22; moon.shadow.camera.bottom=-22;
   battleThree.scene.add(moon);
   const ember = new THREE.PointLight(0xe0832f,1.8,16,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
-  const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
+  const battleGround = TERRAIN_TEX['arena-dark']||TERRAIN_TEX['stone-1']||TEX.ground;
+  const groundMat = battleGround ? new THREE.MeshStandardMaterial({map:battleGround, transparent:true, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
   const battleHalf = (COLS/2)*2.1 + 3*2.1; // zone jouable + bordure de déploiement de 3 cases
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(battleHalf*2, battleHalf*2), groundMat);
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
@@ -1595,6 +1605,7 @@ function buildEnemyScene(enemyState){
     const mesh = makeBuilding(b.type, b.level);
     mesh.position.set(x,0,z);
     battleThree.group.add(mesh);
+    mesh.traverse(o=>{ if(o.userData && o.userData.fxKind) battleThree.fxSprites.push(o); });
     const baseHp = BUILDING_BASE_HP[b.type]||120;
     const maxHp = Math.round(baseHp*(0.7+0.3*b.level));
     const barY = (ICON_HEIGHT[b.type]||1.2)*(1+(size-1)*0.75)+0.55;
@@ -1684,7 +1695,7 @@ function computeTroopBudget(count, composition){
 function makeTroopMesh(type){
   const g = new THREE.Group();
   const troopSprite = new THREE.Sprite(TROOP_MATS[type].walk[0]);
-  const troopSize = type==='brute'?1.35:1.05;
+  const troopSize = type==='hero'?1.5:(type==='brute'?1.35:1.05);
   troopSprite.scale.set(troopSize,troopSize,1);
   troopSprite.position.y=0.03;
   troopSprite.center.set(0.5,0);
@@ -1711,22 +1722,13 @@ function deployTroopAt(type, x, z){
 function spawnHero(){
   if(!heroAvailable(state)) return;
   const troopPowerMult = 1 + powerOf(state,'troopPower')*0.02;
-  const g = new THREE.Group();
-  const cape = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,8), new THREE.MeshStandardMaterial({color:0x7a2020, roughness:0.6}));
-  cape.position.y=0.28; g.add(cape);
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.17,0.4,8), new THREE.MeshStandardMaterial({color:0x8a7638, metalness:0.4, roughness:0.4}));
-  body.position.y=0.28; g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,10), new THREE.MeshStandardMaterial({color:0xd6cbaa}));
-  head.position.y=0.58; g.add(head);
-  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.12,5), glowMat(0xd9b657,1.3));
-  crown.position.y=0.72; g.add(crown);
-  const glow = new THREE.PointLight(0xd9b657,0.9,2); glow.position.y=0.7; g.add(glow);
-  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  const g = makeTroopMesh('hero');
   const halfPlayable = (COLS/2)*2.1;
   g.position.set((Math.random()-0.5)*3, 0, halfPlayable+2*2.1);
   battleThree.group.add(g);
   const heroHp = 120 + chateauLevel(state)*12;
-  battleThree.troops.push({ mesh:g, hp:heroHp, maxHp:heroHp, target:null, speed:1.35, dps:24*troopPowerMult,
+  battleThree.troops.push({ mesh:g, sprite:g.userData.troopSprite, type:'hero', animState:'walk',
+    hp:heroHp, maxHp:heroHp, target:null, speed:1.35, dps:24*troopPowerMult,
     range:0.9, defRes:0.15, alive:true, isHero:true });
 }
 function segmentHitsAABB(x0,z0,x1,z1,box){
