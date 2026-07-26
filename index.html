@@ -23,8 +23,6 @@
   html,body{margin:0;padding:0;}
   body{
     background:
-      linear-gradient(rgba(5,7,12,.48),rgba(5,4,5,.72)),
-      url('assets/backgrounds/main-menu.webp') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -321,14 +319,47 @@ const BUILDINGS = {
               upgradeCost:l=>({or:380*Math.pow(1.6,l-1),bois:180*Math.pow(1.6,l-1),ames:90*l}), upgradeTime:l=>80*Math.pow(1.4,l-1),
               maxCount:()=>1 },
 };
-const COLS = 9, ROWS = 9, GRID_SIZE = COLS*ROWS, CENTER = 40;
+const FOOTPRINT = { chateau:3, salledesorts:2, labo:2, caserne:2, tour:2,
+  mine:1, scierie:1, autel:1, forge:1, chantier:1, muraille:1 };
+const COLS = 9, ROWS = 9, GRID_SIZE = COLS*ROWS;
+const TRUE_CENTER_R = Math.floor((ROWS-1)/2), TRUE_CENTER_C = Math.floor((COLS-1)/2);
+const CENTER = (TRUE_CENTER_R - Math.floor((FOOTPRINT.chateau-1)/2))*COLS + (TRUE_CENTER_C - Math.floor((FOOTPRINT.chateau-1)/2));
 const PLOT_TYPE_ORDER = ["mine","scierie","autel","caserne","muraille","tour","forge","chantier","labo","salledesorts"];
 
-function distFromCenter(i){
-  const r=Math.floor(i/COLS), c=i%COLS, cr=Math.floor(CENTER/COLS), cc=CENTER%COLS;
-  return Math.max(Math.abs(r-cr), Math.abs(c-cc));
+function footprintTiles(anchor, size){
+  const r0 = Math.floor(anchor/COLS), c0 = anchor%COLS;
+  const tiles = [];
+  for(let dr=0; dr<size; dr++){
+    for(let dc=0; dc<size; dc++){
+      const r=r0+dr, c=c0+dc;
+      if(r<0||r>=ROWS||c<0||c>=COLS) return null;
+      tiles.push(r*COLS+c);
+    }
+  }
+  return tiles;
 }
-const ALL_INDICES = [...Array(GRID_SIZE).keys()].filter(i=>i!==CENTER).sort((a,b)=>distFromCenter(a)-distFromCenter(b));
+function footprintCenterWorld(anchor, size){
+  const r0=Math.floor(anchor/COLS), c0=anchor%COLS;
+  const cr=r0+(size-1)/2, cc=c0+(size-1)/2;
+  return { x:(cc-(COLS-1)/2)*2.1, z:(cr-(ROWS-1)/2)*2.1 };
+}
+function buildOccupiedMap(){
+  const occ = {};
+  Object.entries(state.buildings).forEach(([anchorStr,b])=>{
+    const anchor = Number(anchorStr);
+    const size = FOOTPRINT[b.type]||1;
+    const tiles = footprintTiles(anchor,size) || [anchor];
+    tiles.forEach(t=>occ[t]=anchor);
+  });
+  return occ;
+}
+const CHATEAU_TILES = footprintTiles(CENTER, FOOTPRINT.chateau) || [CENTER];
+
+function distFromCenter(i){
+  const r=Math.floor(i/COLS), c=i%COLS;
+  return Math.max(Math.abs(r-TRUE_CENTER_R), Math.abs(c-TRUE_CENTER_C));
+}
+const ALL_INDICES = [...Array(GRID_SIZE).keys()].filter(i=>!CHATEAU_TILES.includes(i)).sort((a,b)=>distFromCenter(a)-distFromCenter(b));
 function unlockedCount(chLevel){ return Math.min(ALL_INDICES.length, 18 + chLevel*11); }
 function unlockLevelFor(rank){ return Math.max(1, Math.ceil((rank-17)/11)); }
 
@@ -505,7 +536,6 @@ function initTextures(){
   },256);
   TEX.ground.repeat.set(6,6);
   initIconSprites();
-  initBuildingSprites();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -615,28 +645,6 @@ const ICON_DRAW = {
   }
 };
 let ICON_MATS = {};
-const BUILDING_ART = {
-  chateau:{src:'assets/buildings/townhall.webp', w:3.3, h:3.3},
-  mine:{src:'assets/buildings/mine.webp', w:2.2, h:2.2},
-  scierie:{src:'assets/buildings/sawmill.webp', w:2.2, h:2.2},
-  autel:{src:'assets/buildings/altar.webp', w:2.05, h:2.05},
-  caserne:{src:'assets/buildings/barracks.webp', w:2.35, h:2.35},
-  muraille:{src:'assets/buildings/wall.webp', w:2.3, h:1.53},
-  tour:{src:'assets/buildings/tower.webp', w:2.0, h:2.74},
-  forge:{src:'assets/buildings/forge.webp', w:2.25, h:2.25}
-};
-let BUILDING_MATS = {};
-function initBuildingSprites(){
-  const loader = new THREE.TextureLoader();
-  Object.entries(BUILDING_ART).forEach(([type,art])=>{
-    const texture = loader.load(art.src);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
-    BUILDING_MATS[type] = new THREE.SpriteMaterial({
-      map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
-    });
-  });
-}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -755,21 +763,18 @@ function initScene(){
   const canvas = document.getElementById('gameCanvas');
   three.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   three.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  three.renderer.outputColorSpace = THREE.SRGBColorSpace;
-  three.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  three.renderer.toneMappingExposure = 1.25;
   three.renderer.shadowMap.enabled = true;
   three.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   three.scene = new THREE.Scene();
-  three.scene.fog = new THREE.FogExp2(0x17120f, 0.028);
+  three.scene.fog = new THREE.FogExp2(0x0b0908, 0.028);
   three.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 140);
   three.raycaster = new THREE.Raycaster();
   three.mouse = new THREE.Vector2();
   initTextures();
 
   // Lighting: dark, warm, torch-lit
-  three.scene.add(new THREE.AmbientLight(0x777080, 1.35));
-  const moon = new THREE.DirectionalLight(0xaab8e0, 0.75);
+  three.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
+  const moon = new THREE.DirectionalLight(0x6f7aa0, 0.4);
   moon.position.set(-10,15,-7); moon.castShadow = true;
   moon.shadow.mapSize.set(1536,1536);
   moon.shadow.camera.left=-16; moon.shadow.camera.right=16; moon.shadow.camera.top=16; moon.shadow.camera.bottom=-16;
@@ -782,9 +787,7 @@ function initScene(){
   const halfSize = ((COLS-1)/2)*2.1 + 1.2;
   const groundSize = halfSize*2;
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize);
-  const groundMatMain = new THREE.MeshStandardMaterial({
-    map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42
-  });
+  const groundMatMain = new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1});
   groundMatMain.map.repeat.set(groundSize/3.2, groundSize/3.2);
   const ground = new THREE.Mesh(groundGeo, groundMatMain);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; three.scene.add(ground);
@@ -871,16 +874,6 @@ function animateScene(){
 
 function makeBuilding(type, level){
   const g = new THREE.Group();
-  const art = BUILDING_ART[type];
-  if(art && BUILDING_MATS[type]){
-    const sprite = new THREE.Sprite(BUILDING_MATS[type]);
-    const tierScale = 1 + Math.min(0.18, (level-1)*0.025);
-    sprite.scale.set(art.w*tierScale, art.h*tierScale, 1);
-    sprite.position.set(0, 0.04, 0);
-    sprite.center.set(0.5, 0);
-    g.add(sprite);
-    return g;
-  }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
   if(type==='chateau'){
@@ -1033,12 +1026,14 @@ function makeBuilding(type, level){
       g.add(scroll);
     }
   }
-  const s = 0.9 + tierBoost;
+  const sizeMult = 1 + ((FOOTPRINT[type]||1)-1)*0.75;
+  const s = (0.9 + tierBoost) * sizeMult;
   g.scale.setScalar(s);
   g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
   if(ICON_MATS[type]){
     const icon = new THREE.Sprite(ICON_MATS[type]);
-    icon.scale.set(0.7,0.7,1);
+    const iconScale = 0.7/Math.sqrt(sizeMult);
+    icon.scale.set(iconScale,iconScale,1);
     icon.position.set(0, (ICON_HEIGHT[type]||1.2), 0);
     g.add(icon);
   }
@@ -1052,15 +1047,20 @@ function updateScene(){
   three.waveMeshes = [];
   const chLevel = chateauLevel(state);
   const unlockedSet = new Set(ALL_INDICES.slice(0, unlockedCount(chLevel)));
+  const occupied = buildOccupiedMap(); // idx -> anchorIdx (couvre aussi les ancres elles-mêmes)
+
   for(let i=0;i<GRID_SIZE;i++){
-    const {x,z} = gridToWorld(i);
-    const b = state.buildings[i];
-    if(b){
+    const anchorHere = state.buildings[i] ? i : null;
+    if(anchorHere!==null){
+      const b = state.buildings[i];
       const def = BUILDINGS[b.type];
+      const size = FOOTPRINT[b.type]||1;
+      const {x,z} = footprintCenterWorld(i, size);
       const underConstruction = b.until && b.until > Date.now();
       let mesh;
       if(underConstruction){
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(1.0,0.7,1.0), new THREE.MeshStandardMaterial({color:0x6a6050, wireframe:true, transparent:true, opacity:0.6}));
+        const dim = size*1.7 - 0.35;
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(dim,0.7,dim), new THREE.MeshStandardMaterial({color:0x6a6050, wireframe:true, transparent:true, opacity:0.6}));
         mesh.position.set(x,0.35,z);
       } else {
         mesh = makeBuilding(b.type, b.level);
@@ -1069,14 +1069,18 @@ function updateScene(){
         const readyToCollect = def.produces && b.stored >= (def.baseCap*b.level*0.999);
         if(readyToCollect){
           const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), glowMat(0xd9b657,1.8));
-          dot.position.set(x,2.2,z); dot.userData.pulse=true; dot.userData.baseScale=1;
+          dot.position.set(x,2.2+(size-1)*0.5,z); dot.userData.pulse=true; dot.userData.baseScale=1;
           three.group.add(dot); three.tileMeshes['ready'+i]=dot;
         }
       }
       mesh.userData.tileIndex = i;
       three.group.add(mesh);
       three.tileMeshes[i]=mesh;
-    } else if(unlockedSet.has(i)){
+      continue;
+    }
+    if(occupied[i]!==undefined) continue; // case couverte par un bâtiment voisin (non-ancre) : rien à dessiner, le sol suffit
+    const {x,z} = gridToWorld(i);
+    if(unlockedSet.has(i)){
       const padGeo = new THREE.BoxGeometry(1.7,0.06,1.7);
       const pad = new THREE.Mesh(padGeo, new THREE.MeshStandardMaterial({color:0x352d24, roughness:1, transparent:true, opacity:0.85}));
       pad.position.set(x,0.03,z); pad.userData.tileIndex=i; pad.receiveShadow=true;
@@ -1106,9 +1110,17 @@ function renderAll(){ updateScene(); renderResources(); }
 function closePanel(){ document.getElementById('overlay').classList.remove('show'); document.getElementById('panel').innerHTML=""; }
 
 /* ================= Build menu ================= */
+function canPlaceFootprint(anchor, size, unlockedSet, occupied){
+  const tiles = footprintTiles(anchor, size);
+  if(!tiles) return false;
+  return tiles.every(t=> unlockedSet.has(t) && occupied[t]===undefined);
+}
 function openBuildMenu(idx){
   const chLevel = chateauLevel(state);
   const buildersFull = activeBuilders(state) >= maxBuilders(state);
+  const unlockedSet = new Set(ALL_INDICES.slice(0, unlockedCount(chLevel)));
+  unlockedSet.add(idx);
+  const occupied = buildOccupiedMap();
   let html = `<button class="close-x" onclick="closePanel()">✕</button><h2>Bâtir sur cette parcelle</h2>
     <div class="desc">Choisis ce que les cendres feront pousser ici. Ouvriers : ${activeBuilders(state)}/${maxBuilders(state)}${buildersFull?' — tous occupés !':''}</div>`;
   let any=false;
@@ -1117,11 +1129,14 @@ function openBuildMenu(idx){
     const count = countOfType(state,t), max = def.maxCount(chLevel);
     if(count>=max) return;
     any=true;
+    const size = FOOTPRINT[t]||1;
+    const fits = canPlaceFootprint(idx, size, unlockedSet, occupied);
     const cost = costForNext(t);
-    const afford = canAfford(cost) && !buildersFull;
+    const afford = canAfford(cost) && !buildersFull && fits;
+    const sizeLabel = size>1 ? `${size}×${size}` : `1×1`;
     html += `<div class="opt"><span class="oicon">${def.icon}</span><div class="omain">
-      <div class="oname">${def.name} <span style="color:var(--bone-dim);font-size:11px;">(${count}/${max})</span></div>
-      <div class="ocost">${costString(cost)} · ⏱ ${Math.round(def.buildTime*forgeSpeedMult())}s</div>
+      <div class="oname">${def.name} <span style="color:var(--bone-dim);font-size:11px;">(${count}/${max}) · ${sizeLabel}</span></div>
+      <div class="ocost">${costString(cost)} · ⏱ ${Math.round(def.buildTime*forgeSpeedMult())}s${!fits?' · <span style="color:#c04141;">espace insuffisant</span>':''}</div>
       </div><button ${afford?'':'disabled'} onclick="startBuild(${idx},'${t}')">Bâtir</button></div>`;
   });
   if(!any) html += `<div class="desc">Plus rien à bâtir ici pour l'instant — améliore ton Château pour débloquer davantage d'édifices.</div>`;
@@ -1132,6 +1147,12 @@ function startBuild(idx,type){
   const cost = costForNext(type);
   if(!canAfford(cost)) return;
   if(activeBuilders(state) >= maxBuilders(state)){ showToast(`Tous tes ouvriers sont occupés (${activeBuilders(state)}/${maxBuilders(state)})`); return; }
+  const chLevel = chateauLevel(state);
+  const unlockedSet = new Set(ALL_INDICES.slice(0, unlockedCount(chLevel)));
+  unlockedSet.add(idx);
+  const occupied = buildOccupiedMap();
+  const size = FOOTPRINT[type]||1;
+  if(!canPlaceFootprint(idx, size, unlockedSet, occupied)){ showToast("Espace insuffisant pour bâtir ici."); return; }
   spend(cost);
   const def = BUILDINGS[type];
   const time = def.buildTime*forgeSpeedMult()*1000;
@@ -1234,7 +1255,7 @@ function botEnemy(){
   const bois = Math.round(200 + chLevel*150 + Math.random()*300);
   const buildings = {};
   buildings[CENTER] = {type:'chateau', level:chLevel};
-  const spots = ALL_INDICES.slice(0,8);
+  const spots = ALL_INDICES.filter((_,i)=>i%5===0).slice(0,8);
   buildings[spots[0]] = {type:'muraille', level:defLv};
   buildings[spots[1]] = {type:'tour', level:Math.max(1,Math.round(defLv*0.7))};
   buildings[spots[2]] = {type:'mine', level:Math.max(1,Math.round(chLevel*0.6))};
@@ -1331,23 +1352,18 @@ function initBattleScene(){
   const canvas = document.getElementById('battleCanvas');
   battleThree.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
   battleThree.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  battleThree.renderer.outputColorSpace = THREE.SRGBColorSpace;
-  battleThree.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  battleThree.renderer.toneMappingExposure = 1.25;
   battleThree.renderer.shadowMap.enabled = true;
   battleThree.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   battleThree.scene = new THREE.Scene();
-  battleThree.scene.fog = new THREE.FogExp2(0x17120f, 0.03);
+  battleThree.scene.fog = new THREE.FogExp2(0x0b0908, 0.05);
   battleThree.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  battleThree.scene.add(new THREE.AmbientLight(0x777080,1.35));
-  const moon = new THREE.DirectionalLight(0xaab8e0,0.75); moon.position.set(-7,11,-5); moon.castShadow=true;
+  battleThree.scene.add(new THREE.AmbientLight(0x3a3244, 0.9));
+  const moon = new THREE.DirectionalLight(0x6f7aa0,0.4); moon.position.set(-7,11,-5); moon.castShadow=true;
   moon.shadow.mapSize.set(1024,1024);
   moon.shadow.camera.left=-11; moon.shadow.camera.right=11; moon.shadow.camera.top=11; moon.shadow.camera.bottom=-11;
   battleThree.scene.add(moon);
   const ember = new THREE.PointLight(0xe0832f,1.8,12,2); ember.position.set(0,2,0); battleThree.scene.add(ember);
-  const groundMat = TEX.ground
-    ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1, emissive:0x17120f, emissiveIntensity:0.42})
-    : new THREE.MeshStandardMaterial({color:0x342c25});
+  const groundMat = TEX.ground ? new THREE.MeshStandardMaterial({map:TEX.ground, roughness:1}) : new THREE.MeshStandardMaterial({color:0x241f1a});
   const ground = new THREE.Mesh(new THREE.CircleGeometry(9,48), groundMat);
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; battleThree.scene.add(ground);
   battleThree.group = new THREE.Group(); battleThree.scene.add(battleThree.group);
@@ -1385,13 +1401,14 @@ function buildEnemyScene(enemyState){
     const idx = Number(idxStr);
     if(Number.isNaN(idx)) return;
     const def = BUILDINGS[b.type]; if(!def) return;
-    const {x,z} = gridToWorld(idx);
+    const size = FOOTPRINT[b.type]||1;
+    const {x,z} = footprintCenterWorld(idx, size);
     const mesh = makeBuilding(b.type, b.level);
     mesh.position.set(x,0,z);
     battleThree.group.add(mesh);
     const baseHp = BUILDING_BASE_HP[b.type]||120;
     const maxHp = Math.round(baseHp*(0.7+0.3*b.level));
-    const barY = (ICON_HEIGHT[b.type]||1.2)+0.55;
+    const barY = (ICON_HEIGHT[b.type]||1.2)*(1+(size-1)*0.75)+0.55;
     const barBg = new THREE.Sprite(new THREE.SpriteMaterial({color:0x1a1613}));
     barBg.scale.set(0.95,0.14,1); barBg.position.set(x,barY,z);
     const barFg = new THREE.Sprite(new THREE.SpriteMaterial({color:0x5cb85c}));
