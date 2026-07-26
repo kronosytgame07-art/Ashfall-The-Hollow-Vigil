@@ -23,6 +23,8 @@
   html,body{margin:0;padding:0;}
   body{
     background:
+      linear-gradient(rgba(5,7,12,.68),rgba(5,4,5,.92)),
+      url('assets/backgrounds/main-menu.webp') center top / cover fixed no-repeat,
       radial-gradient(ellipse 900px 500px at 50% -8%, rgba(224,131,47,0.14), transparent 60%),
       radial-gradient(circle at 10% 95%, rgba(91,122,140,0.07), transparent 55%),
       radial-gradient(circle at 92% 15%, rgba(122,32,32,0.08), transparent 50%),
@@ -464,6 +466,7 @@ function initTextures(){
   },256);
   TEX.ground.repeat.set(6,6);
   initIconSprites();
+  initBuildingSprites();
 }
 
 /* ---- Sprites d'icônes : style "chunky cartoon" (contours épais, couleurs saturées, reflets) ---- */
@@ -557,6 +560,28 @@ const ICON_DRAW = {
   }
 };
 let ICON_MATS = {};
+const BUILDING_ART = {
+  chateau:{src:'assets/buildings/townhall.webp', w:4.8, h:4.8, y:2.15},
+  mine:{src:'assets/buildings/mine.webp', w:3.15, h:3.15, y:1.38},
+  scierie:{src:'assets/buildings/sawmill.webp', w:3.15, h:3.15, y:1.38},
+  autel:{src:'assets/buildings/altar.webp', w:2.9, h:2.9, y:1.22},
+  caserne:{src:'assets/buildings/barracks.webp', w:3.45, h:3.45, y:1.52},
+  muraille:{src:'assets/buildings/wall.webp', w:3.45, h:2.3, y:0.92},
+  tour:{src:'assets/buildings/tower.webp', w:3.1, h:4.25, y:1.94},
+  forge:{src:'assets/buildings/forge.webp', w:3.3, h:3.3, y:1.45}
+};
+let BUILDING_MATS = {};
+function initBuildingSprites(){
+  const loader = new THREE.TextureLoader();
+  Object.entries(BUILDING_ART).forEach(([type,art])=>{
+    const texture = loader.load(art.src);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = Math.min(8, three.renderer.capabilities.getMaxAnisotropy());
+    BUILDING_MATS[type] = new THREE.SpriteMaterial({
+      map:texture, transparent:true, alphaTest:0.04, depthTest:true, depthWrite:false
+    });
+  });
+}
 function initIconSprites(){
   Object.keys(ICON_DRAW).forEach(type=>{
     const size=112;
@@ -734,6 +759,16 @@ function animateScene(){
 
 function makeBuilding(type, level){
   const g = new THREE.Group();
+  const art = BUILDING_ART[type];
+  if(art && BUILDING_MATS[type]){
+    const sprite = new THREE.Sprite(BUILDING_MATS[type]);
+    const tierScale = 1 + Math.min(0.18, (level-1)*0.025);
+    sprite.scale.set(art.w*tierScale, art.h*tierScale, 1);
+    sprite.position.set(0, art.y*tierScale, 0);
+    sprite.center.set(0.5, 0);
+    g.add(sprite);
+    return g;
+  }
   const stone = 0x4a4136, stoneLight=0x5c5142, wood=0x3c2a1c, roofRed=0xa1481f, roofBright=0xe0832f;
   const tierBoost = Math.min(1, (level-1)*0.08);
   if(type==='chateau'){
