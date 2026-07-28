@@ -33,5 +33,7 @@ func _initialize() -> void:
 	assert(game_state.resources.gold == 1150, "Resource subtraction failed")
 	assert(BuildingFactory.footprint("town_hall") == Vector2i(3, 3), "Town hall must occupy 3x3")
 	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
-	print("Ashfall 3D validation: assets, economy, persistence schema, footprints and 8-way movement, OK")
+	var compact_unit := AshfallCombatUnit.new()
+	assert(compact_unit.camp_scale <= 0.5, "Camp troops must remain compact enough to gather around fires")
+	print("Ashfall 3D validation: assets, compact dark-fantasy units, economy, footprints and 8-way movement, OK")
 	quit()
