@@ -3,6 +3,7 @@ extends Node3D
 const GRID_SIZE := 24
 const TILE_SIZE := 2.0
 const BUILDABLE_HALF := GRID_SIZE * TILE_SIZE * 0.5
+const CAMP_UNIT_SPACING := 0.62
 
 var state := AshfallGameState.new()
 var occupied: Dictionary = {}
@@ -401,9 +402,11 @@ func _train_warrior() -> void:
 	state.army.warrior = int(state.army.warrior) + 1
 	var unit := AshfallCombatUnit.new()
 	unit.kind = AshfallCombatUnit.UnitKind.WARRIOR
-	unit.position = Vector3(8 + troops_root.get_child_count() * 0.7, 0, 8)
+	var slot := troops_root.get_child_count()
+	var camp_center := _army_camp_center()
+	unit.position = camp_center + Vector3(-2.8, 0, -2.4)
 	troops_root.add_child(unit)
-	unit.move_to(Vector3(6 + troops_root.get_child_count() * 0.8, 0, 11))
+	unit.move_to(_camp_unit_position(slot, camp_center))
 	state.save()
 	_refresh_ui()
 	_set_status("Guerrier entraîné et déployé au camp.")
@@ -436,11 +439,28 @@ func _spawn_villagers() -> void:
 		villager.position = Vector3(-5.0 + i * 2.0, 0.0, 6.0 + (i % 2) * 1.8)
 		villager.stride_phase = i * 1.1
 		villagers_root.add_child(villager)
-	for i in range(mini(int(state.army.warrior), 8)):
+	var camp_center := _army_camp_center()
+	for i in range(mini(int(state.army.warrior), 24)):
 		var unit := AshfallCombatUnit.new()
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR if i % 3 else AshfallCombatUnit.UnitKind.ARCHER
-		unit.position = Vector3(7.0 + i * 0.8, 0.0, 9.0 + (i % 2))
+		unit.position = _camp_unit_position(i, camp_center)
 		troops_root.add_child(unit)
+
+func _army_camp_center() -> Vector3:
+	for index in building_nodes:
+		if str(state.buildings[int(index)].kind) == "army_camp":
+			# Le GLB du camp place son feu principal à +1,35 m sur X/Z.
+			return building_nodes[index].global_position + Vector3(1.35, 0.0, 1.35)
+	return Vector3(9.0, 0.0, 9.0)
+
+func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
+	# Anneaux serrés autour du brasero : 8, puis 16 unités, sans ligne infinie.
+	var ring := 0 if slot < 8 else 1 + (slot - 8) / 16
+	var ring_slot := slot if ring == 0 else posmod(slot - 8, 16)
+	var ring_count := 8 if ring == 0 else 16
+	var angle := TAU * float(ring_slot) / float(ring_count) + ring * 0.16
+	var radius := 1.25 + ring * CAMP_UNIT_SPACING
+	return center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 
 func _assign_builder(target: Vector3) -> void:
 	for villager in villagers_root.get_children():

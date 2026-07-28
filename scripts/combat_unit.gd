@@ -7,6 +7,7 @@ enum Action { IDLE, MOVE, ATTACK }
 @export var kind := UnitKind.WARRIOR
 @export var move_speed := 2.25
 @export var turn_speed := 11.0
+@export_range(0.35, 0.7, 0.01) var camp_scale := 0.48
 
 var action := Action.IDLE
 var destination := Vector3.ZERO
@@ -87,8 +88,8 @@ func _animate() -> void:
 func _build_collision() -> void:
 	var shape := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.38 if kind != UnitKind.BRUTE else 0.5
-	capsule.height = 2.2 if kind != UnitKind.BRUTE else 2.75
+	capsule.radius = (0.38 if kind != UnitKind.BRUTE else 0.5) * camp_scale
+	capsule.height = (2.2 if kind != UnitKind.BRUTE else 2.75) * camp_scale
 	shape.shape = capsule
 	shape.position.y = capsule.height * 0.5
 	add_child(shape)
@@ -110,6 +111,19 @@ func _box(parent: Node3D, size: Vector3, pos: Vector3, color: Color, metallic :=
 	parent.add_child(node)
 	return node
 
+func _cylinder(parent: Node3D, radius: float, height: float, pos: Vector3, color: Color, metallic := 0.0) -> MeshInstance3D:
+	var node := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius * 1.04
+	mesh.height = height
+	mesh.radial_segments = 10
+	node.mesh = mesh
+	node.position = pos
+	node.material_override = _mat(color, metallic)
+	parent.add_child(node)
+	return node
+
 func _pivot_limb(parent: Node3D, name_: String, pos: Vector3, size: Vector3, color: Color) -> Node3D:
 	var pivot := Node3D.new()
 	pivot.name = name_
@@ -121,7 +135,7 @@ func _pivot_limb(parent: Node3D, name_: String, pos: Vector3, size: Vector3, col
 func _build_model() -> void:
 	var scale_factor := 1.22 if kind == UnitKind.BRUTE else 1.0
 	_visual = Node3D.new()
-	_visual.scale = Vector3.ONE * scale_factor
+	_visual.scale = Vector3.ONE * scale_factor * camp_scale
 	add_child(_visual)
 	_torso = Node3D.new()
 	_torso.position = Vector3(0, 1.55, 0)
@@ -135,6 +149,15 @@ func _build_model() -> void:
 		armor = Color("#51413a")
 	_box(_torso, Vector3(0.9, 1.0, 0.55), Vector3.ZERO, armor, 0.5)
 	_box(_torso, Vector3(1.02, 0.16, 0.65), Vector3(0, -0.39, 0), Color("#241918"))
+	# Armure dark fantasy lisible même lorsque plusieurs troupes entourent un feu.
+	for y in [-0.24, 0.0, 0.24]:
+		_box(_torso, Vector3(0.96, 0.08, 0.64), Vector3(0, y, -0.03), Color("#70727b"), 0.72)
+	_box(_torso, Vector3(0.18, 0.92, 0.64), Vector3(0, 0.02, -0.04), Color("#242127"), 0.45)
+	_box(_torso, Vector3(0.34, 0.18, 0.72), Vector3(-0.53, 0.28, 0), armor, 0.62)
+	_box(_torso, Vector3(0.34, 0.18, 0.72), Vector3(0.53, 0.28, 0), armor, 0.62)
+	var cape_color := Color("#3a1015") if kind != UnitKind.ARCHER else Color("#182419")
+	var cape := _box(_torso, Vector3(0.72, 0.94, 0.08), Vector3(0, -0.02, 0.35), cape_color)
+	cape.rotation.x = -0.08
 	var head := MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
 	head_mesh.radius = 0.31
@@ -143,6 +166,10 @@ func _build_model() -> void:
 	head.position = Vector3(0, 0.78, 0)
 	head.material_override = _mat(Color("#8f5d42"))
 	_torso.add_child(head)
+	var helmet := _cylinder(_torso, 0.37, 0.34, Vector3(0, 0.93, 0), Color("#34363d"), 0.78)
+	helmet.scale.z = 0.9
+	_box(_torso, Vector3(0.72, 0.09, 0.55), Vector3(0, 0.84, -0.08), Color("#202126"), 0.8)
+	_box(_torso, Vector3(0.06, 0.34, 0.08), Vector3(0, 1.23, 0), Color("#711820"), 0.2)
 	_left_leg = _pivot_limb(_visual, "LeftLeg", Vector3(-0.23, 1.08, 0), Vector3(0.3, 0.9, 0.35), Color("#26272c"))
 	_right_leg = _pivot_limb(_visual, "RightLeg", Vector3(0.23, 1.08, 0), Vector3(0.3, 0.9, 0.35), Color("#26272c"))
 	_left_arm = _pivot_limb(_visual, "LeftArm", Vector3(-0.57, 1.93, 0), Vector3(0.22, 0.82, 0.25), armor)
@@ -151,9 +178,21 @@ func _build_model() -> void:
 	_weapon.position = Vector3(0, -0.78, 0)
 	_right_arm.add_child(_weapon)
 	if kind == UnitKind.ARCHER:
-		var bow := _box(_weapon, Vector3(0.08, 1.35, 0.09), Vector3(0, -0.35, 0), Color("#6f4827"))
-		bow.rotation.z = 0.22
+		for side in [-1.0, 1.0]:
+			var bow_arm := _box(_weapon, Vector3(0.08, 0.76, 0.09), Vector3(side * 0.12, -0.35 + side * 0.3, 0), Color("#6f4827"))
+			bow_arm.rotation.z = side * 0.3
+		_box(_weapon, Vector3(0.025, 1.45, 0.025), Vector3(0, -0.35, 0), Color("#b6aa8b"))
+		_box(_torso, Vector3(0.24, 1.1, 0.24), Vector3(0.43, 0.02, 0.33), Color("#38271d"))
 	else:
 		_box(_weapon, Vector3(0.1, 1.15, 0.1), Vector3(0, -0.42, 0), Color("#50301d"))
 		var blade_size := Vector3(0.22, 0.82, 0.08) if kind != UnitKind.BRUTE else Vector3(0.58, 0.65, 0.2)
 		_box(_weapon, blade_size, Vector3(0, -1.25, 0), Color("#8c9099"), 0.8)
+		_box(_weapon, Vector3(0.55, 0.09, 0.13), Vector3(0, -0.88, 0), Color("#8b5d27"), 0.55)
+	if kind == UnitKind.WARRIOR or kind == UnitKind.HERO:
+		var shield := _cylinder(_left_arm, 0.48, 0.12, Vector3(0, -0.58, -0.3), Color("#342f36"), 0.72)
+		shield.rotation_degrees.x = 90
+		_cylinder(shield, 0.12, 0.08, Vector3.ZERO, Color("#9c6530"), 0.85)
+	elif kind == UnitKind.BRUTE:
+		for x in [-0.32, 0.32]:
+			var horn := _cylinder(_torso, 0.08, 0.58, Vector3(x, 1.22, 0), Color("#9b8c70"))
+			horn.rotation_degrees.z = x * 42.0
