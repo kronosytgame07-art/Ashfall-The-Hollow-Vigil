@@ -309,7 +309,7 @@ func _build_interface() -> void:
 	stamina_bar = _hud_bar(Color("#667b3d"), 100.0)
 	stats.add_child(stamina_bar)
 	souls_label = Label.new()
-	souls_label.text = "NIV. 1  •  %s     ÂMES  0     OMBRES  %d" % [selected_race.upper(), enemies_alive]
+	souls_label.text = "NIV. 1  •  %s     ÂMES  0     OMBRES  %d" % [selected_race.to_upper(), enemies_alive]
 	souls_label.add_theme_font_size_override("font_size", 16)
 	souls_label.add_theme_color_override("font_color", Color("#b8a78f"))
 	stats.add_child(souls_label)
@@ -496,7 +496,7 @@ func _on_enemy_defeated(_enemy: AshfallSoulsEnemy) -> void:
 	souls += 45
 	if souls_label:
 		souls_label.text = "NIV. 1  •  %s     ÂMES  %d     OMBRES  %d" % [
-			selected_race.upper(), souls, enemies_alive
+			selected_race.to_upper(), souls, enemies_alive
 		]
 	if enemies_alive == 0:
 		_flash_message("ZONE PURIFIÉE  •  REPOSEZ-VOUS POUR RÉVEILLER LES OMBRES")
