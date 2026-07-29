@@ -12,6 +12,10 @@ func _run() -> void:
 	for frame in range(8):
 		await process_frame
 
+	if not _require(game.world_ready, "Staged world boot did not complete"):
+		return
+	if not _require(is_instance_valid(game.play_button) and not game.play_button.disabled, "Play button was not unlocked"):
+		return
 	if not _require(is_instance_valid(game.player), "Runtime did not create a player"):
 		return
 	if not _require(is_instance_valid(game.follow_camera), "Runtime did not create the world camera"):
