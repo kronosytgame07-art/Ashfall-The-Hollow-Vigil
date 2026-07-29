@@ -38,8 +38,8 @@ func _run() -> void:
 	if not _require(meshes.size() >= 80, "World geometry count is unexpectedly low: %d" % meshes.size()):
 		return
 	var target: Vector3 = game.player.global_position + Vector3(0, 1.15, 0)
-	var camera_forward := -game.follow_camera.global_basis.z.normalized()
-	var target_direction := game.follow_camera.global_position.direction_to(target)
+	var camera_forward: Vector3 = -game.follow_camera.global_basis.z.normalized()
+	var target_direction: Vector3 = game.follow_camera.global_position.direction_to(target)
 	if not _require(
 		camera_forward.dot(target_direction) > 0.995,
 		"Camera is not looking at the player: dot=%f" % camera_forward.dot(target_direction)
