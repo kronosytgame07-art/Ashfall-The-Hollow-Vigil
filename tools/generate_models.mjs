@@ -309,7 +309,6 @@ function barracks(){
 }
 function camp(){
   const m=new Model("Ashen Legion Camp");
-  m.box("earth",[0,.1,0],[5.75,.2,5.75]);
   // Camp ouvert centré sur le brasier : aucune tente ne masque les troupes.
   for(let i=0;i<16;i++){const a=i*TAU/16,r=.92;m.box(i%3?"stone":"stone2",[Math.cos(a)*r,.25,Math.sin(a)*r],[.38,.3,.3],-a)}
   for(let i=0;i<6;i++){const a=i*TAU/6;m.boxEuler("wood",[Math.sin(a)*.3,.38,Math.cos(a)*.3],[.18,.16,1.35],0,a+.48,0)}

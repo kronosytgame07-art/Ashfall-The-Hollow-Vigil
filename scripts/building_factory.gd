@@ -230,7 +230,7 @@ void fragment() {
 		texture_value = broad * 0.5 + fine * 0.5;
 	}
 
-	float shade = clamp(0.72 + texture_value * detail_strength * 1.55, 0.54, 1.22);
+	float shade = clamp(0.62 + texture_value * detail_strength * 1.35, 0.48, 1.04);
 	ALBEDO = base_color.rgb * shade;
 	ROUGHNESS = clamp(roughness_amount + (fine - 0.5) * 0.16, 0.28, 1.0);
 	METALLIC = metallic_amount;
@@ -239,7 +239,7 @@ void fragment() {
 """
 	var material := ShaderMaterial.new()
 	material.shader = _shared_surface_shader
-	var readable_color := color.lightened(0.16)
+	var readable_color := color.lightened(0.035)
 	material.set_shader_parameter("base_color", readable_color)
 	material.set_shader_parameter("texture_scale", _texture_scale_for(material_name))
 	material.set_shader_parameter("detail_strength", 0.42 if material_name in ["stone", "stone2", "basalt", "earth"] else 0.34)
