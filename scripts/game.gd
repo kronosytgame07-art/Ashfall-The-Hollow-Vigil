@@ -24,6 +24,10 @@ var selection_info: Label
 var action_button: Button
 var train_button: Button
 var raid_button: Button
+var hud_root: Control
+var main_menu: Control
+var game_started := false
+var battle_controller: Node3D
 var build_panel: PanelContainer
 var detail_panel: PanelContainer
 var autosave_clock := 0.0
@@ -48,6 +52,8 @@ func _ready() -> void:
 	_refresh_ui()
 
 func _process(delta: float) -> void:
+	if not game_started:
+		return
 	var now := _now()
 	state.tick_production(now)
 	autosave_clock += delta
@@ -269,12 +275,13 @@ func _panel() -> PanelContainer:
 
 func _build_interface() -> void:
 	var hud := Control.new()
+	hud_root = hud
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$Interface.add_child(hud)
 	var top := _panel()
 	top.position = Vector2(14, 12)
-	top.size = Vector2(570, 62)
+	top.size = Vector2(760, 68)
 	hud.add_child(top)
 	var top_box := VBoxContainer.new()
 	top.add_child(top_box)
@@ -285,7 +292,10 @@ func _build_interface() -> void:
 	resource_label = Label.new()
 	top_box.add_child(resource_label)
 	var build_toggle := Button.new()
-	build_toggle.text = "⚒  CONSTRUIRE"
+	build_toggle.text = "  CONSTRUIRE"
+	build_toggle.icon = load("res://assets/ui/icon_hammer.svg")
+	build_toggle.icon_max_width = 28
+	_style_button(build_toggle, Color("#a66536"))
 	build_toggle.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	build_toggle.position = Vector2(14, -64)
 	build_toggle.size = Vector2(170, 46)
@@ -309,6 +319,9 @@ func _build_interface() -> void:
 		var button := Button.new()
 		var fp := BuildingFactory.footprint(kind)
 		button.text = "%s %d×%d" % [BuildingFactory.label(kind), fp.x, fp.y]
+		button.icon = load(_building_icon_path(kind))
+		button.icon_max_width = 22
+		_style_button(button, Color("#72513d"))
 		button.pressed.connect(_begin_placement.bind(kind))
 		buttons.add_child(button)
 	detail_panel = _panel()
@@ -329,6 +342,7 @@ func _build_interface() -> void:
 	detail_box.add_child(selection_info)
 	action_button = Button.new()
 	action_button.text = "Améliorer"
+	_style_button(action_button, Color("#a66536"))
 	action_button.pressed.connect(_selected_action)
 	detail_box.add_child(action_button)
 	var army_panel := _panel()
@@ -341,11 +355,17 @@ func _build_interface() -> void:
 	var army_box := VBoxContainer.new()
 	army_panel.add_child(army_box)
 	train_button = Button.new()
-	train_button.text = "Entraîner un guerrier"
+	train_button.text = "  Entraîner un guerrier"
+	train_button.icon = load("res://assets/ui/icon_shield.svg")
+	train_button.icon_max_width = 26
+	_style_button(train_button, Color("#8e4a37"))
 	train_button.pressed.connect(_train_warrior)
 	army_box.add_child(train_button)
 	raid_button = Button.new()
-	raid_button.text = "Lancer une expédition"
+	raid_button.text = "  Lancer une expédition"
+	raid_button.icon = load("res://assets/ui/icon_swords.svg")
+	raid_button.icon_max_width = 26
+	_style_button(raid_button, Color("#a66536"))
 	raid_button.pressed.connect(_launch_raid)
 	army_box.add_child(raid_button)
 	status_label = Label.new()
@@ -354,6 +374,166 @@ func _build_interface() -> void:
 	status_label.size = Vector2(720, 38)
 	status_label.add_theme_color_override("font_color", Color("#e8c58d"))
 	hud.add_child(status_label)
+	_build_main_menu()
+
+func _build_main_menu() -> void:
+	main_menu = Control.new()
+	main_menu.name = "MainMenu"
+	main_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	main_menu.mouse_filter = Control.MOUSE_FILTER_STOP
+	main_menu.process_mode = Node.PROCESS_MODE_ALWAYS
+	$Interface.add_child(main_menu)
+	var backdrop := ColorRect.new()
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color("#08070b")
+	main_menu.add_child(backdrop)
+	var frame := PanelContainer.new()
+	frame.set_anchors_preset(Control.PRESET_CENTER)
+	frame.position = Vector2(-340, -255)
+	frame.size = Vector2(680, 510)
+	var frame_style := StyleBoxFlat.new()
+	frame_style.bg_color = Color("#17131bee")
+	frame_style.border_color = Color("#7d4b2d")
+	frame_style.set_border_width_all(2)
+	frame_style.set_corner_radius_all(18)
+	frame.add_theme_stylebox_override("panel", frame_style)
+	main_menu.add_child(frame)
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(600, 440)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 18)
+	frame.add_child(box)
+	var title := Label.new()
+	title.text = "ASHFALL"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 50)
+	title.add_theme_color_override("font_color", Color("#e7c28b"))
+	box.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "THE HOLLOW VIGIL\nBâtissez dans les cendres. Survivez à la nuit."
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 17)
+	subtitle.add_theme_color_override("font_color", Color("#a79ba7"))
+	box.add_child(subtitle)
+	var village_button := _menu_button("  CONTINUER LE VILLAGE", "res://assets/ui/icon_town.svg")
+	village_button.pressed.connect(_enter_village)
+	box.add_child(village_button)
+	var combat_button := _menu_button("  COMBAT PVPVE", "res://assets/ui/icon_swords.svg")
+	combat_button.pressed.connect(_enter_pvpve_battle)
+	box.add_child(combat_button)
+	var settings_button := _menu_button("  OPTIONS", "res://assets/ui/icon_settings.svg")
+	box.add_child(settings_button)
+	var option_row := HBoxContainer.new()
+	option_row.visible = false
+	option_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	option_row.add_theme_constant_override("separation", 12)
+	box.add_child(option_row)
+	var sound_button := Button.new()
+	sound_button.text = "SON : ACTIVÉ"
+	sound_button.custom_minimum_size = Vector2(220, 44)
+	sound_button.pressed.connect(func():
+		var muted := not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
+		AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), muted)
+		sound_button.text = "SON : COUPÉ" if muted else "SON : ACTIVÉ"
+	)
+	option_row.add_child(sound_button)
+	var fullscreen_button := Button.new()
+	fullscreen_button.text = "PLEIN ÉCRAN"
+	fullscreen_button.custom_minimum_size = Vector2(220, 44)
+	fullscreen_button.pressed.connect(func():
+		var fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN)
+	)
+	option_row.add_child(fullscreen_button)
+	settings_button.pressed.connect(func(): option_row.visible = not option_row.visible)
+	hud_root.visible = false
+	$World.visible = false
+
+func _menu_button(label: String, icon_path: String) -> Button:
+	var button := Button.new()
+	button.text = label
+	button.custom_minimum_size = Vector2(560, 62)
+	button.add_theme_font_size_override("font_size", 18)
+	var icon := load(icon_path) as Texture2D
+	if icon:
+		button.icon = icon
+		button.icon_max_width = 32
+	_style_button(button, Color("#a66536"))
+	return button
+
+func _style_button(button: Button, accent: Color) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("#161219")
+	normal.border_color = accent
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(9)
+	normal.content_margin_left = 14
+	normal.content_margin_right = 14
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("#2b2026")
+	hover.border_color = accent.lightened(0.2)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color("#4a2922")
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+
+func _building_icon_path(kind: String) -> String:
+	if kind in ["barracks", "army_camp", "tower", "wall"]:
+		return "res://assets/ui/icon_shield.svg"
+	if kind in ["sawmill", "builders_yard", "forge"]:
+		return "res://assets/ui/icon_hammer.svg"
+	if kind in ["laboratory", "spell_hall", "soul_altar"]:
+		return "res://assets/ui/icon_settings.svg"
+	return "res://assets/ui/icon_town.svg"
+
+func _enter_village() -> void:
+	game_started = true
+	main_menu.visible = false
+	$World.visible = true
+	hud_root.visible = true
+
+func _enter_pvpve_battle() -> void:
+	game_started = true
+	main_menu.visible = false
+	hud_root.visible = false
+	$World.visible = true
+	_set_village_roots_visible(false)
+	var battle_script := load("res://scripts/pvpve_battle.gd")
+	battle_controller = battle_script.new()
+	battle_controller.name = "PVPVEBattle"
+	battle_controller.connect("exit_requested", Callable(self, "_leave_pvpve_battle"))
+	$World.add_child(battle_controller)
+
+func _leave_pvpve_battle() -> void:
+	if is_instance_valid(battle_controller):
+		battle_controller.queue_free()
+	battle_controller = null
+	_set_village_roots_visible(true)
+	game_started = false
+	hud_root.visible = false
+	$World.visible = false
+	main_menu.visible = true
+
+func _set_village_roots_visible(value: bool) -> void:
+	for root in [buildings_root, obstacles_root, villagers_root, troops_root, grid_root]:
+		if is_instance_valid(root):
+			root.visible = value
+			root.process_mode = Node.PROCESS_MODE_INHERIT if value else Node.PROCESS_MODE_DISABLED
+			for body in root.find_children("*", "CollisionObject3D", true, false):
+				var collision_object := body as CollisionObject3D
+				if value:
+					collision_object.collision_layer = int(collision_object.get_meta("village_collision_layer", 1))
+					collision_object.collision_mask = int(collision_object.get_meta("village_collision_mask", 0))
+				else:
+					collision_object.set_meta("village_collision_layer", collision_object.collision_layer)
+					collision_object.set_meta("village_collision_mask", collision_object.collision_mask)
+					collision_object.collision_layer = 0
+					collision_object.collision_mask = 0
+	for root_name in ["VillagePaths", "ScorchedGroundTiles"]:
+		var root := $World.get_node_or_null(root_name)
+		if root:
+			root.visible = value
 
 func _create_new_village() -> void:
 	_add_building_record("town_hall", Vector2i(23, 23), 1, 0)
@@ -633,32 +813,41 @@ func _lay_road_segment(path_root: Node3D, start: Vector3, finish: Vector3) -> Ar
 	if length < 0.8:
 		return samples
 	var forward := direction.normalized()
-	var count := maxi(1, ceili(length / 0.72))
-	var road_materials := [
-		_material(Color("#4a4039")),
-		_material(Color("#39363a")),
-		_material(Color("#57483a"))
-	]
+	var count := maxi(2, ceili(length / 0.72))
 	var right := Vector3(forward.z, 0.0, -forward.x)
 	var phase := fmod(absf(start.x * 0.17 + start.z * 0.31 + finish.x * 0.13), TAU)
-	for tile_index in range(count):
-		var distance := 1.2 + (tile_index + 0.5) * length / count
-		var t := (tile_index + 0.5) / float(count)
+	var points: Array[Vector3] = []
+	for point_index in range(count + 1):
+		var distance := 1.2 + point_index * length / count
+		var t := point_index / float(count)
 		var wandering := sin(t * PI) * sin(t * TAU + phase) * minf(1.65, length * 0.11)
-		wandering += sin(float(tile_index) * 1.73 + phase) * 0.11
+		wandering += sin(float(point_index) * 1.73 + phase) * 0.11 * sin(t * PI)
 		var position := start + forward * distance + right * wandering
-		var next_t := minf(1.0, t + 1.0 / float(count))
-		var next_wandering := sin(next_t * PI) * sin(next_t * TAU + phase) * minf(1.65, length * 0.11)
-		var tangent := (forward * (length / count) + right * (next_wandering - wandering)).normalized()
-		var tile := _add_box(
-			path_root,
-			position + Vector3(0, 0.038, 0),
-			Vector3(1.02 + float(tile_index % 3) * 0.09, 0.055, length / count + 0.13),
-			road_materials[tile_index % road_materials.size()]
-		)
-		tile.rotation.y = atan2(tangent.x, tangent.z)
-		if tile_index % 3 == 0:
+		position.y = 0.032
+		points.append(position)
+		if point_index % 3 == 0:
 			samples.append(position)
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for segment_index in range(points.size() - 1):
+		var p0 := points[segment_index]
+		var p1 := points[segment_index + 1]
+		var tangent := (p1 - p0).normalized()
+		var lateral := Vector3(tangent.z, 0.0, -tangent.x)
+		var width0 := 0.72 + sin(float(segment_index) * 2.17 + phase) * 0.12
+		var width1 := 0.72 + sin(float(segment_index + 1) * 2.17 + phase) * 0.12
+		var a := p0 - lateral * width0
+		var b := p0 + lateral * width0
+		var c := p1 + lateral * width1
+		var d := p1 - lateral * width1
+		for vertex in [a, b, c, a, c, d]:
+			surface.set_normal(Vector3.UP)
+			surface.add_vertex(vertex)
+	var road := MeshInstance3D.new()
+	road.name = "IrregularAshRoad"
+	road.mesh = surface.commit()
+	road.material_override = BuildingFactory.make_textured_material("earth", Color("#45372e"))
+	path_root.add_child(road)
 	return samples
 
 func _spawn_random_obstacle() -> void:

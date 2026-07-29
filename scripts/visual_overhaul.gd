@@ -110,11 +110,11 @@ func _apply_mountain_material(node: Node) -> void:
 				elif "wood" in material_name:
 					material.albedo_color = Color("#160d0c")
 				elif "earth" in material_name:
-					material.albedo_color = Color("#292126")
+					material.albedo_color = Color("#171319")
 				elif "moss" in material_name:
-					material.albedo_color = Color("#263323")
+					material.albedo_color = Color("#1b2519")
 				else:
-					material.albedo_color = Color("#45404b") if "stone2" in material_name else Color("#34313a")
+					material.albedo_color = Color("#302c36") if "stone2" in material_name else Color("#211f27")
 				mesh.set_surface_override_material(
 					surface,
 					BuildingFactory.make_textured_material(material_name, material.albedo_color)
@@ -168,30 +168,15 @@ func _spawn_obstacle(cell: Vector2i, record := false) -> void:
 
 func _add_village_atmosphere() -> void:
 	var patches := _new_root("ScorchedGroundTiles")
-	var ground_materials := [
-		BuildingFactory.make_textured_material("earth", Color("#242126")),
-		BuildingFactory.make_textured_material("earth", Color("#302a27")),
-		BuildingFactory.make_textured_material("earth", Color("#3c3028")),
-		BuildingFactory.make_textured_material("moss", Color("#252a22"))
-	]
-	for i in range(52):
+	for i in range(14):
 		var angle := float(i) * 2.399
-		var radius := 4.0 + float((i * 17) % 43)
-		var tile_position := Vector3(cos(angle) * radius, 0.024, sin(angle) * radius)
-		var tile := _add_box(
-			patches,
-			tile_position,
-			Vector3(0.55 + float(i % 5) * 0.19, 0.018, 0.48 + float((i * 3) % 5) * 0.16),
-			ground_materials[i % ground_materials.size()]
-		)
-		tile.rotation.y = angle + float(i % 3) * 0.31
-		if i % 7 == 0:
-			var ember_material := _material(Color("#a93412"))
-			ember_material.emission_enabled = true
-			ember_material.emission = Color("#d83b12")
-			ember_material.emission_energy_multiplier = 1.8
-			var ember := _add_box(patches, tile_position + Vector3(0.0, 0.025, 0.0), Vector3(0.18, 0.018, 0.035), ember_material)
-			ember.rotation.y = angle - 0.4
+		var radius := 7.0 + float((i * 13) % 35)
+		var ember_material := _material(Color("#8d260e"))
+		ember_material.emission_enabled = true
+		ember_material.emission = Color("#be3210")
+		ember_material.emission_energy_multiplier = 1.35
+		var ember := _add_box(patches, Vector3(cos(angle) * radius, 0.026, sin(angle) * radius), Vector3(0.22, 0.012, 0.035), ember_material)
+		ember.rotation.y = angle - 0.4
 
 	for index in building_nodes:
 		var kind := str(state.buildings[int(index)].kind)

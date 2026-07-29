@@ -53,6 +53,17 @@ func _initialize() -> void:
 	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
 	var textured_stone := BuildingFactory.make_textured_material("stone", Color("#403b42"))
 	assert(textured_stone != null and textured_stone.shader != null, "Procedural surface texturing must be available")
+	assert(ResourceLoader.exists("res://scripts/pvpve_battle.gd"), "PvPvE battle controller is missing")
+	var battle_controller_script := load("res://scripts/pvpve_battle.gd") as Script
+	assert(battle_controller_script != null and battle_controller_script.can_instantiate(), "PvPvE battle controller cannot instantiate")
+	for icon_path in [
+		"res://assets/ui/icon_town.svg",
+		"res://assets/ui/icon_swords.svg",
+		"res://assets/ui/icon_settings.svg",
+		"res://assets/ui/icon_hammer.svg",
+		"res://assets/ui/icon_shield.svg"
+	]:
+		assert(ResourceLoader.exists(icon_path), "HUD icon is missing: " + icon_path)
 	assert(game_state._migrate_building({"kind": "town_hall", "cell": []}).is_empty(),
 		"Malformed browser saves must be rejected without indexing an empty cell")
 	var migrated := game_state._migrate_building({"kind": "gold_mine", "cell": {"x": 5, "y": 9}})
