@@ -34,6 +34,9 @@ jobs:
       - name: Validate 3D assets
         run: godot --headless --script res://tests/validate_3d.gd
 
+      - name: Smoke-test active Souls-like scene
+        run: godot --headless --script res://tests/smoke_souls_runtime.gd
+
       - name: Export Web build
         run: |
           mkdir -p build/web
