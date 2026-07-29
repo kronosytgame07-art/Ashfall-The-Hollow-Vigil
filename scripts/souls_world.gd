@@ -43,6 +43,7 @@ var controls_panel: Control
 var control_buttons: Dictionary = {}
 var awaiting_action := ""
 var follow_camera: Camera3D
+var enemies_active := false
 
 func _ready() -> void:
 	_ensure_input_actions()
@@ -72,6 +73,8 @@ func _process(delta: float) -> void:
 		_flash_message("REPOS ACCORDÉ  •  LES OMBRES REVIENNENT")
 	if player.global_position.y < -1.5:
 		_rescue_player_from_void()
+	if game_started and not enemies_active and player.global_position.distance_to(safe_spawn_position) > 3.0:
+		_activate_enemies()
 
 func _ensure_input_actions() -> void:
 	for action in DEFAULT_KEYS:
@@ -155,6 +158,8 @@ func _build_voxel_world() -> void:
 		_voxel_material(Color("#160c0b"), Color("#48201a")),
 		_voxel_material(Color("#24100c"), Color("#6c2517")),
 	]
+	var all_materials: Array = ground_materials + snow_materials + volcanic_materials
+	var transform_groups: Array = [[], [], [], [], [], [], []]
 	for x in range(-WORLD_HALF, WORLD_HALF, 2):
 		for z in range(-WORLD_HALF, WORLD_HALF, 2):
 			var distance := Vector2(x, z).length()
@@ -163,18 +168,29 @@ func _build_voxel_world() -> void:
 			var height := rng.randf_range(0.16, 0.34)
 			if distance > 24.0:
 				height += rng.randf_range(0.0, 2.8) * pow((distance - 24.0) / 7.0, 1.8)
-			var region_materials: Array = ground_materials
+			var material_offset := 0
+			var material_count := ground_materials.size()
 			if x <= -12:
-				region_materials = snow_materials
+				material_offset = ground_materials.size()
+				material_count = snow_materials.size()
 			elif x >= 12:
-				region_materials = volcanic_materials
-			var tile := _static_box(
-				$World,
-				Vector3(2.03, height, 2.03),
-				Vector3(x, -height * 0.5, z),
-				region_materials[rng.randi_range(0, region_materials.size() - 1)]
+				material_offset = ground_materials.size() + snow_materials.size()
+				material_count = volcanic_materials.size()
+			var material_index := material_offset + rng.randi_range(0, material_count - 1)
+			var basis := Basis().rotated(
+				Vector3.UP,
+				rng.randf_range(-0.025, 0.025)
 			)
-			tile.rotation.y = rng.randf_range(-0.025, 0.025)
+			basis = basis.scaled(Vector3(1.0, height, 1.0))
+			transform_groups[material_index].append(
+				Transform3D(basis, Vector3(x, -height * 0.5, z))
+			)
+	for material_index in range(all_materials.size()):
+		_add_ground_multimesh(
+			transform_groups[material_index],
+			all_materials[material_index],
+			material_index
+		)
 	_build_region_landmarks()
 	# Jagged basalt silhouettes make the horizon feel authored rather than flat.
 	for i in range(78):
@@ -189,9 +205,26 @@ func _build_voxel_world() -> void:
 			Vector3(rng.randf_range(-0.08, 0.08), angle, rng.randf_range(-0.12, 0.12))
 		)
 
+func _add_ground_multimesh(transforms: Array, material: Material, index: int) -> void:
+	if transforms.is_empty():
+		return
+	var box := BoxMesh.new()
+	box.size = Vector3(2.03, 1.0, 2.03)
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = box
+	multimesh.instance_count = transforms.size()
+	for transform_index in range(transforms.size()):
+		multimesh.set_instance_transform(transform_index, transforms[transform_index])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "TerrainBatch%d" % index
+	instance.multimesh = multimesh
+	instance.material_override = material
+	$World.add_child(instance)
+
 func _build_continuous_ground_collision() -> void:
-	# Decorative voxel tiles keep their individual collisions, but Web physics
-	# must also have one uninterrupted floor available on the very first frame.
+	# The terrain is rendered in seven MultiMesh batches and uses one
+	# uninterrupted collider instead of hundreds of physics bodies.
 	var safety_floor := StaticBody3D.new()
 	safety_floor.name = "ContinuousWorldFloor"
 	safety_floor.position = Vector3(0, -0.55, 0)
@@ -335,7 +368,6 @@ func _build_world_follow_camera() -> void:
 	# This is the only active camera. It lives in world space and explicitly
 	# looks at the player, so no inherited CharacterBody transform can hide the
 	# scene in the Web renderer.
-	player.camera.current = false
 	follow_camera = Camera3D.new()
 	follow_camera.name = "WorldFollowCamera"
 	follow_camera.current = true
@@ -392,7 +424,7 @@ func _spawn_enemies() -> void:
 		enemy.defeated.connect(_on_enemy_defeated)
 		$Actors.add_child(enemy)
 		enemy.configure(enemy_data[1], enemy_data[2])
-		if not game_started:
+		if not enemies_active:
 			enemy.process_mode = Node.PROCESS_MODE_DISABLED
 		enemies_alive += 1
 
@@ -401,6 +433,12 @@ func _respawn_enemies() -> void:
 		enemy.queue_free()
 	enemies_alive = 0
 	call_deferred("_spawn_enemies")
+
+func _activate_enemies() -> void:
+	enemies_active = true
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		enemy.process_mode = Node.PROCESS_MODE_INHERIT
+	_flash_message("LES OMBRES VOUS ONT REPÉRÉ")
 
 func _build_interface() -> void:
 	var hud := Control.new()
@@ -543,8 +581,6 @@ func _show_title_menu() -> void:
 		menu.queue_free()
 		player.process_mode = Node.PROCESS_MODE_INHERIT
 		player.invulnerable_clock = 10.0
-		for enemy in get_tree().get_nodes_in_group("enemy"):
-			enemy.process_mode = Node.PROCESS_MODE_INHERIT
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	)
 	_style_button(play)
@@ -631,12 +667,17 @@ func _open_controls_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if is_instance_valid(player):
 		player.process_mode = Node.PROCESS_MODE_DISABLED
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		enemy.process_mode = Node.PROCESS_MODE_DISABLED
 
 func _close_controls_menu() -> void:
 	_cancel_rebinding()
 	controls_panel.visible = false
 	if game_started and is_instance_valid(player) and not player.is_dead:
 		player.process_mode = Node.PROCESS_MODE_INHERIT
+		if enemies_active:
+			for enemy in get_tree().get_nodes_in_group("enemy"):
+				enemy.process_mode = Node.PROCESS_MODE_INHERIT
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _begin_rebinding(action: String) -> void:
@@ -764,10 +805,15 @@ func _on_stamina_changed(current: float, maximum: float) -> void:
 
 func _on_player_died() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		enemy.process_mode = Node.PROCESS_MODE_DISABLED
 	death_overlay.visible = true
 
 func _revive_player() -> void:
 	player.revive()
+	if enemies_active:
+		for enemy in get_tree().get_nodes_in_group("enemy"):
+			enemy.process_mode = Node.PROCESS_MODE_INHERIT
 	death_overlay.visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
