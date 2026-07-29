@@ -332,6 +332,9 @@ func _box(
 	material.albedo_color = color
 	material.roughness = 0.72
 	material.metallic = metallic
+	material.emission_enabled = true
+	material.emission = color * 0.24
+	material.emission_energy_multiplier = 0.55
 	if color.a < 1.0:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	if emissive:

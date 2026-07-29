@@ -195,6 +195,9 @@ func _box(size: Vector3, position_: Vector3, color: Color, emissive := false) ->
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.roughness = 0.82
+	material.emission_enabled = true
+	material.emission = color * 0.18
+	material.emission_energy_multiplier = 0.42
 	if emissive:
 		material.emission_enabled = true
 		material.emission = color
