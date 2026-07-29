@@ -502,7 +502,7 @@ func _train_warrior() -> void:
 		_set_status("Pas assez de ressources pour entraîner un guerrier.")
 		return
 	state.army.warrior = int(state.army.warrior) + 1
-	if troops_root.get_child_count() < 16:
+	if troops_root.get_child_count() < 48:
 		var unit := AshfallCombatUnit.new()
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR
 		var slot := troops_root.get_child_count()
@@ -601,7 +601,7 @@ func _spawn_villagers() -> void:
 		villager.stride_phase = i * 1.1
 		villagers_root.add_child(villager)
 	var camp_center := _army_camp_center()
-	for i in range(mini(int(state.army.warrior), 16)):
+	for i in range(mini(int(state.army.warrior), 48)):
 		var unit := AshfallCombatUnit.new()
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR if i % 3 else AshfallCombatUnit.UnitKind.ARCHER
 		unit.position = _camp_unit_position(i, camp_center)
@@ -615,7 +615,8 @@ func _army_camp_center() -> Vector3:
 	return Vector3(9.0, 0.0, 9.0)
 
 func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
-	# Anneaux serrés autour du brasero : 8, puis 16 unités, sans ligne infinie.
+	# Anneaux concentriques autour du brasero, comme un camp de stratégie :
+	# les unités s'accumulent visiblement au lieu de disparaître après seize.
 	var ring := 0 if slot < 8 else 1 + (slot - 8) / 8
 	var ring_slot := posmod(slot, 8)
 	var ring_count := 8
