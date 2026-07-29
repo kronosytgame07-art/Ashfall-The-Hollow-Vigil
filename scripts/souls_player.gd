@@ -135,7 +135,7 @@ func _update_attack(delta: float) -> void:
 			var offset: Vector3 = enemy.global_position - global_position
 			var facing := Vector3(sin(rotation.y), 0.0, cos(rotation.y))
 			if offset.length() < 2.35 and facing.dot(offset.normalized()) > 0.18:
-				var combo_damage := [31.0, 38.0, 52.0][combo_step]
+				var combo_damage: float = [31.0, 38.0, 52.0][combo_step]
 				enemy.take_damage(combo_damage, attack_serial, facing)
 	if attack_clock >= (0.72 if combo_step == 2 else 0.58):
 		is_attacking = false
