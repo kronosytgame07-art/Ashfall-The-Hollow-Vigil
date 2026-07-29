@@ -23,6 +23,7 @@ var enemy_name := "Déchu"
 var level_label: Label3D
 var health_label: Label3D
 var archetype_details: Node3D
+var weapon_parts: Node3D
 var attack_has_landed := false
 var hit_reaction_clock := 0.0
 var knockback := Vector3.ZERO
@@ -241,6 +242,9 @@ func _build_visual() -> void:
 	weapon_grip = Node3D.new()
 	weapon_grip.position = Vector3(0, -0.7, 0)
 	arm_pivot.add_child(weapon_grip)
+	weapon_parts = Node3D.new()
+	weapon_parts.name = "WeaponParts"
+	weapon_grip.add_child(weapon_parts)
 	# Layered armour, belt and joints make the silhouette readable as a fighter.
 	_box(Vector3(0.88, 0.16, 0.52), Vector3(0, 1.5, 0), Color("#4b454e"))
 	_box(Vector3(0.82, 0.14, 0.54), Vector3(0, 0.84, 0), Color("#5c3e29"))
@@ -251,15 +255,7 @@ func _build_visual() -> void:
 	var hand := _box(Vector3(0.22, 0.18, 0.22), Vector3.ZERO, Color("#29262d"))
 	visual.remove_child(hand)
 	weapon_grip.add_child(hand)
-	var handle := _box(Vector3(0.12, 0.3, 0.12), Vector3(0, -0.08, 0), Color("#4a2d20"))
-	visual.remove_child(handle)
-	weapon_grip.add_child(handle)
-	var guard := _box(Vector3(0.56, 0.12, 0.16), Vector3(0, -0.25, 0), Color("#714b2d"))
-	visual.remove_child(guard)
-	weapon_grip.add_child(guard)
-	var blade := _box(Vector3(0.14, 1.25, 0.12), Vector3(0, -0.88, 0), Color("#7c7073"))
-	visual.remove_child(blade)
-	weapon_grip.add_child(blade)
+	_build_sword_weapon()
 	level_label = Label3D.new()
 	level_label.text = "%s  •  NIV. %d" % [enemy_name.to_upper(), enemy_level]
 	level_label.position = Vector3(0, 2.55, 0)
@@ -331,7 +327,18 @@ func _box(size: Vector3, position_: Vector3, color: Color, emissive := false) ->
 func _apply_archetype_details() -> void:
 	for child in archetype_details.get_children():
 		child.queue_free()
+	for child in weapon_parts.get_children():
+		child.queue_free()
 	var lower_name := enemy_name.to_lower()
+	if "errant" in lower_name:
+		_build_errant_details()
+		_build_errant_staff()
+		return
+	if "pilleur" in lower_name or "pillard" in lower_name:
+		_build_hollow_raider_details()
+		_build_hollow_raider_scythe()
+		return
+	_build_sword_weapon()
 	# Silhouette commune lisible : plaques superposées, protections articulées,
 	# tabard abîmé et petits rivets. Les variantes ajoutent ensuite leur identité.
 	for x in [-0.52, 0.52]:
@@ -407,6 +414,318 @@ func _apply_archetype_details() -> void:
 			dagger.rotation.z = 0.45 * sign(x)
 	elif enemy_level >= 2:
 		_detail_box(Vector3(0.48, 0.62, 0.08), Vector3(0, 1.12, -0.31), Color("#42161b"))
+
+func _build_sword_weapon() -> void:
+	var handle := _weapon_box(
+		Vector3(0.12, 0.3, 0.12),
+		Vector3(0, -0.08, 0),
+		Color("#4a2d20")
+	)
+	handle.name = "EnemySwordHandle"
+	var guard := _weapon_box(
+		Vector3(0.56, 0.12, 0.16),
+		Vector3(0, -0.25, 0),
+		Color("#714b2d")
+	)
+	guard.name = "EnemySwordGuard"
+	var blade := _weapon_box(
+		Vector3(0.14, 1.25, 0.12),
+		Vector3(0, -0.88, 0),
+		Color("#7c7073")
+	)
+	blade.name = "EnemySwordBlade"
+
+func _build_errant_details() -> void:
+	var cloth_dark := Color("#211f1d")
+	var cloth_mid := Color("#36322e")
+	var cloth_light := Color("#49433c")
+	var leather := Color("#4a3426")
+	var rope := Color("#806342")
+	var ember := Color("#f2a536")
+
+	# La silhouette reprend la référence : visage noyé dans l'ombre, capuche
+	# épaisse, pèlerine en couches et longue robe usée.
+	var face_void := _detail_box(
+		Vector3(0.5, 0.38, 0.055),
+		Vector3(0, 1.9, 0.355),
+		Color("#050505")
+	)
+	face_void.name = "ErrantFaceVoid"
+	for eye_x in [-0.11, 0.11]:
+		var eye := _detail_box(
+			Vector3(0.075, 0.065, 0.025),
+			Vector3(eye_x, 1.93, 0.395),
+			ember,
+			true
+		)
+		eye.name = "ErrantEmberEye"
+	var hood_top := _detail_box(
+		Vector3(0.72, 0.22, 0.66),
+		Vector3(0, 2.15, -0.01),
+		cloth_light
+	)
+	hood_top.name = "ErrantHood"
+	_detail_box(Vector3(0.68, 0.14, 0.12), Vector3(0, 2.08, 0.31), cloth_mid)
+	for hood_side in [-1.0, 1.0]:
+		var hood_cheek := _detail_box(
+			Vector3(0.18, 0.56, 0.62),
+			Vector3(hood_side * 0.31, 1.93, -0.01),
+			cloth_mid.darkened(0.04)
+		)
+		hood_cheek.rotation.z = -0.08 * hood_side
+		_detail_box(
+			Vector3(0.2, 0.48, 0.4),
+			Vector3(hood_side * 0.42, 1.72, -0.1),
+			cloth_dark
+		)
+	for mantle_layer in range(4):
+		var mantle := _detail_box(
+			Vector3(
+				1.02 - mantle_layer * 0.055,
+				0.17,
+				0.68 - mantle_layer * 0.04
+			),
+			Vector3(0, 1.64 - mantle_layer * 0.12, -0.01),
+			cloth_light.darkened(mantle_layer * 0.07)
+		)
+		mantle.name = "ErrantMantle"
+	# Le manteau couvre l'ancienne cuirasse générique et se termine en pans
+	# irréguliers, comme sur la vue de dos et la vue de face.
+	for robe_y in [1.22, 1.03, 0.84]:
+		_detail_box(
+			Vector3(0.82, 0.22, 0.56),
+			Vector3(0, robe_y, 0),
+			cloth_mid.darkened((1.22 - robe_y) * 0.18)
+		)
+	_detail_box(Vector3(0.66, 0.72, 0.08), Vector3(0, 0.73, 0.31), cloth_dark)
+	_detail_box(Vector3(0.66, 0.82, 0.08), Vector3(0, 0.82, -0.31), cloth_dark)
+	for strip_index in range(5):
+		var strip_x := -0.28 + strip_index * 0.14
+		var strip_length := 0.34 + float((strip_index + 1) % 3) * 0.09
+		var robe_strip := _detail_box(
+			Vector3(0.13, strip_length, 0.09),
+			Vector3(strip_x, 0.35 - strip_length * 0.08, 0.3),
+			cloth_dark.darkened(float(strip_index % 2) * 0.08)
+		)
+		robe_strip.rotation.z = strip_x * 0.18
+	for belt_x in [-0.3, -0.15, 0.0, 0.15, 0.3]:
+		var rope_segment := _detail_box(
+			Vector3(0.16, 0.09, 0.08),
+			Vector3(belt_x, 0.91 + abs(belt_x) * 0.05, 0.34),
+			rope
+		)
+		rope_segment.rotation.z = belt_x * 0.25
+	_detail_box(Vector3(0.13, 0.26, 0.1), Vector3(0.1, 0.76, 0.35), rope)
+	_detail_box(Vector3(0.38, 0.42, 0.18), Vector3(-0.48, 0.93, -0.18), leather)
+	_detail_box(Vector3(0.32, 0.1, 0.2), Vector3(-0.48, 1.12, -0.14), leather.lightened(0.08))
+	for arm_x in [-0.55, 0.55]:
+		for wrap_y in [1.18, 1.06, 0.94]:
+			_detail_box(
+				Vector3(0.24, 0.09, 0.27),
+				Vector3(arm_x, wrap_y, 0.02),
+				Color("#776f63").darkened((1.18 - wrap_y) * 0.4)
+			)
+	for boot_x in [-0.27, 0.27]:
+		_detail_box(Vector3(0.34, 0.2, 0.44), Vector3(boot_x, 0.14, 0.1), Color("#2b211a"))
+
+func _build_errant_staff() -> void:
+	var wood := Color("#382619")
+	var iron := Color("#393735")
+	var ember := Color("#f2a536")
+	var staff := _weapon_box(
+		Vector3(0.12, 2.55, 0.12),
+		Vector3(0, 0.18, 0),
+		wood
+	)
+	staff.name = "ErrantStaff"
+	_weapon_box(Vector3(0.14, 0.42, 0.14), Vector3(0.02, 1.33, 0), wood.lightened(0.08))
+	var crook_top := _weapon_box(
+		Vector3(0.42, 0.12, 0.12),
+		Vector3(0.14, 1.53, 0),
+		wood
+	)
+	crook_top.rotation.z = 0.08
+	_weapon_box(Vector3(0.12, 0.4, 0.12), Vector3(0.34, 1.36, 0), wood.darkened(0.08))
+	for chain_y in [1.12, 1.0]:
+		_weapon_box(Vector3(0.07, 0.12, 0.07), Vector3(0.34, chain_y, 0), iron)
+	_weapon_box(Vector3(0.48, 0.1, 0.38), Vector3(0.34, 0.89, 0), iron)
+	_weapon_box(Vector3(0.48, 0.1, 0.38), Vector3(0.34, 0.38, 0), iron)
+	for cage_x in [0.14, 0.54]:
+		_weapon_box(Vector3(0.065, 0.5, 0.065), Vector3(cage_x, 0.64, 0), iron)
+	for cage_z in [-0.16, 0.16]:
+		_weapon_box(Vector3(0.065, 0.5, 0.065), Vector3(0.34, 0.64, cage_z), iron)
+	var lantern_core := _weapon_box(
+		Vector3(0.25, 0.32, 0.22),
+		Vector3(0.34, 0.64, 0),
+		ember,
+		true
+	)
+	lantern_core.name = "ErrantLanternLight"
+	_weapon_box(Vector3(0.26, 0.12, 0.22), Vector3(0.34, 0.27, 0), iron)
+
+func _build_hollow_raider_details() -> void:
+	var iron_dark := Color("#302a27")
+	var iron_mid := Color("#51453d")
+	var iron_light := Color("#6a584a")
+	var leather := Color("#4a3020")
+	var bone := Color("#c9b995")
+	var bone_shadow := Color("#887a60")
+	var teal := Color("#173d3d")
+
+	# Masque crâne, capuche courte et mâchoire dentée.
+	_detail_box(Vector3(0.68, 0.26, 0.62), Vector3(0, 2.13, -0.02), iron_dark)
+	_detail_box(Vector3(0.62, 0.24, 0.6), Vector3(0, 1.98, -0.01), Color("#171513"))
+	var skull := _detail_box(
+		Vector3(0.56, 0.34, 0.1),
+		Vector3(0, 1.99, 0.35),
+		bone
+	)
+	skull.name = "HollowRaiderSkullMask"
+	_detail_box(Vector3(0.48, 0.12, 0.12), Vector3(0, 2.15, 0.33), bone.lightened(0.06))
+	for socket_x in [-0.14, 0.14]:
+		_detail_box(
+			Vector3(0.14, 0.12, 0.035),
+			Vector3(socket_x, 2.02, 0.415),
+			Color("#080706")
+		)
+	_detail_box(Vector3(0.08, 0.13, 0.035), Vector3(0, 1.9, 0.415), Color("#17120e"))
+	_detail_box(Vector3(0.4, 0.2, 0.1), Vector3(0, 1.77, 0.35), bone_shadow)
+	for tooth_x in [-0.15, -0.05, 0.05, 0.15]:
+		_detail_box(Vector3(0.07, 0.18, 0.08), Vector3(tooth_x, 1.71, 0.4), bone)
+	# Cuirasse de plaques brunes, épaulières dissymétriques et tabard bleu-vert.
+	for chest_y in [1.48, 1.31, 1.14]:
+		_detail_box(
+			Vector3(0.86, 0.15, 0.56),
+			Vector3(0, chest_y, 0.01),
+			iron_mid.darkened((1.48 - chest_y) * 0.28)
+		)
+	_detail_box(Vector3(0.22, 0.76, 0.07), Vector3(-0.17, 1.34, 0.32), leather)
+	for strap_index in range(6):
+		var strap_x := -0.31 + strap_index * 0.12
+		var strap_y := 1.67 - strap_index * 0.13
+		var strap := _detail_box(
+			Vector3(0.17, 0.08, 0.055),
+			Vector3(strap_x, strap_y, 0.35),
+			leather.lightened(0.08)
+		)
+		strap.rotation.z = -0.78
+	for shoulder_side in [-1.0, 1.0]:
+		for plate_layer in range(4):
+			var shoulder_plate := _detail_box(
+				Vector3(
+					0.42 - plate_layer * 0.035,
+					0.18,
+					0.68 - plate_layer * 0.055
+				),
+				Vector3(
+					shoulder_side * 0.57,
+					1.69 - plate_layer * 0.11,
+					-0.01
+				),
+				iron_light.darkened(plate_layer * 0.09)
+			)
+			shoulder_plate.rotation.z = -0.14 * shoulder_side
+		if shoulder_side < 0.0:
+			for spike_index in range(3):
+				var shoulder_spike := _detail_box(
+					Vector3(0.12, 0.42 - spike_index * 0.07, 0.12),
+					Vector3(-0.66 - spike_index * 0.08, 1.82 - spike_index * 0.1, -0.05),
+					iron_mid
+				)
+				shoulder_spike.rotation.z = 0.58 + spike_index * 0.08
+	for arm_x in [-0.55, 0.55]:
+		for plate_y in [1.2, 1.04, 0.88]:
+			_detail_box(
+				Vector3(0.25, 0.13, 0.3),
+				Vector3(arm_x, plate_y, 0.01),
+				iron_mid.darkened((1.2 - plate_y) * 0.3)
+			)
+	_detail_box(Vector3(0.5, 0.58, 0.07), Vector3(0, 0.72, 0.32), teal)
+	for tabard_x in [-0.18, 0.0, 0.18]:
+		var tabard := _detail_box(
+			Vector3(0.16, 0.46 + abs(tabard_x), 0.07),
+			Vector3(tabard_x, 0.4, 0.33),
+			teal.darkened(abs(tabard_x) * 0.3)
+		)
+		tabard.rotation.z = tabard_x * 0.3
+	_detail_box(Vector3(0.88, 0.14, 0.6), Vector3(0, 0.84, 0), leather)
+	for pouch_x in [-0.47, 0.47]:
+		_detail_box(Vector3(0.3, 0.34, 0.22), Vector3(pouch_x, 0.76, -0.03), leather)
+		_detail_box(
+			Vector3(0.28, 0.09, 0.24),
+			Vector3(pouch_x, 0.91, -0.01),
+			leather.lightened(0.1)
+		)
+	# Paquetage visible de profil et de dos : sac, rouleau, sangles et fiole.
+	var pack := _detail_box(
+		Vector3(0.78, 0.92, 0.28),
+		Vector3(0, 1.23, -0.46),
+		leather.darkened(0.08)
+	)
+	pack.name = "HollowRaiderPack"
+	_detail_box(Vector3(0.88, 0.28, 0.34), Vector3(0, 1.78, -0.45), teal.darkened(0.05))
+	for pack_x in [-0.28, 0.28]:
+		_detail_box(Vector3(0.1, 1.03, 0.06), Vector3(pack_x, 1.29, -0.63), iron_mid)
+	_detail_box(Vector3(0.22, 0.44, 0.2), Vector3(0.52, 1.04, -0.4), Color("#1e5352"))
+	_detail_box(Vector3(0.12, 0.12, 0.12), Vector3(0.52, 1.32, -0.4), iron_light)
+	for boot_x in [-0.27, 0.27]:
+		_detail_box(Vector3(0.36, 0.22, 0.46), Vector3(boot_x, 0.14, 0.1), iron_dark)
+
+func _build_hollow_raider_scythe() -> void:
+	var wood := Color("#342116")
+	var iron := Color("#302c29")
+	var iron_edge := Color("#49433d")
+	var shaft := _weapon_box(
+		Vector3(0.13, 2.65, 0.13),
+		Vector3(0, 0.15, 0),
+		wood
+	)
+	shaft.name = "HollowRaiderScytheShaft"
+	for grip_y in [-0.35, -0.2, 0.88]:
+		_weapon_box(Vector3(0.17, 0.13, 0.17), Vector3(0, grip_y, 0), Color("#6b5033"))
+	var blade_root := _weapon_box(
+		Vector3(0.16, 0.46, 0.15),
+		Vector3(0.1, 1.34, 0),
+		iron
+	)
+	blade_root.rotation.z = 0.2
+	for blade_index in range(4):
+		var blade_piece := _weapon_box(
+			Vector3(0.15, 0.5 - blade_index * 0.055, 0.13),
+			Vector3(
+				0.24 + blade_index * 0.15,
+				1.5 + blade_index * 0.12,
+				0
+			),
+			iron_edge.lightened(blade_index * 0.035)
+		)
+		blade_piece.rotation.z = 0.42 + blade_index * 0.17
+		blade_piece.name = "HollowRaiderScytheBlade"
+	_weapon_box(Vector3(0.1, 0.24, 0.1), Vector3(0.76, 1.85, 0), iron_edge)
+	for chain_y in [0.72, 0.58, 0.44]:
+		var chain_link := _weapon_box(
+			Vector3(0.1, 0.07, 0.055),
+			Vector3(0.12, chain_y, 0),
+			iron
+		)
+		chain_link.rotation.z = chain_y * 0.3
+
+func _weapon_box(size: Vector3, position_: Vector3, color: Color, emissive := false) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	instance.mesh = mesh
+	instance.position = position_
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.78
+	if emissive:
+		material.emission_enabled = true
+		material.emission = color
+		material.emission_energy_multiplier = 3.4
+	instance.material_override = material
+	weapon_parts.add_child(instance)
+	return instance
 
 func _detail_box(size: Vector3, position_: Vector3, color: Color, emissive := false) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()

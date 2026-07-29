@@ -474,7 +474,7 @@ func _rescue_player_from_void() -> void:
 func _spawn_enemies() -> void:
 	for enemy_data in [
 		[Vector3(-5, 1, 1), 1, "Errant"],
-		[Vector3(6, 1, -5), 1, "Pilleur creux"],
+		[Vector3(6, 1, -5), 1, "Pillard creux"],
 		[Vector3(-7, 1, -10), 2, "Déchu"],
 		[Vector3(8, 1, -14), 2, "Déchu"],
 		[Vector3(-20, 1, 8), 5, "Revenant de givre"],
