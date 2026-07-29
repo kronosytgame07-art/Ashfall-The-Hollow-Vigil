@@ -32,6 +32,19 @@ class Model {
     for(const f of [[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]])
       this.quad(mat,pts[f[0]],pts[f[1]],pts[f[2]],pts[f[3]]);
   }
+  boxEuler(mat,c,s,rx=0,ry=0,rz=0){
+    const [x,y,z]=s.map(v=>v/2);
+    const rotate=p=>{
+      let [px,py,pz]=p;
+      [py,pz]=[py*Math.cos(rx)-pz*Math.sin(rx),py*Math.sin(rx)+pz*Math.cos(rx)];
+      [px,pz]=[px*Math.cos(ry)+pz*Math.sin(ry),-px*Math.sin(ry)+pz*Math.cos(ry)];
+      [px,py]=[px*Math.cos(rz)-py*Math.sin(rz),px*Math.sin(rz)+py*Math.cos(rz)];
+      return add([px,py,pz],c);
+    };
+    const pts=[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]].map(rotate);
+    for(const f of [[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]])
+      this.quad(mat,pts[f[0]],pts[f[1]],pts[f[2]],pts[f[3]]);
+  }
   cylinder(mat,c,r,h,segments=12,top=r){
     const y0=c[1]-h/2,y1=c[1]+h/2;
     for(let k=0;k<segments;k++){
@@ -84,6 +97,27 @@ function timberFrame(m,w,d,y){
   for(const z of [-d/2,d/2])m.beam("wood",[-w/2,.5,z],[w/2,y*1.8,z],.15);
 }
 function base(m,w,d){m.box("basalt",[0,.16,0],[w,.32,d]);m.box("stone",[0,.38,0],[w*.91,.18,d*.91])}
+function tiledRoof(m,{halfW,depth,eaveY,ridgeY,rows=10,columns=12}){
+  const slope=Math.atan2(ridgeY-eaveY,halfW);
+  const slopeLength=Math.hypot(halfW,ridgeY-eaveY);
+  const tileW=slopeLength/rows*1.16,tileD=depth/columns*1.12;
+  for(const side of [-1,1])for(let row=0;row<rows;row++){
+    const t=(row+.48)/rows;
+    const x=side*halfW*(1-t),y=eaveY+(ridgeY-eaveY)*t;
+    for(let column=0;column<columns;column++){
+      const stagger=(row%2)*tileD*.5;
+      const z=-depth/2+(column+.5)*depth/columns+stagger;
+      if(z>depth/2+.08)continue;
+      const shade=(row+column)%5===0?"cloth":"roof";
+      m.boxEuler(shade,[x,y+.055,z],[tileW,.095,tileD],0,0,-side*slope);
+    }
+  }
+  // Faîtage réellement composé, au lieu d'une barre géométrique.
+  for(let column=0;column<columns;column++){
+    const z0=-depth/2+column*depth/columns,z1=z0+depth/columns*1.06;
+    m.beam3(column%4===0?"cloth":"roof",[0,ridgeY+.09,z0],[0,ridgeY+.09,z1],.19);
+  }
+}
 function gothicDress(m,w,d,height=2.2){
   // Contreforts, ferrures, braseros et pieux donnent à chaque silhouette une
   // lecture dark-fantasy cohérente sans dépasser son empreinte de grille.
@@ -133,12 +167,7 @@ function townHall(){
   }
   m.roofPanel("roof",-1,5.82,2.83,2.78,4.55,.24);
   m.roofPanel("roof",1,5.82,2.83,2.78,4.55,.24);
-  m.box("iron",[0,5.82,0],[.16,.16,4.95]);
-  // Rangées de tuiles sombres/orangées qui cassent l'aspect parfaitement lisse.
-  for(let row=0;row<7;row++){
-    const t=row/7,y=2.98+(5.72-2.98)*t,x=2.55*(1-t);
-    for(const side of [-1,1])m.beam3(row%3?"roof":"cloth",[side*x,y,-2.32],[side*x,y,2.32],.075);
-  }
+  tiledRoof(m,{halfW:2.78,depth:4.9,eaveY:2.91,ridgeY:5.82,rows:12,columns:14});
   // Grand porche frontal, perron et garde-corps de pierre.
   m.box("darkwood",[0,1.55,2.27],[1.45,2.25,.22]);
   m.box("wood",[0,2.67,2.38],[2.25,.24,.28]);
