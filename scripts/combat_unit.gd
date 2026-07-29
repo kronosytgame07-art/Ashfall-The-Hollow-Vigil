@@ -142,7 +142,8 @@ func _build_model() -> void:
 		UnitKind.BRUTE: "res://models/units/brute.glb",
 		UnitKind.HERO: "res://models/units/hero.glb",
 	}
-	var authored := load(authored_paths[kind]) as PackedScene
+	var authored_path: String = authored_paths.get(kind, authored_paths[UnitKind.WARRIOR])
+	var authored := load(authored_path) as PackedScene
 	if authored:
 		var imported := authored.instantiate() as Node3D
 		add_child(imported)
