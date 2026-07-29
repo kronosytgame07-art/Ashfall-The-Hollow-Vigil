@@ -71,14 +71,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Checkout test sources
+        uses: actions/checkout@v4
+
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
       - name: Install browser smoke-test dependencies
-        run: |
-          npm install --no-save playwright@1.55.0 pngjs@7.0.0
-          npx playwright install --with-deps chromium
+        run: npm install --no-save playwright-core@1.55.0 pngjs@7.0.0
 
       - name: Test the deployed game in Chromium
         env:
