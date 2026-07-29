@@ -382,7 +382,8 @@ function writeGLB(model,dest){
     const xs=[],ys=[],zs=[];for(let i=0;i<g.p.length;i+=3){xs.push(g.p[i]);ys.push(g.p[i+1]);zs.push(g.p[i+2])}
     primitives.push({attributes:{POSITION:acc(pv,5126,g.p.length/3,"VEC3",[Math.min(...xs),Math.min(...ys),Math.min(...zs)],[Math.max(...xs),Math.max(...ys),Math.max(...zs)]),NORMAL:acc(nv,5126,g.n.length/3,"VEC3")},indices:acc(iv,5125,g.i.length,"SCALAR"),material:mi});
   }
-  const json={asset:{version:"2.0",generator:"Ashfall GLB Forge"},scene:0,scenes:[{nodes:[0]}],nodes:[{name:model.name,mesh:0}],meshes:[{name:model.name,primitives}],buffers:[{byteLength:byteOffset}],bufferViews:views,accessors,
+  const upgradeNodes=Array.from({length:9},(_,index)=>({name:`UpgradeLevel${index+2}`}));
+  const json={asset:{version:"2.0",generator:"Ashfall GLB Forge"},scene:0,scenes:[{nodes:[0]}],nodes:[{name:model.name,mesh:0,children:upgradeNodes.map((_,index)=>index+1)},...upgradeNodes],meshes:[{name:model.name,primitives}],buffers:[{byteLength:byteOffset}],bufferViews:views,accessors,
     materials:mats.map(name=>({name,pbrMetallicRoughness:{baseColorFactor:PALETTE[name],metallicFactor:name==="iron"?.65:.05,roughnessFactor:name==="gold"?.38:.82},emissiveFactor:name==="ember"?[1,.08,.01]:name==="soul"?[.25,.03,.65]:[0,0,0]}))};
   const j=Buffer.from(JSON.stringify(json)),jp=Buffer.concat([j,Buffer.alloc((4-j.length%4)%4,0x20)]),bin=Buffer.concat(chunks),bp=Buffer.concat([bin,Buffer.alloc((4-bin.length%4)%4)]);
   const head=Buffer.alloc(12),jh=Buffer.alloc(8),bh=Buffer.alloc(8);head.writeUInt32LE(0x46546c67,0);head.writeUInt32LE(2,4);head.writeUInt32LE(12+8+jp.length+8+bp.length,8);

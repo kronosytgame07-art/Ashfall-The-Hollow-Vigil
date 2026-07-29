@@ -7,6 +7,12 @@ const REQUIRED_BUILDINGS := [
 ]
 
 func _initialize() -> void:
+	# A validation failure must terminate the CI process instead of leaving a
+	# headless Godot runner alive indefinitely.
+	create_timer(120.0).timeout.connect(func():
+		push_error("3D validation exceeded the two-minute safety limit")
+		quit(1)
+	)
 	for kind in REQUIRED_BUILDINGS:
 		var fp := BuildingFactory.footprint(kind)
 		assert(fp.x > 0 and fp.y > 0, "Invalid footprint: " + kind)
