@@ -66,6 +66,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
+	if is_instance_valid(camera_pivot):
+		camera_pivot.global_position = global_position + Vector3(0, 1.38, 0)
 	if is_dead:
 		return
 	invulnerable_clock = maxf(0.0, invulnerable_clock - delta)
@@ -269,12 +271,16 @@ func _build_visual() -> void:
 func _build_camera() -> void:
 	camera_pivot = Node3D.new()
 	camera_pivot.name = "CameraRig"
-	camera_pivot.position = Vector3(0, 1.55, 0)
-	camera_pivot.rotation_degrees = Vector3(-14, 180, 0)
 	add_child(camera_pivot)
+	# The orbit rig must not inherit the character yaw. Otherwise every movement
+	# rotates the camera away from the player and the Web build can frame only sky.
+	camera_pivot.top_level = true
+	camera_pivot.global_position = global_position + Vector3(0, 1.38, 0)
+	camera_pivot.rotation_degrees = Vector3(-11, 0, 0)
 	camera = Camera3D.new()
-	camera.position = Vector3(0.75, 1.2, 5.3)
-	camera.fov = 62.0
+	camera.position = Vector3(0.62, 0.42, 5.45)
+	camera.fov = 60.0
+	camera.near = 0.08
 	camera.current = true
 	camera_pivot.add_child(camera)
 

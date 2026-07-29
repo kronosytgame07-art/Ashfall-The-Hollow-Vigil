@@ -374,7 +374,7 @@ func _build_interface() -> void:
 	controls.add_theme_color_override("font_color", Color("#837b78"))
 	hud.add_child(controls)
 	var controls_button := Button.new()
-	controls_button.text = "⚙  COMMANDES"
+	controls_button.text = "COMMANDES"
 	controls_button.position = Vector2(1070, 30)
 	controls_button.size = Vector2(180, 42)
 	controls_button.mouse_filter = Control.MOUSE_FILTER_STOP

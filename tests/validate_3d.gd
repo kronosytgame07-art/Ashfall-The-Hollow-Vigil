@@ -35,6 +35,15 @@ func _initialize() -> void:
 	assert(main_instance.get_script().resource_path == "res://scripts/souls_world.gd",
 		"The main scene must launch the soulslike cube world")
 	main_instance.free()
+	var camera_test := AshfallSoulsPlayer.new()
+	get_root().add_child(camera_test)
+	await process_frame
+	assert(camera_test.camera != null and camera_test.camera.current,
+		"The player must own an active third-person camera")
+	assert(camera_test.camera_pivot.top_level,
+		"The orbit camera must be independent from character yaw")
+	camera_test.queue_free()
+	await process_frame
 	for kind in REQUIRED_BUILDINGS:
 		var fp := BuildingFactory.footprint(kind)
 		assert(fp.x > 0 and fp.y > 0, "Invalid footprint: " + kind)
