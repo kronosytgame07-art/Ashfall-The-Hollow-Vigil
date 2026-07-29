@@ -208,8 +208,8 @@ function camp(){
   const m=new Model("Ashen Legion Camp");
   m.box("earth",[0,.1,0],[5.75,.2,5.75]);
   for(let i=0;i<18;i++){const a=i*TAU/18,r=2.55+(i%3)*.08;m.box(i%2?"stone":"basalt",[Math.cos(a)*r,.24,Math.sin(a)*r],[.48,.28,.36],-a)}
-  for(const [x,z,r] of [[-1.65,-1.45,.12],[1.65,-1.4,-.1],[-1.75,1.55,-.08],[1.8,1.55,.09]]){
-    m.cone("cloth",[x,1.0,z],1.02,1.72,4);m.box("darkwood",[x,.23,z],[1.75,.14,1.75],r);
+  for(const [x,z,r] of [[-1.95,-1.82,.12],[1.95,-1.78,-.1],[-2.0,1.86,-.08],[2.04,1.82,.09]]){
+    m.cone("cloth",[x,1.0,z],.82,1.58,4);m.box("darkwood",[x,.23,z],[1.42,.14,1.42],r);
     m.box("iron",[x,1.12,z],[.07,1.85,.07]);
   }
   m.cylinder("stone",[0,.32,0],.82,.34,14);m.cylinder("ember",[0,.52,0],.46,.26,12,.28);
