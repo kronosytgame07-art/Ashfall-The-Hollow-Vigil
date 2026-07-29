@@ -115,28 +115,10 @@ func _apply_mountain_material(node: Node) -> void:
 					material.albedo_color = Color("#263323")
 				else:
 					material.albedo_color = Color("#45404b") if "stone2" in material_name else Color("#34313a")
-				if "soul" not in material_name:
-					var noise := FastNoiseLite.new()
-					noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-					noise.frequency = 0.12
-					noise.fractal_octaves = 4
-					var texture := NoiseTexture2D.new()
-					texture.width = 256
-					texture.height = 256
-					texture.seamless = true
-					texture.noise = noise
-					var ramp := Gradient.new()
-					ramp.colors = PackedColorArray([
-						material.albedo_color.darkened(0.28),
-						material.albedo_color,
-						material.albedo_color.lightened(0.18)
-					])
-					texture.color_ramp = ramp
-					material.albedo_texture = texture
-					material.uv1_scale = Vector3(3.0, 3.0, 3.0)
-					material.uv1_triplanar = true
-					material.uv1_world_triplanar = true
-				mesh.set_surface_override_material(surface, material)
+				mesh.set_surface_override_material(
+					surface,
+					BuildingFactory.make_textured_material(material_name, material.albedo_color)
+				)
 	for child in node.get_children():
 		_apply_mountain_material(child)
 
@@ -169,7 +151,9 @@ func _spawn_obstacle(cell: Vector2i, record := false) -> void:
 	var kinds := ["corrupted_rocks", "dead_tree", "bones", "soul_crystals"]
 	var scene := load("res://models/obstacles/%s.glb" % kinds[posmod(cell.x + cell.y, kinds.size())]) as PackedScene
 	if scene:
-		root.add_child(scene.instantiate())
+		var obstacle_model := scene.instantiate()
+		BuildingFactory.apply_art_direction(obstacle_model)
+		root.add_child(obstacle_model)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.set_meta("obstacle_root", root)
@@ -185,10 +169,10 @@ func _spawn_obstacle(cell: Vector2i, record := false) -> void:
 func _add_village_atmosphere() -> void:
 	var patches := _new_root("ScorchedGroundTiles")
 	var ground_materials := [
-		_material(Color("#242126")),
-		_material(Color("#302a27")),
-		_material(Color("#3c3028")),
-		_material(Color("#252a22"))
+		BuildingFactory.make_textured_material("earth", Color("#242126")),
+		BuildingFactory.make_textured_material("earth", Color("#302a27")),
+		BuildingFactory.make_textured_material("earth", Color("#3c3028")),
+		BuildingFactory.make_textured_material("moss", Color("#252a22"))
 	]
 	for i in range(52):
 		var angle := float(i) * 2.399

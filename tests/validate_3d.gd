@@ -51,6 +51,8 @@ func _initialize() -> void:
 	assert(game_state.obstacles[0].cell == [7, 8], "Obstacle persistence data is invalid")
 	assert(BuildingFactory.footprint("town_hall") == Vector2i(3, 3), "Town hall must occupy 3x3")
 	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
+	var textured_stone := BuildingFactory.make_textured_material("stone", Color("#403b42"))
+	assert(textured_stone != null and textured_stone.shader != null, "Procedural surface texturing must be available")
 	assert(game_state._migrate_building({"kind": "town_hall", "cell": []}).is_empty(),
 		"Malformed browser saves must be rejected without indexing an empty cell")
 	var migrated := game_state._migrate_building({"kind": "gold_mine", "cell": {"x": 5, "y": 9}})
