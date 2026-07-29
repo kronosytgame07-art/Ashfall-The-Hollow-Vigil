@@ -102,7 +102,7 @@ func _build_environment() -> void:
 	var outer_plane := PlaneMesh.new()
 	outer_plane.size = Vector2(78, 78)
 	outer_ground.mesh = outer_plane
-	outer_ground.material_override = _material(Color("#302d33"))
+	outer_ground.material_override = _outer_terrain_material()
 	$World.add_child(outer_ground)
 	var village_ground := MeshInstance3D.new()
 	var village_plane := PlaneMesh.new()
@@ -115,8 +115,7 @@ func _build_environment() -> void:
 	var mountain_scene := load("res://models/environment/mountain_ring.glb") as PackedScene
 	if mountain_scene:
 		var mountains := mountain_scene.instantiate()
-		mountains.scale = Vector3(1.0, 0.55, 1.0)
-		_apply_mountain_material(mountains)
+		mountains.scale = Vector3.ONE
 		$World.add_child(mountains)
 	grid_root = _new_root("Grid")
 	buildings_root = _new_root("Buildings")
@@ -169,6 +168,26 @@ func _terrain_material() -> StandardMaterial3D:
 	texture.color_ramp = gradient
 	mat.albedo_texture = texture
 	mat.uv1_scale = Vector3(5.0, 5.0, 5.0)
+	return mat
+
+func _outer_terrain_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.roughness = 1.0
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.frequency = 0.035
+	noise.fractal_octaves = 3
+	var texture := NoiseTexture2D.new()
+	texture.width = 512
+	texture.height = 512
+	texture.seamless = true
+	texture.noise = noise
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([Color("#151319"), Color("#29262d"), Color("#413b43")])
+	gradient.offsets = PackedFloat32Array([0.0, 0.62, 1.0])
+	texture.color_ramp = gradient
+	mat.albedo_texture = texture
+	mat.uv1_scale = Vector3(3.5, 3.5, 3.5)
 	return mat
 
 func _apply_mountain_material(node: Node) -> void:
@@ -348,7 +367,7 @@ func _spawn_building_node(index: int) -> void:
 		return
 	var cell := Vector2i(int(cell_data[0]), int(cell_data[1]))
 	var fp := BuildingFactory.footprint(kind)
-	var building := BuildingFactory.create(kind)
+	var building := BuildingFactory.create(kind, int(data.level))
 	building.position = _cell_center(cell, fp)
 	building.set_meta("building_id", index)
 	building.set_meta("level", int(data.level))
@@ -473,6 +492,7 @@ func _upgrade_selected() -> void:
 	data.level = level + 1
 	data.finish_at = _now() + BuildingFactory.build_time(kind, level + 1)
 	building_nodes[selected_id].set_meta("level", data.level)
+	BuildingFactory.apply_level_visual(building_nodes[selected_id], int(data.level))
 	_assign_builder(building_nodes[selected_id].global_position)
 	_set_status("%s passe au niveau %d." % [BuildingFactory.label(kind), data.level])
 
@@ -653,7 +673,9 @@ func _update_one_building_visual(index: int, now: int) -> void:
 	var data := state.buildings[index]
 	var node: Node3D = building_nodes[index]
 	var constructing := int(data.finish_at) > now
-	node.scale = Vector3.ONE * (0.82 if constructing else 1.0)
+	BuildingFactory.apply_level_visual(node, int(data.get("level", 1)))
+	if constructing:
+		node.scale *= 0.82
 	if constructing:
 		for villager in villagers_root.get_children() if villagers_root else []:
 			if villager is AshfallVillager and villager.state == AshfallVillager.State.RUN and villager.target.distance_to(node.global_position) < 4.0:

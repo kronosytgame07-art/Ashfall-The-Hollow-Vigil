@@ -66,7 +66,7 @@ static func cost(kind: String, level := 1) -> Dictionary:
 static func build_time(kind: String, level := 1) -> int:
 	return ceili(float(definition(kind).get("build_time", 5)) * pow(1.45, maxi(0, level - 1)))
 
-static func create(kind: String) -> Node3D:
+static func create(kind: String, level := 1) -> Node3D:
 	var model_path: String = MODEL_PATHS.get(kind, "")
 	assert(not model_path.is_empty(), "No GLB registered for building: " + kind)
 	var packed := load(model_path) as PackedScene
@@ -76,7 +76,17 @@ static func create(kind: String) -> Node3D:
 	imported.name = kind.to_pascal_case()
 	imported.set_meta("building_kind", kind)
 	imported.set_meta("footprint", footprint(kind))
-	imported.set_meta("level", 1)
+	imported.set_meta("level", level)
 	imported.set_meta("stored", 0.0)
 	imported.add_to_group("buildings")
+	apply_level_visual(imported, level)
 	return imported
+
+static func apply_level_visual(building: Node3D, level: int) -> void:
+	building.set_meta("level", level)
+	for upgrade_level in range(2, 11):
+		var group := building.find_child("UpgradeLevel%d" % upgrade_level, true, false) as Node3D
+		if group:
+			group.visible = upgrade_level <= level
+	var growth := 1.0 + minf(0.09, maxi(0, level - 1) * 0.01)
+	building.scale = Vector3(growth, 1.0 + minf(0.13, maxi(0, level - 1) * 0.014), growth)
