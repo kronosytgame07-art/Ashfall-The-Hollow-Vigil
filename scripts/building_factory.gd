@@ -31,6 +31,19 @@ const MODEL_PATHS := {
 	"wall": "res://models/buildings/wall.glb"
 }
 
+const ART_PALETTE := {
+	"stone": Color(0.105, 0.10, 0.12),
+	"stone_light": Color(0.19, 0.18, 0.20),
+	"wood": Color(0.19, 0.085, 0.038),
+	"wood_dark": Color(0.055, 0.027, 0.02),
+	"iron": Color(0.085, 0.095, 0.11),
+	"cloth": Color(0.17, 0.025, 0.045),
+	"gold": Color(0.52, 0.23, 0.035),
+	"ember": Color(1.0, 0.065, 0.003),
+	"soul": Color(0.28, 0.025, 0.65),
+	"bone": Color(0.46, 0.41, 0.33)
+}
+
 const DEFINITIONS := {
 	"town_hall": {"label": "Hôtel de ville", "cost": {"wood": 0, "gold": 0}, "build_time": 0, "max_level": 10},
 	"gold_mine": {"label": "Mine d'or", "cost": {"wood": 180, "gold": 80}, "build_time": 12, "max_level": 10, "produces": "gold", "rate": 18, "capacity": 360},
@@ -79,8 +92,47 @@ static func create(kind: String, level := 1) -> Node3D:
 	imported.set_meta("level", level)
 	imported.set_meta("stored", 0.0)
 	imported.add_to_group("buildings")
+	apply_art_direction(imported)
 	apply_level_visual(imported, level)
 	return imported
+
+static func apply_art_direction(building: Node3D) -> void:
+	# Une palette partagée lie visuellement tous les bâtiments, tout en laissant
+	# les silhouettes et accessoires fonctionnels propres à chaque modèle.
+	for child in building.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		for surface in mesh_instance.mesh.get_surface_count():
+			var source := mesh_instance.mesh.surface_get_material(surface)
+			if source == null:
+				continue
+			var material_name := source.resource_name.to_lower()
+			if not ART_PALETTE.has(material_name):
+				continue
+			var material := source.duplicate() as StandardMaterial3D
+			if material == null:
+				continue
+			material.albedo_color = ART_PALETTE[material_name]
+			material.roughness = 0.48 if material_name == "iron" else 0.42 if material_name == "gold" else 0.86
+			material.metallic = 0.72 if material_name == "iron" else 0.38 if material_name == "gold" else 0.0
+			if material_name == "ember":
+				material.emission_enabled = true
+				material.emission = Color(1.0, 0.035, 0.002)
+				material.emission_energy_multiplier = 4.5
+			elif material_name == "soul":
+				material.emission_enabled = true
+				material.emission = Color(0.22, 0.015, 0.58)
+				material.emission_energy_multiplier = 3.5
+			mesh_instance.set_surface_override_material(surface, material)
+
+	# Les anciennes fondations formaient de gros colliers de pierres blanches.
+	# On les conserve comme ancrage au sol, mais elles deviennent discrètes.
+	for foundation in building.find_children("FoundationStone_*", "Node3D", true, false):
+		var stone := foundation as Node3D
+		if stone:
+			stone.scale *= Vector3(0.88, 0.42, 0.88)
+			stone.position.y *= 0.58
 
 static func apply_level_visual(building: Node3D, level: int) -> void:
 	building.set_meta("level", level)
