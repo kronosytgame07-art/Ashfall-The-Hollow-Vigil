@@ -16,11 +16,14 @@ func _initialize() -> void:
 		var model_path: String = BuildingFactory.MODEL_PATHS.get(kind, "")
 		assert(ResourceLoader.exists(model_path), "Missing imported GLB: " + model_path)
 		var level_one := BuildingFactory.create(kind, 1)
+		get_root().add_child(level_one)
 		var level_two_group := level_one.find_child("UpgradeLevel2", true, false) as Node3D
 		assert(level_two_group != null, "Missing authored level progression: " + kind)
 		assert(not level_two_group.visible, "Level 2 details leaked onto level 1: " + kind)
 		BuildingFactory.apply_level_visual(level_one, 2)
 		assert(level_two_group.visible, "Level 2 details did not unlock: " + kind)
+		level_one.queue_free()
+		await process_frame
 	for model_path in [
 		"res://models/obstacles/corrupted_rocks.glb",
 		"res://models/obstacles/dead_tree.glb",
