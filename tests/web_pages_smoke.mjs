@@ -37,9 +37,16 @@ if (menuStats.nonDarkRatio < 0.002) {
   );
 }
 
-// Godot draws its controls inside the canvas. The play button is authored at
-// x=490..790, y=430..488 in the fixed 1280x720 viewport.
-await page.mouse.click(640, 459);
+// Godot draws its controls inside a CSS-scaled canvas. Convert the authored
+// 1280x720 play-button center into the actual browser coordinates.
+const canvasBox = await page.locator("canvas").evaluate(element => {
+  const rect = element.getBoundingClientRect();
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+});
+await page.mouse.click(
+  canvasBox.x + (640 / 1280) * canvasBox.width,
+  canvasBox.y + (459 / 720) * canvasBox.height
+);
 await page.waitForTimeout(6_000);
 const worldShot = await page.screenshot();
 fs.writeFileSync("test-results/world.png", worldShot);
