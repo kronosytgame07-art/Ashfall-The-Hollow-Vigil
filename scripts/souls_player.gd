@@ -48,6 +48,7 @@ var race_details: Node3D
 var weapon_trail: MeshInstance3D
 var weapon_model: Node3D
 var equipment_visuals: Node3D
+var race_limb_details: Array[MeshInstance3D] = []
 var _last_move := Vector3.FORWARD
 var _mouse_sensitivity := 0.003
 
@@ -206,6 +207,10 @@ func configure_race(selected_race: String) -> void:
 	race_name = selected_race
 	for child in race_details.get_children():
 		child.queue_free()
+	for detail in race_limb_details:
+		if is_instance_valid(detail):
+			detail.queue_free()
+	race_limb_details.clear()
 	match selected_race:
 		"Orque":
 			visual.scale = Vector3(1.12, 1.08, 1.12)
@@ -448,6 +453,19 @@ func _box(
 	parent.add_child(instance)
 	return instance
 
+func _race_limb_box(
+	parent: Node3D,
+	size: Vector3,
+	position_: Vector3,
+	color: Color,
+	metallic := 0.0,
+	emissive := false
+) -> MeshInstance3D:
+	var detail := _box(parent, size, position_, color, metallic, emissive)
+	race_limb_details.append(detail)
+	return detail
+
+
 func _add_human_details() -> void:
 	var iron := Color("#373b43")
 	var iron_edge := Color("#606570")
@@ -536,17 +554,17 @@ func _add_orc_details() -> void:
 			var shoulder := _box(race_details, Vector3(0.48 - layer * 0.04, 0.2, 0.7 - layer * 0.07), Vector3(x, 1.65 - layer * 0.13, 0), rust_edge.darkened(layer * 0.1), 0.72)
 			shoulder.rotation.z = -0.14 * sign(x)
 		var arm_parent := left_arm_pivot if x < 0.0 else weapon_pivot
-		_box(arm_parent, Vector3(0.3, 0.32, 0.3), Vector3(0, -0.32, 0), skin, 0.0)
-		_box(arm_parent, Vector3(0.34, 0.28, 0.34), Vector3(0, -0.56, 0), rust, 0.62)
+		_race_limb_box(arm_parent, Vector3(0.3, 0.32, 0.3), Vector3(0, -0.32, 0), skin, 0.0)
+		_race_limb_box(arm_parent, Vector3(0.34, 0.28, 0.34), Vector3(0, -0.56, 0), rust, 0.62)
 		for finger in range(3):
-			_box(arm_parent, Vector3(0.08, 0.2, 0.1), Vector3((finger - 1) * 0.08, -0.77, 0.04), skin_shadow)
+			_race_limb_box(arm_parent, Vector3(0.08, 0.2, 0.1), Vector3((finger - 1) * 0.08, -0.77, 0.04), skin_shadow)
 	# Lanières de cuisses, pagne et lourdes bottes.
 	_box(race_details, Vector3(0.54, 0.55, 0.07), Vector3(0, 0.55, 0.33), Color("#664322"))
 	for x in [-0.29, 0.29]:
 		var leg_parent := left_leg_pivot if x < 0.0 else right_leg_pivot
-		_box(leg_parent, Vector3(0.27, 0.13, 0.28), Vector3(0, -0.22, 0), leather)
-		_box(leg_parent, Vector3(0.31, 0.32, 0.3), Vector3(0, -0.4, 0), rust, 0.55)
-		_box(leg_parent, Vector3(0.4, 0.2, 0.48), Vector3(0, -0.66, 0.11), Color("#33251c"), 0.2)
+		_race_limb_box(leg_parent, Vector3(0.27, 0.13, 0.28), Vector3(0, -0.22, 0), leather)
+		_race_limb_box(leg_parent, Vector3(0.31, 0.32, 0.3), Vector3(0, -0.4, 0), rust, 0.55)
+		_race_limb_box(leg_parent, Vector3(0.4, 0.2, 0.48), Vector3(0, -0.66, 0.11), Color("#33251c"), 0.2)
 
 func _add_goblin_details() -> void:
 	var skin := Color("#6f7d38")
@@ -583,11 +601,11 @@ func _add_goblin_details() -> void:
 		shoulder.rotation.z = -0.15
 	for x in [-0.45, 0.45]:
 		var arm_parent := left_arm_pivot if x < 0.0 else weapon_pivot
-		_box(arm_parent, Vector3(0.22, 0.3, 0.22), Vector3(0, -0.32, 0), skin)
+		_race_limb_box(arm_parent, Vector3(0.22, 0.3, 0.22), Vector3(0, -0.32, 0), skin)
 		for band in range(3):
-			_box(arm_parent, Vector3(0.25, 0.075, 0.25), Vector3(0, -0.49 - band * 0.08, 0), dark_leather)
+			_race_limb_box(arm_parent, Vector3(0.25, 0.075, 0.25), Vector3(0, -0.49 - band * 0.08, 0), dark_leather)
 		for finger in range(3):
-			_box(arm_parent, Vector3(0.055, 0.16, 0.07), Vector3((finger - 1) * 0.055, -0.75, 0.04), skin_shadow)
+			_race_limb_box(arm_parent, Vector3(0.055, 0.16, 0.07), Vector3((finger - 1) * 0.055, -0.75, 0.04), skin_shadow)
 	# Ceinture, boucle, sacoches, pagne déchiré et bottes carrées.
 	_box(race_details, Vector3(0.82, 0.13, 0.5), Vector3(0, 0.88, 0), dark_leather)
 	_box(race_details, Vector3(0.21, 0.19, 0.08), Vector3(0, 0.88, 0.31), scrap_iron, 0.74)
@@ -596,9 +614,9 @@ func _add_goblin_details() -> void:
 	_box(race_details, Vector3(0.42, 0.54, 0.06), Vector3(0, 0.55, 0.29), cloth)
 	for x in [-0.28, 0.28]:
 		var leg_parent := left_leg_pivot if x < 0.0 else right_leg_pivot
-		_box(leg_parent, Vector3(0.22, 0.12, 0.24), Vector3(0, -0.26, 0), leather)
-		_box(leg_parent, Vector3(0.24, 0.29, 0.25), Vector3(0, -0.45, 0), dark_leather)
-		_box(leg_parent, Vector3(0.36, 0.18, 0.43), Vector3(0, -0.67, 0.1), Color("#33271d"), 0.15)
+		_race_limb_box(leg_parent, Vector3(0.22, 0.12, 0.24), Vector3(0, -0.26, 0), leather)
+		_race_limb_box(leg_parent, Vector3(0.24, 0.29, 0.25), Vector3(0, -0.45, 0), dark_leather)
+		_race_limb_box(leg_parent, Vector3(0.36, 0.18, 0.43), Vector3(0, -0.67, 0.1), Color("#33271d"), 0.15)
 
 
 func _add_dwarf_details() -> void:
