@@ -227,13 +227,13 @@ func _build_battle_hud() -> void:
 	root.add_child(actions)
 	power_button = Button.new()
 	power_button.text = "  CRI DE GUERRE  +25% dégâts"
-	power_button.icon = load("res://assets/ui/icon_swords.svg")
+	power_button.icon = load("res://ui/icons/icon_swords.svg")
 	power_button.icon_max_width = 26
 	power_button.pressed.connect(_use_player_power)
 	actions.add_child(power_button)
 	var exit_button := Button.new()
 	exit_button.text = "  RETOUR AU MENU"
-	exit_button.icon = load("res://assets/ui/icon_town.svg")
+	exit_button.icon = load("res://ui/icons/icon_town.svg")
 	exit_button.icon_max_width = 24
 	exit_button.pressed.connect(func(): exit_requested.emit())
 	actions.add_child(exit_button)

@@ -57,11 +57,11 @@ func _initialize() -> void:
 	var battle_controller_script := load("res://scripts/pvpve_battle.gd") as Script
 	assert(battle_controller_script != null and battle_controller_script.can_instantiate(), "PvPvE battle controller cannot instantiate")
 	for icon_path in [
-		"res://assets/ui/icon_town.svg",
-		"res://assets/ui/icon_swords.svg",
-		"res://assets/ui/icon_settings.svg",
-		"res://assets/ui/icon_hammer.svg",
-		"res://assets/ui/icon_shield.svg"
+		"res://ui/icons/icon_town.svg",
+		"res://ui/icons/icon_swords.svg",
+		"res://ui/icons/icon_settings.svg",
+		"res://ui/icons/icon_hammer.svg",
+		"res://ui/icons/icon_shield.svg"
 	]:
 		assert(ResourceLoader.exists(icon_path), "HUD icon is missing: " + icon_path)
 	assert(game_state._migrate_building({"kind": "town_hall", "cell": []}).is_empty(),
