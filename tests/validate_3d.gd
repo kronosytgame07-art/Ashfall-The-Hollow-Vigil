@@ -38,8 +38,8 @@ func _initialize() -> void:
 	var camera_test := AshfallSoulsPlayer.new()
 	get_root().add_child(camera_test)
 	await process_frame
-	assert(camera_test.camera != null and camera_test.camera.current,
-		"The player must own an active third-person camera")
+	assert(camera_test.camera != null,
+		"The player must expose an orbit orientation camera")
 	assert(camera_test.camera_pivot.top_level,
 		"The orbit camera must be independent from character yaw")
 	camera_test.queue_free()

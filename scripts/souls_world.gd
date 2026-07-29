@@ -42,6 +42,7 @@ var fire_light: OmniLight3D
 var controls_panel: Control
 var control_buttons: Dictionary = {}
 var awaiting_action := ""
+var follow_camera: Camera3D
 
 func _ready() -> void:
 	_ensure_input_actions()
@@ -52,11 +53,13 @@ func _ready() -> void:
 	_build_ruins()
 	_build_checkpoint()
 	_spawn_player()
+	_build_world_follow_camera()
 	_spawn_enemies()
 	_build_interface()
 	_show_title_menu()
 
 func _process(delta: float) -> void:
+	_update_world_follow_camera(delta)
 	if fire_light:
 		fire_light.light_energy = 2.7 + sin(Time.get_ticks_msec() * 0.012) * 0.42
 	if not is_instance_valid(player) or player.is_dead:
@@ -116,7 +119,7 @@ func _build_environment() -> void:
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#626979")
-	environment.ambient_light_energy = 0.34
+	environment.ambient_light_energy = 0.62
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.glow_enabled = true
 	environment.glow_intensity = 1.25
@@ -130,7 +133,7 @@ func _build_environment() -> void:
 	var moon := DirectionalLight3D.new()
 	moon.rotation_degrees = Vector3(-48, -28, 0)
 	moon.light_color = Color("#9ca9c7")
-	moon.light_energy = 1.05
+	moon.light_energy = 1.42
 	moon.shadow_enabled = true
 	$World.add_child(moon)
 
@@ -198,6 +201,17 @@ func _build_continuous_ground_collision() -> void:
 	collider.shape = shape
 	safety_floor.add_child(collider)
 	$World.add_child(safety_floor)
+	var fallback_ground := MeshInstance3D.new()
+	fallback_ground.name = "VisibleFallbackGround"
+	var fallback_mesh := PlaneMesh.new()
+	fallback_mesh.size = Vector2(WORLD_HALF * 2.0, WORLD_HALF * 2.0)
+	fallback_ground.mesh = fallback_mesh
+	fallback_ground.position.y = -0.015
+	var fallback_material := StandardMaterial3D.new()
+	fallback_material.albedo_color = Color("#211f25")
+	fallback_material.roughness = 0.98
+	fallback_ground.material_override = fallback_material
+	$World.add_child(fallback_ground)
 
 func _build_ruins() -> void:
 	var stone := _voxel_material(Color("#24242a"), Color("#4b4750"))
@@ -313,6 +327,40 @@ func _spawn_player() -> void:
 	player.health_changed.connect(_on_health_changed)
 	player.stamina_changed.connect(_on_stamina_changed)
 	player.died.connect(_on_player_died)
+
+func _build_world_follow_camera() -> void:
+	# This is the only active camera. It lives in world space and explicitly
+	# looks at the player, so no inherited CharacterBody transform can hide the
+	# scene in the Web renderer.
+	player.camera.current = false
+	follow_camera = Camera3D.new()
+	follow_camera.name = "WorldFollowCamera"
+	follow_camera.current = true
+	follow_camera.fov = 60.0
+	follow_camera.near = 0.08
+	$World.add_child(follow_camera)
+	var camera_fill := OmniLight3D.new()
+	camera_fill.light_color = Color("#8795b3")
+	camera_fill.light_energy = 1.85
+	camera_fill.omni_range = 12.0
+	camera_fill.shadow_enabled = false
+	follow_camera.add_child(camera_fill)
+	var target := player.global_position + Vector3(0, 1.15, 0)
+	var offset := player.camera_pivot.global_basis * Vector3(0.7, 1.8, 5.8)
+	follow_camera.global_position = target + offset
+	follow_camera.look_at(target, Vector3.UP)
+
+func _update_world_follow_camera(delta: float) -> void:
+	if not is_instance_valid(follow_camera) or not is_instance_valid(player):
+		return
+	var target := player.global_position + Vector3(0, 1.15, 0)
+	var orbit_offset := player.camera_pivot.global_basis * Vector3(0.7, 1.8, 5.8)
+	var desired_position := target + orbit_offset
+	follow_camera.global_position = follow_camera.global_position.lerp(
+		desired_position,
+		1.0 - exp(-14.0 * delta)
+	)
+	follow_camera.look_at(target, Vector3.UP)
 
 func _rescue_player_from_void() -> void:
 	player.global_position = safe_spawn_position
@@ -750,7 +798,7 @@ void fragment() {
 	ALBEDO = mix(dark_color.rgb, light_color.rgb, grain * 0.38);
 	ROUGHNESS = 0.96;
 	AO = 0.72 + grain * 0.25;
-	ALBEDO *= 1.0 - edge * 0.18;
+	ALBEDO *= (1.0 - edge * 0.18) * 1.34;
 }
 """
 	var material := ShaderMaterial.new()
