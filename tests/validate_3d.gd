@@ -35,5 +35,6 @@ func _initialize() -> void:
 	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
 	var compact_unit := AshfallCombatUnit.new()
 	assert(compact_unit.camp_scale <= 0.5, "Camp troops must remain compact enough to gather around fires")
+	compact_unit.free()
 	print("Ashfall 3D validation: assets, compact dark-fantasy units, economy, footprints and 8-way movement, OK")
 	quit()

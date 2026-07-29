@@ -2,8 +2,8 @@ class_name RTSCamera
 extends Node3D
 
 @export var target := Vector3.ZERO
-@export_range(12.0, 55.0) var distance := 30.0
-@export_range(25.0, 70.0) var pitch_degrees := 48.0
+@export_range(12.0, 55.0) var distance := 25.0
+@export_range(25.0, 70.0) var pitch_degrees := 51.0
 @export var yaw_degrees := 45.0
 @export var pan_speed := 18.0
 @export var zoom_speed := 2.4

@@ -205,14 +205,19 @@ function barracks(){
   gothicDress(m,4,4,3.4);for(const x of [-.9,0,.9])m.box("iron",[x,2.15,1.52],[.08,.72,.1]);return m;
 }
 function camp(){
-  const m=new Model("Army Camp");base(m,5.8,5.8);
-  for(const [x,z,r] of [[-1.5,-1.2,0],[1.4,-1.25,.12],[-1.25,1.45,-.1]]){
-    m.cone("cloth",[x,1.0,z],1.25,1.9,4);m.box("darkwood",[x,.25,z],[2.1,.15,2.1],r)
+  const m=new Model("Ashen Legion Camp");
+  m.box("earth",[0,.1,0],[5.75,.2,5.75]);
+  for(let i=0;i<18;i++){const a=i*TAU/18,r=2.55+(i%3)*.08;m.box(i%2?"stone":"basalt",[Math.cos(a)*r,.24,Math.sin(a)*r],[.48,.28,.36],-a)}
+  for(const [x,z,r] of [[-1.65,-1.45,.12],[1.65,-1.4,-.1],[-1.75,1.55,-.08],[1.8,1.55,.09]]){
+    m.cone("cloth",[x,1.0,z],1.02,1.72,4);m.box("darkwood",[x,.23,z],[1.75,.14,1.75],r);
+    m.box("iron",[x,1.12,z],[.07,1.85,.07]);
   }
-  m.cylinder("stone",[1.35,.38,1.35],.72,.35,12);torch(m,1.35,.78,1.35);
-  for(let i=0;i<4;i++){const a=i*TAU/4;m.box("wood",[Math.cos(a)*.65,.35+Math.sin(i)*.08,Math.sin(a)*.65],[.2,.2,1.3],a)}
-  for(let i=0;i<12;i++){const a=i*TAU/12,r=2.55;m.cone("darkwood",[Math.cos(a)*r,.55,Math.sin(a)*r],.1,1.05,6)}
+  m.cylinder("stone",[0,.32,0],.82,.34,14);m.cylinder("ember",[0,.52,0],.46,.26,12,.28);
+  for(let i=0;i<5;i++){const a=i*TAU/5;m.box("wood",[Math.cos(a)*.38,.55,Math.sin(a)*.38],[.12,.12,1.0],a)}
+  for(let i=0;i<12;i++){const a=i*TAU/12,r=2.62;m.cone("darkwood",[Math.cos(a)*r,.62,Math.sin(a)*r],.11,1.18,6)}
+  for(const x of [-1.25,1.25]){m.box("wood",[x,.48,.15],[1.15,.14,.32]);m.box("iron",[x,.67,.15],[.7,.08,.08]);}
   m.box("iron",[0,1.35,-2.5],[.08,2.3,.08]);m.box("cloth",[.38,1.85,-2.5],[.68,.82,.05]);
+  m.box("gold",[.38,1.86,-2.54],[.08,.46,.03]);
   return m;
 }
 function altar(){
