@@ -288,6 +288,32 @@ func _apply_archetype_details() -> void:
 	for child in archetype_details.get_children():
 		child.queue_free()
 	var lower_name := enemy_name.to_lower()
+	# Silhouette commune lisible : plaques superposées, protections articulées,
+	# tabard abîmé et petits rivets. Les variantes ajoutent ensuite leur identité.
+	for x in [-0.52, 0.52]:
+		for layer in range(3):
+			var pauldron := _detail_box(
+				Vector3(0.38 - layer * 0.035, 0.18, 0.62 - layer * 0.055),
+				Vector3(x, 1.61 - layer * 0.12, 0),
+				Color("#5b5358").darkened(layer * 0.09)
+			)
+			pauldron.rotation.z = -0.12 * sign(x)
+		_detail_box(Vector3(0.23, 0.2, 0.27), Vector3(x, 1.03, 0), Color("#51494f"))
+		for finger in range(3):
+			_detail_box(Vector3(0.055, 0.16, 0.075), Vector3(x + (finger - 1) * 0.055, 0.75, 0.04), Color("#29262d"))
+	for y in [1.39, 1.2, 1.02]:
+		_detail_box(Vector3(0.82, 0.1, 0.53), Vector3(0, y, 0.01), Color("#4d464e").darkened((1.39 - y) * 0.45))
+	_detail_box(Vector3(0.42, 0.58, 0.055), Vector3(0, 0.72, 0.3), Color("#47171b"))
+	for x in [-0.17, 0.0, 0.17]:
+		var torn_cloth := _detail_box(Vector3(0.15, 0.24 + abs(x), 0.06), Vector3(x, 0.37, 0.3), Color("#3a1115"))
+		torn_cloth.rotation.z = x * 0.25
+	for x in [-0.27, 0.27]:
+		_detail_box(Vector3(0.28, 0.18, 0.31), Vector3(x, 0.7, 0.02), Color("#585159"))
+		_detail_box(Vector3(0.27, 0.28, 0.27), Vector3(x, 0.42, 0), Color("#302d34"))
+		_detail_box(Vector3(0.34, 0.18, 0.42), Vector3(x, 0.15, 0.1), Color("#211f24"))
+	for x in [-0.27, 0.27]:
+		for y in [1.22, 1.47]:
+			_detail_box(Vector3(0.05, 0.05, 0.035), Vector3(x, y, 0.31), Color("#8b765e"))
 	if "givre" in lower_name or "boréal" in lower_name:
 		for x in [-0.42, 0.0, 0.42]:
 			var crystal := _detail_box(Vector3(0.16, 0.72, 0.16), Vector3(x, 2.18 + abs(x), -0.16), Color("#82b8ce"), true)
@@ -305,8 +331,6 @@ func _apply_archetype_details() -> void:
 			var dagger := _detail_box(Vector3(0.08, 0.58, 0.1), Vector3(x, 0.92, -0.3), Color("#756f78"))
 			dagger.rotation.z = 0.45 * sign(x)
 	elif enemy_level >= 2:
-		for x in [-0.5, 0.5]:
-			_detail_box(Vector3(0.34, 0.2, 0.62), Vector3(x, 1.48, 0), Color("#4a4149"))
 		_detail_box(Vector3(0.48, 0.62, 0.08), Vector3(0, 1.12, -0.31), Color("#42161b"))
 
 func _detail_box(size: Vector3, position_: Vector3, color: Color, emissive := false) -> MeshInstance3D:
