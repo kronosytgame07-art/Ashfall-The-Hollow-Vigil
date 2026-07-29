@@ -37,6 +37,7 @@ var souls := 0
 var game_started := false
 var selected_race := "Humain"
 var checkpoint_position := Vector3(0, 1.2, 10)
+var safe_spawn_position := Vector3(0, 2.4, 10)
 var fire_light: OmniLight3D
 var controls_panel: Control
 var control_buttons: Dictionary = {}
@@ -47,6 +48,7 @@ func _ready() -> void:
 	_load_controls()
 	_build_environment()
 	_build_voxel_world()
+	_build_continuous_ground_collision()
 	_build_ruins()
 	_build_checkpoint()
 	_spawn_player()
@@ -62,11 +64,11 @@ func _process(delta: float) -> void:
 	var distance_to_fire := player.global_position.distance_to(checkpoint_position)
 	prompt_label.visible = distance_to_fire < 3.0
 	if distance_to_fire < 3.0 and Input.is_action_just_pressed("interact"):
-		player.rest_at(checkpoint_position)
+		player.rest_at(safe_spawn_position)
 		_respawn_enemies()
 		_flash_message("REPOS ACCORDÉ  •  LES OMBRES REVIENNENT")
-	if player.global_position.y < -8.0:
-		player.take_damage(999.0)
+	if player.global_position.y < -1.5:
+		_rescue_player_from_void()
 
 func _ensure_input_actions() -> void:
 	for action in DEFAULT_KEYS:
@@ -182,6 +184,21 @@ func _build_voxel_world() -> void:
 			Vector3(rng.randf_range(-0.08, 0.08), angle, rng.randf_range(-0.12, 0.12))
 		)
 
+func _build_continuous_ground_collision() -> void:
+	# Decorative voxel tiles keep their individual collisions, but Web physics
+	# must also have one uninterrupted floor available on the very first frame.
+	var safety_floor := StaticBody3D.new()
+	safety_floor.name = "ContinuousWorldFloor"
+	safety_floor.position = Vector3(0, -0.55, 0)
+	safety_floor.collision_layer = 1
+	safety_floor.collision_mask = 0
+	var collider := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(WORLD_HALF * 2.0, 1.0, WORLD_HALF * 2.0)
+	collider.shape = shape
+	safety_floor.add_child(collider)
+	$World.add_child(safety_floor)
+
 func _build_ruins() -> void:
 	var stone := _voxel_material(Color("#24242a"), Color("#4b4750"))
 	var dark_stone := _voxel_material(Color("#15151a"), Color("#34313a"))
@@ -288,13 +305,20 @@ func _build_checkpoint() -> void:
 
 func _spawn_player() -> void:
 	player = PLAYER_SCRIPT.new() as AshfallSoulsPlayer
-	player.position = checkpoint_position
+	player.position = safe_spawn_position
 	$Actors.add_child(player)
+	player.checkpoint = safe_spawn_position
 	player.configure_race(selected_race)
 	player.process_mode = Node.PROCESS_MODE_DISABLED
 	player.health_changed.connect(_on_health_changed)
 	player.stamina_changed.connect(_on_stamina_changed)
 	player.died.connect(_on_player_died)
+
+func _rescue_player_from_void() -> void:
+	player.global_position = safe_spawn_position
+	player.velocity = Vector3.ZERO
+	player.invulnerable_clock = 1.0
+	_flash_message("REPLACÉ AU BRASIER  •  AUCUNE ÂME PERDUE")
 
 func _spawn_enemies() -> void:
 	for enemy_data in [

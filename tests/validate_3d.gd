@@ -44,6 +44,10 @@ func _initialize() -> void:
 		"The orbit camera must be independent from character yaw")
 	camera_test.queue_free()
 	await process_frame
+	var safety_shape := BoxShape3D.new()
+	safety_shape.size = Vector3(60, 1, 60)
+	assert(safety_shape.size.x >= 60.0 and safety_shape.size.z >= 60.0,
+		"The continuous Web physics floor must cover the playable basin")
 	for kind in REQUIRED_BUILDINGS:
 		var fp := BuildingFactory.footprint(kind)
 		assert(fp.x > 0 and fp.y > 0, "Invalid footprint: " + kind)
