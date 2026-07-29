@@ -46,6 +46,9 @@ func _initialize() -> void:
 	assert(game_state.can_afford({"gold": 100}), "Starting economy is invalid")
 	assert(game_state.spend({"gold": 100}), "Resource spending failed")
 	assert(game_state.resources.gold == 1150, "Resource subtraction failed")
+	assert(game_state.account_xp == 0, "Starting account XP must be initialized")
+	game_state.obstacles.append({"cell": [7, 8]})
+	assert(game_state.obstacles[0].cell == [7, 8], "Obstacle persistence data is invalid")
 	assert(BuildingFactory.footprint("town_hall") == Vector2i(3, 3), "Town hall must occupy 3x3")
 	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
 	assert(game_state._migrate_building({"kind": "town_hall", "cell": []}).is_empty(),

@@ -5,9 +5,12 @@ const SAVE_PATH := "user://ashfall_save.json"
 
 var resources := {"gold": 1250, "wood": 1250, "souls": 120, "gems": 75}
 var trophies := 0
+var account_xp := 0
 var builders_total := 2
 var buildings: Array[Dictionary] = []
 var army := {"warrior": 4, "archer": 2, "brute": 0}
+var obstacles: Array[Dictionary] = []
+var obstacle_data_initialized := false
 var last_update := 0
 
 func can_afford(cost: Dictionary) -> bool:
@@ -58,12 +61,14 @@ func tick_production(now: int) -> void:
 
 func save() -> void:
 	var payload := {
-		"version": 3,
+		"version": 4,
 		"resources": resources,
 		"trophies": trophies,
+		"account_xp": account_xp,
 		"builders_total": builders_total,
 		"buildings": buildings,
 		"army": army,
+		"obstacles": obstacles,
 		"last_update": last_update
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -81,7 +86,9 @@ func load_save() -> bool:
 		return false
 	resources.merge(parsed.get("resources", {}), true)
 	var save_version := int(parsed.get("version", 1))
+	obstacle_data_initialized = save_version >= 4
 	trophies = int(parsed.get("trophies", 0))
+	account_xp = int(parsed.get("account_xp", 0))
 	builders_total = int(parsed.get("builders_total", 2))
 	buildings.clear()
 	var saved_buildings = parsed.get("buildings", [])
@@ -98,6 +105,14 @@ func load_save() -> bool:
 					]
 				buildings.append(migrated)
 	army.merge(parsed.get("army", {}), true)
+	obstacles.clear()
+	var saved_obstacles = parsed.get("obstacles", [])
+	if saved_obstacles is Array:
+		for raw_obstacle in saved_obstacles:
+			if raw_obstacle is Dictionary:
+				var obstacle_cell = raw_obstacle.get("cell", [])
+				if obstacle_cell is Array and obstacle_cell.size() >= 2:
+					obstacles.append({"cell": [clampi(int(obstacle_cell[0]), 0, 49), clampi(int(obstacle_cell[1]), 0, 49)]})
 	last_update = int(parsed.get("last_update", Time.get_unix_time_from_system()))
 	# An obsolete or corrupted browser save must create a fresh village instead
 	# of crashing before the first rendered frame.
