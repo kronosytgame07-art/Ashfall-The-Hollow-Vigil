@@ -4,12 +4,15 @@ extends "res://scripts/game.gd"
 # contrôleur principal et remplace uniquement la présentation du monde.
 
 const READABLE_PALETTE := {
+	"basalt": Color(0.09, 0.085, 0.105),
 	"stone": Color(0.18, 0.175, 0.205),
+	"stone2": Color(0.235, 0.22, 0.25),
 	"stone_light": Color(0.29, 0.275, 0.31),
 	"wood": Color(0.30, 0.145, 0.065),
 	"wood_dark": Color(0.105, 0.052, 0.035),
 	"iron": Color(0.14, 0.155, 0.18),
 	"cloth": Color(0.30, 0.045, 0.075),
+	"roof": Color(0.20, 0.055, 0.03),
 	"gold": Color(0.66, 0.34, 0.055),
 	"bone": Color(0.58, 0.52, 0.42)
 }

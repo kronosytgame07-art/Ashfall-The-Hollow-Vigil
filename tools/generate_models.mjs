@@ -108,14 +108,13 @@ function tiledRoof(m,{halfW,depth,eaveY,ridgeY,rows=10,columns=12}){
       const stagger=(row%2)*tileD*.5;
       const z=-depth/2+(column+.5)*depth/columns+stagger;
       if(z>depth/2+.08)continue;
-      const shade=(row+column)%5===0?"cloth":"roof";
-      m.boxEuler(shade,[x,y+.055,z],[tileW,.095,tileD],0,0,-side*slope);
+      m.boxEuler("roof",[x,y+.055,z],[tileW,.095,tileD],0,0,-side*slope);
     }
   }
   // Faîtage réellement composé, au lieu d'une barre géométrique.
   for(let column=0;column<columns;column++){
     const z0=-depth/2+column*depth/columns,z1=z0+depth/columns*1.06;
-    m.beam3(column%4===0?"cloth":"roof",[0,ridgeY+.09,z0],[0,ridgeY+.09,z1],.19);
+    m.beam3("roof",[0,ridgeY+.09,z0],[0,ridgeY+.09,z1],.19);
   }
 }
 function gothicDress(m,w,d,height=2.2){
