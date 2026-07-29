@@ -89,6 +89,32 @@ func _run() -> void:
 		"Enemy articulated combat rig is incomplete"
 	):
 		return
+	var errant: AshfallSoulsEnemy
+	var hollow_raider: AshfallSoulsEnemy
+	for enemy_node in game.get_tree().get_nodes_in_group("enemy"):
+		var enemy := enemy_node as AshfallSoulsEnemy
+		if enemy.enemy_name == "Errant":
+			errant = enemy
+		elif enemy.enemy_name == "Pillard creux":
+			hollow_raider = enemy
+	if not _require(
+		is_instance_valid(errant)
+		and errant.find_child("ErrantHood", true, false) != null
+		and errant.find_child("ErrantLanternLight", true, false) != null
+		and errant.find_child("ErrantStaff", true, false) != null
+		and errant.find_child("EnemySwordBlade", true, false) == null,
+		"Errant concept silhouette is incomplete"
+	):
+		return
+	if not _require(
+		is_instance_valid(hollow_raider)
+		and hollow_raider.find_child("HollowRaiderSkullMask", true, false) != null
+		and hollow_raider.find_child("HollowRaiderPack", true, false) != null
+		and hollow_raider.find_child("HollowRaiderScytheBlade", true, false) != null
+		and hollow_raider.find_child("EnemySwordBlade", true, false) == null,
+		"Hollow Raider concept silhouette is incomplete"
+	):
+		return
 	var grounded_y: float = game.player.global_position.y
 	Input.action_press("jump")
 	await physics_frame
