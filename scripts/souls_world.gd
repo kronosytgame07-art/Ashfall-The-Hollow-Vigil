@@ -44,20 +44,36 @@ var control_buttons: Dictionary = {}
 var awaiting_action := ""
 var follow_camera: Camera3D
 var enemies_active := false
+var world_ready := false
+var play_button: Button
+var boot_status: Label
 
 func _ready() -> void:
 	_ensure_input_actions()
 	_load_controls()
-	_build_environment()
-	_build_voxel_world()
-	_build_continuous_ground_collision()
-	_build_ruins()
-	_build_checkpoint()
 	_spawn_player()
 	_build_world_follow_camera()
-	_spawn_enemies()
 	_build_interface()
 	_show_title_menu()
+	call_deferred("_finish_world_boot")
+
+func _finish_world_boot() -> void:
+	# Draw the title screen before constructing the procedural world. On Web,
+	# a renderer-specific failure must never leave the player on a silent black
+	# canvas with no indication that Godot started.
+	await get_tree().process_frame
+	_build_environment()
+	_build_continuous_ground_collision()
+	_build_voxel_world()
+	_build_ruins()
+	_build_checkpoint()
+	_spawn_enemies()
+	world_ready = true
+	if is_instance_valid(play_button):
+		play_button.disabled = false
+		play_button.text = "ENTRER DANS LE MONDE"
+	if is_instance_valid(boot_status):
+		boot_status.text = "MONDE CHARGÉ  •  PRÊT"
 
 func _process(delta: float) -> void:
 	_update_world_follow_camera(delta)
@@ -110,21 +126,27 @@ func _unhandled_input(event: InputEvent) -> void:
 func _build_environment() -> void:
 	var world_environment := WorldEnvironment.new()
 	var environment := Environment.new()
-	environment.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color("#040408")
-	sky_material.sky_horizon_color = Color("#17121d")
-	sky_material.ground_bottom_color = Color("#030305")
-	sky_material.ground_horizon_color = Color("#130e16")
-	sky_material.sun_angle_max = 1.0
-	sky.sky_material = sky_material
-	environment.sky = sky
+	if OS.has_feature("web"):
+		# Keep the browser path on features guaranteed by the Compatibility
+		# renderer. The native build retains the authored procedural sky.
+		environment.background_mode = Environment.BG_COLOR
+		environment.background_color = Color("#17131d")
+	else:
+		environment.background_mode = Environment.BG_SKY
+		var sky := Sky.new()
+		var sky_material := ProceduralSkyMaterial.new()
+		sky_material.sky_top_color = Color("#040408")
+		sky_material.sky_horizon_color = Color("#17121d")
+		sky_material.ground_bottom_color = Color("#030305")
+		sky_material.ground_horizon_color = Color("#130e16")
+		sky_material.sun_angle_max = 1.0
+		sky.sky_material = sky_material
+		environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#626979")
-	environment.ambient_light_energy = 0.62
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.glow_enabled = true
+	environment.ambient_light_energy = 0.9 if OS.has_feature("web") else 0.62
+	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR if OS.has_feature("web") else Environment.TONE_MAPPER_FILMIC
+	environment.glow_enabled = not OS.has_feature("web")
 	environment.glow_intensity = 1.25
 	# Height fog is disabled in the compatibility Web renderer until its
 	# visibility is calibrated; it previously swallowed the entire ground pass.
@@ -139,7 +161,7 @@ func _build_environment() -> void:
 	moon.rotation_degrees = Vector3(-48, -28, 0)
 	moon.light_color = Color("#9ca9c7")
 	moon.light_energy = 1.42
-	moon.shadow_enabled = true
+	moon.shadow_enabled = not OS.has_feature("web")
 	$World.add_child(moon)
 
 func _build_voxel_world() -> void:
@@ -572,19 +594,22 @@ func _show_title_menu() -> void:
 		)
 		race_row.add_child(race_button)
 		race_buttons.append(race_button)
-	var play := Button.new()
-	play.text = "ENTRER DANS LE MONDE"
-	play.position = Vector2(490, 430)
-	play.size = Vector2(300, 58)
-	play.pressed.connect(func():
+	play_button = Button.new()
+	play_button.text = "CHARGEMENT DU MONDE…"
+	play_button.position = Vector2(490, 430)
+	play_button.size = Vector2(300, 58)
+	play_button.disabled = true
+	play_button.pressed.connect(func():
+		if not world_ready:
+			return
 		game_started = true
 		menu.queue_free()
 		player.process_mode = Node.PROCESS_MODE_INHERIT
 		player.invulnerable_clock = 10.0
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	)
-	_style_button(play)
-	menu.add_child(play)
+	_style_button(play_button)
+	menu.add_child(play_button)
 	var settings := Button.new()
 	settings.text = "COMMANDES"
 	settings.position = Vector2(490, 500)
@@ -599,6 +624,13 @@ func _show_title_menu() -> void:
 	direction.size = Vector2(1280, 30)
 	direction.add_theme_color_override("font_color", Color("#554d54"))
 	menu.add_child(direction)
+	boot_status = Label.new()
+	boot_status.text = "INITIALISATION DU RENDU 3D…"
+	boot_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boot_status.position = Vector2(0, 650)
+	boot_status.size = Vector2(1280, 26)
+	boot_status.add_theme_color_override("font_color", Color("#b79775"))
+	menu.add_child(boot_status)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _build_controls_menu() -> void:
