@@ -18,6 +18,10 @@ var left_leg_pivot: Node3D
 var right_leg_pivot: Node3D
 var target: AshfallSoulsPlayer
 var spawn_position := Vector3.ZERO
+var wander_target := Vector3.ZERO
+var wander_clock := 0.0
+var wander_radius := 6.0
+var is_pack_enemy := false
 var enemy_level := 1
 var enemy_name := "Déchu"
 var level_label: Label3D
@@ -37,6 +41,8 @@ func _ready() -> void:
 	collision_layer = 4
 	collision_mask = 1
 	spawn_position = global_position
+	wander_target = spawn_position
+	wander_clock = randf_range(0.0, 2.0)
 	target = get_tree().get_first_node_in_group("player") as AshfallSoulsPlayer
 	_build_collision()
 	_build_visual()
@@ -62,7 +68,8 @@ func _physics_process(delta: float) -> void:
 				target.take_damage(attack_damage)
 		elif offset.length() <= detection_range:
 			if offset.length() > 1.65:
-				var direction := offset.normalized()
+				var separation := _separation_offset()
+				var direction := (offset.normalized() + separation * 0.6).normalized()
 				velocity.x = move_toward(velocity.x, direction.x * move_speed, 9.0 * delta)
 				velocity.z = move_toward(velocity.z, direction.z * move_speed, 9.0 * delta)
 				rotation.y = lerp_angle(rotation.y, atan2(direction.x, direction.z), 1.0 - exp(-8.0 * delta))
@@ -73,22 +80,70 @@ func _physics_process(delta: float) -> void:
 					attack_clock = 1.15
 					attack_has_landed = false
 		else:
-			_return_to_spawn(delta)
+			_wander(delta)
 	else:
-		_return_to_spawn(delta)
+		_wander(delta)
 	move_and_slide()
 	_animate(delta)
 
-func _return_to_spawn(delta: float) -> void:
-	var offset := spawn_position - global_position
+func _wander(delta: float) -> void:
+	# Les ombres ne restent jamais figées hors combat : elles patrouillent
+	# aléatoirement autour de leur point d'apparition, sans jamais quitter
+	# leur biome (glace/volcan/ruines), et se dispersent selon leur groupe.
+	wander_clock -= delta
+	var offset := wander_target - global_position
 	offset.y = 0.0
-	if offset.length() > 0.5:
-		var direction := offset.normalized()
-		velocity.x = move_toward(velocity.x, direction.x * move_speed * 0.65, 8.0 * delta)
-		velocity.z = move_toward(velocity.z, direction.z * move_speed * 0.65, 8.0 * delta)
+	if wander_clock <= 0.0 or offset.length() < 0.6:
+		wander_clock = randf_range(2.5, 5.5)
+		_pick_new_wander_target()
+		offset = wander_target - global_position
+		offset.y = 0.0
+	var separation := _separation_offset()
+	if offset.length() > 0.35:
+		var direction := (offset.normalized() + separation).normalized()
+		velocity.x = move_toward(velocity.x, direction.x * move_speed * 0.55, 6.0 * delta)
+		velocity.z = move_toward(velocity.z, direction.z * move_speed * 0.55, 6.0 * delta)
+		rotation.y = lerp_angle(rotation.y, atan2(direction.x, direction.z), 1.0 - exp(-6.0 * delta))
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, 8.0 * delta)
-		velocity.z = move_toward(velocity.z, 0.0, 8.0 * delta)
+		velocity.x = move_toward(velocity.x, separation.x * move_speed * 0.4, 6.0 * delta)
+		velocity.z = move_toward(velocity.z, separation.z * move_speed * 0.4, 6.0 * delta)
+
+func _pick_new_wander_target() -> void:
+	var angle := randf_range(0.0, TAU)
+	var radius := randf_range(wander_radius * 0.3, wander_radius)
+	var candidate := spawn_position + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+	wander_target = _clamp_to_biome(candidate)
+
+func _clamp_to_biome(point: Vector3) -> Vector3:
+	# Les biomes glacés/volcaniques commencent à |x| = 12 dans souls_world.gd :
+	# une créature qui y est née doit y errer sans revenir vers les ruines
+	# centrales, et inversement.
+	if spawn_position.x <= -11.0:
+		point.x = minf(point.x, -11.0)
+	elif spawn_position.x >= 11.0:
+		point.x = maxf(point.x, 11.0)
+	return point
+
+func _separation_offset() -> Vector3:
+	# Les ombres de faible niveau peuvent se déplacer en banc serré ; les
+	# plus fortes gardent leurs distances pour ne jamais s'entasser au même
+	# endroit.
+	var min_distance := 2.2 if is_pack_enemy else 4.2
+	var push := Vector3.ZERO
+	for other_node in get_tree().get_nodes_in_group("enemy"):
+		if other_node == self:
+			continue
+		var other := other_node as AshfallSoulsEnemy
+		if not is_instance_valid(other) or other.dead:
+			continue
+		var delta_pos := global_position - other.global_position
+		delta_pos.y = 0.0
+		var distance := delta_pos.length()
+		if distance > 0.001 and distance < min_distance:
+			push += delta_pos.normalized() * (1.0 - distance / min_distance)
+	if push.length() > 1.0:
+		push = push.normalized()
+	return push
 
 func take_damage(amount: float, serial: int, direction := Vector3.ZERO) -> void:
 	if dead or serial == hit_serial:
@@ -182,6 +237,8 @@ func configure(level_: int, archetype: String) -> void:
 	attack_damage = 8.0 + enemy_level * 5.0
 	move_speed = minf(3.5, 2.0 + enemy_level * 0.16)
 	detection_range = 10.0 + enemy_level
+	is_pack_enemy = enemy_level <= 2
+	wander_radius = 4.5 if is_pack_enemy else 8.0
 	if level_label:
 		level_label.text = "%s  •  NIV. %d" % [enemy_name.to_upper(), enemy_level]
 		level_label.modulate = (
@@ -344,6 +401,22 @@ func _apply_archetype_details() -> void:
 		_build_fallen_details()
 		_build_fallen_greatsword()
 		return
+	if "givre" in lower_name:
+		_build_frost_revenant_details()
+		_build_frost_revenant_claws()
+		return
+	if "boréal" in lower_name:
+		_build_boreal_guard_details()
+		_build_boreal_guard_axe()
+		return
+	if "braise" in lower_name:
+		_build_ember_flayed_details()
+		_build_ember_flayed_claws()
+		return
+	if "magma" in lower_name:
+		_build_magma_knight_details()
+		_build_magma_knight_sword()
+		return
 	_build_sword_weapon()
 	# Silhouette commune lisible : plaques superposées, protections articulées,
 	# tabard abîmé et petits rivets. Les variantes ajoutent ensuite leur identité.
@@ -371,18 +444,7 @@ func _apply_archetype_details() -> void:
 	for x in [-0.27, 0.27]:
 		for y in [1.22, 1.47]:
 			_detail_box(Vector3(0.05, 0.05, 0.035), Vector3(x, y, 0.31), Color("#8b765e"))
-	if "givre" in lower_name or "boréal" in lower_name:
-		for x in [-0.42, 0.0, 0.42]:
-			var crystal := _detail_box(Vector3(0.16, 0.72, 0.16), Vector3(x, 2.18 + abs(x), -0.16), Color("#82b8ce"), true)
-			crystal.rotation.z = x * 0.72
-		_detail_box(Vector3(0.98, 0.22, 0.58), Vector3(0, 1.48, 0), Color("#566b78"))
-	elif "braise" in lower_name or "magma" in lower_name:
-		for y in [0.88, 1.2, 1.52]:
-			_detail_box(Vector3(0.9, 0.1, 0.54), Vector3(0, y, 0.02), Color("#c53b1c"), true)
-		for x in [-0.48, 0.48]:
-			var spike := _detail_box(Vector3(0.18, 0.74, 0.18), Vector3(x, 1.7, 0), Color("#351510"))
-			spike.rotation.z = -0.48 * sign(x)
-	elif "pilleur" in lower_name:
+	if "pilleur" in lower_name:
 		_detail_box(Vector3(0.76, 0.2, 0.68), Vector3(0, 2.12, -0.03), Color("#1b161d"))
 		for x in [-0.4, 0.4]:
 			var dagger := _detail_box(Vector3(0.08, 0.58, 0.1), Vector3(x, 0.92, -0.3), Color("#756f78"))
@@ -847,6 +909,266 @@ func _build_hollow_raider_scythe() -> void:
 			iron
 		)
 		chain_link.rotation.z = chain_y * 0.3
+
+func _build_frost_revenant_details() -> void:
+	var ice_bone := Color("#d7ecf4")
+	var ice_bone_shadow := Color("#a9c9d6")
+	var ice_crystal := Color("#82b8ce")
+	var iron_dark := Color("#2c3238")
+	var chain_color := Color("#57636c")
+	var eye_glow := Color("#6fe0ff")
+
+	# Crâne givré aux orbites lumineuses, fêlures de glace sur le front.
+	var skull := _detail_box(Vector3(0.5, 0.46, 0.48), Vector3(0, 2.05, 0), ice_bone)
+	skull.name = "FrostRevenantSkull"
+	_detail_box(Vector3(0.42, 0.22, 0.08), Vector3(0, 1.85, 0.24), ice_bone_shadow)
+	for eye_x in [-0.13, 0.13]:
+		var eye := _detail_box(Vector3(0.1, 0.09, 0.03), Vector3(eye_x, 2.08, 0.25), eye_glow, true)
+		eye.name = "FrostRevenantEye"
+	for crack_index in range(3):
+		var crack := _detail_box(
+			Vector3(0.05, 0.22 - crack_index * 0.04, 0.03),
+			Vector3(-0.05 + crack_index * 0.09, 2.24 - crack_index * 0.02, 0.18),
+			ice_crystal,
+			true
+		)
+		crack.rotation.z = 0.3 * (crack_index - 1)
+
+	# Cage thoracique translucide faite de lamelles de glace superposées.
+	for rib_y in [1.42, 1.26, 1.1, 0.94]:
+		var rib := _detail_box(Vector3(0.62, 0.09, 0.4), Vector3(0, rib_y, 0), ice_bone.darkened((1.42 - rib_y) * 0.1))
+		rib.name = "FrostRevenantRibcage"
+	_detail_box(Vector3(0.14, 0.66, 0.1), Vector3(0, 1.18, 0.16), ice_bone_shadow)
+
+	# Gorgerin et épaulières de fer sombre : la seule armure du mort-vivant.
+	_detail_box(Vector3(0.7, 0.16, 0.5), Vector3(0, 1.6, 0), iron_dark)
+	for x in [-0.42, 0.42]:
+		var pauldron := _detail_box(Vector3(0.28, 0.16, 0.4), Vector3(x, 1.58, -0.02), iron_dark.lightened(0.05))
+		pauldron.rotation.z = -0.1 * sign(x)
+	for link in range(6):
+		var chain_x := -0.25 + link * 0.1
+		var chain_link := _detail_box(Vector3(0.07, 0.07, 0.04), Vector3(chain_x, 1.5 - abs(chain_x) * 0.3, 0.26), chain_color)
+		chain_link.rotation.z = chain_x * 0.6
+
+	# Jupe de stalactites brisées en guise de pagne, membres décharnés.
+	for x in [-0.34, -0.11, 0.11, 0.34]:
+		var shard_len: float = 0.5 + abs(x) * 0.5
+		var icicle := _detail_box(Vector3(0.13, shard_len, 0.13), Vector3(x, 0.66 - shard_len * 0.5, 0.02), ice_crystal.darkened(0.1))
+		icicle.name = "FrostRevenantIcicleSkirt"
+	for x in [-0.26, 0.26]:
+		_detail_box(Vector3(0.16, 0.6, 0.16), Vector3(x, 0.4, 0), ice_bone.darkened(0.05))
+	for x in [-0.55, 0.55]:
+		_detail_box(Vector3(0.15, 0.7, 0.15), Vector3(x, 1.5, 0), ice_bone.darkened(0.03))
+
+	# Griffes de glace acérées aux mains et aux pieds.
+	for hand_x in [-0.55, 0.55]:
+		for finger in range(3):
+			var claw := _detail_box(Vector3(0.05, 0.28, 0.05), Vector3(hand_x + (finger - 1) * 0.06, 0.62, 0.14), ice_crystal)
+			claw.rotation.x = 0.5
+			claw.name = "FrostRevenantClaw"
+	for foot_x in [-0.26, 0.26]:
+		for toe in range(3):
+			_detail_box(Vector3(0.045, 0.05, 0.22), Vector3(foot_x + (toe - 1) * 0.05, 0.03, 0.2), ice_crystal.darkened(0.1))
+
+func _build_frost_revenant_claws() -> void:
+	var ice_crystal := Color("#9fd8ea")
+	for claw_index in range(4):
+		var claw := _weapon_box(
+			Vector3(0.06, 0.42 - claw_index * 0.05, 0.06),
+			Vector3(-0.09 + claw_index * 0.06, -0.22 - claw_index * 0.03, 0.12),
+			ice_crystal.darkened(claw_index * 0.05)
+		)
+		claw.rotation.x = 0.6
+		claw.name = "FrostRevenantWeaponClaw"
+
+func _build_boreal_guard_details() -> void:
+	var fur := Color("#cbc3b0")
+	var fur_shadow := Color("#948b76")
+	var iron_helm := Color("#3c4046")
+	var iron_dark := Color("#25282d")
+	var tunic := Color("#2e3c54")
+	var leather := Color("#4a3320")
+	var bronze := Color("#8a6a3c")
+	var fang := Color("#e4dcc4")
+
+	base_visual_scale = Vector3.ONE * 1.14
+	visual.scale = base_visual_scale
+
+	# Heaume clos à nasal renforcé, cimier et voile de mailles givré.
+	var helm := _detail_box(Vector3(0.68, 0.5, 0.66), Vector3(0, 2.1, 0), iron_helm)
+	helm.name = "BorealGuardHelm"
+	_detail_box(Vector3(0.08, 0.3, 0.05), Vector3(0, 1.95, 0.33), iron_dark)
+	_detail_box(Vector3(0.62, 0.1, 0.1), Vector3(0, 2.32, 0.3), iron_dark)
+	for veil_y in range(4):
+		_detail_box(Vector3(0.5, 0.07, 0.05), Vector3(0, 1.78 - veil_y * 0.08, 0.3), iron_dark.lightened(0.06))
+
+	# Épaisse fourrure enveloppant le cou et les épaules.
+	var mantle := _detail_box(Vector3(1.0, 0.34, 0.86), Vector3(0, 1.82, -0.04), fur)
+	mantle.name = "BorealGuardFurMantle"
+	for tuft_x in [-0.4, -0.2, 0.0, 0.2, 0.4]:
+		var tuft := _detail_box(Vector3(0.16, 0.14, 0.16), Vector3(tuft_x, 1.66, 0.3 - abs(tuft_x) * 0.2), fur_shadow)
+		tuft.rotation.z = tuft_x * 0.3
+
+	# Cuirasse à plaques par-dessus une tunique bleue, ceinturon à trophées.
+	var cuirass := _detail_box(Vector3(0.86, 0.6, 0.56), Vector3(0, 1.32, 0.01), iron_dark)
+	cuirass.name = "BorealGuardCuirass"
+	for plate_y in [1.5, 1.32, 1.14]:
+		_detail_box(Vector3(0.82, 0.12, 0.58), Vector3(0, plate_y, 0.02), iron_helm.darkened((1.5 - plate_y) * 0.2))
+	_detail_box(Vector3(0.7, 0.5, 0.06), Vector3(0, 0.88, 0.3), tunic)
+	var belt := _detail_box(Vector3(0.9, 0.16, 0.58), Vector3(0, 1.0, 0), leather)
+	belt.name = "BorealGuardBelt"
+	_detail_box(Vector3(0.2, 0.2, 0.06), Vector3(0, 1.0, 0.31), bronze)
+	for fang_x in [-0.28, -0.1, 0.1, 0.28]:
+		var trophy := _detail_box(Vector3(0.05, 0.22 + abs(fang_x) * 0.2, 0.05), Vector3(fang_x, 0.78 - abs(fang_x) * 0.1, 0.3), fang)
+		trophy.rotation.z = fang_x * 0.4
+
+	# Jambières et bottes fourrées, avant-bras protégés.
+	for x in [-0.27, 0.27]:
+		_detail_box(Vector3(0.3, 0.6, 0.3), Vector3(x, 0.4, 0), tunic.darkened(0.1))
+		_detail_box(Vector3(0.36, 0.24, 0.44), Vector3(x, 0.12, 0.08), fur_shadow)
+	for x in [-0.55, 0.55]:
+		_detail_box(Vector3(0.24, 0.22, 0.24), Vector3(x, 1.14, 0), fur)
+
+func _build_boreal_guard_axe() -> void:
+	var wood := Color("#3d2b1c")
+	var iron := Color("#454a4f")
+	var iron_edge := Color("#6b7278")
+	var haft := _weapon_box(Vector3(0.12, 1.55, 0.12), Vector3(0, -0.62, 0), wood)
+	haft.name = "BorealGuardAxeHaft"
+	_weapon_box(Vector3(0.14, 0.28, 0.14), Vector3(0, 0.08, 0), Color("#241a10"))
+	var axe_head := _weapon_box(Vector3(0.58, 0.48, 0.14), Vector3(-0.3, -1.15, 0), iron)
+	axe_head.name = "BorealGuardAxe"
+	var axe_edge := _weapon_box(Vector3(0.16, 0.58, 0.1), Vector3(-0.56, -1.15, 0), iron_edge)
+	axe_edge.rotation.z = -0.12
+	_weapon_box(Vector3(0.14, 0.2, 0.14), Vector3(0, -1.35, 0), Color("#241a10"))
+
+func _build_ember_flayed_details() -> void:
+	var charred := Color("#1c1712")
+	var charred_light := Color("#302922")
+	var lava_crack := Color("#e8531c")
+	var lava_core := Color("#ff8a3d")
+	var shackle_iron := Color("#3a332e")
+	var chain_color := Color("#55483c")
+
+	# Crâne calciné aux orbites incandescentes.
+	var skull := _detail_box(Vector3(0.48, 0.46, 0.46), Vector3(0, 2.04, 0), charred)
+	skull.name = "EmberFlayedSkull"
+	for eye_x in [-0.12, 0.12]:
+		var eye := _detail_box(Vector3(0.09, 0.08, 0.03), Vector3(eye_x, 2.07, 0.24), lava_core, true)
+		eye.name = "EmberFlayedEye"
+	_detail_box(Vector3(0.3, 0.1, 0.05), Vector3(0, 1.86, 0.24), lava_crack, true)
+	var smoke := _detail_box(Vector3(0.2, 0.3, 0.2), Vector3(0, 2.45, -0.02), Color("#4a4640").darkened(0.2))
+	smoke.name = "EmberFlayedSmoke"
+
+	# Torse fissuré, veine de lave centrale et cage thoracique irrégulière.
+	for rib_y in [1.5, 1.32, 1.14, 0.96]:
+		_detail_box(Vector3(0.7 - (1.5 - rib_y) * 0.1, 0.1, 0.42), Vector3(0, rib_y, 0), charred_light.darkened((1.5 - rib_y) * 0.1))
+	var crack := _detail_box(Vector3(0.09, 0.85, 0.05), Vector3(0, 1.2, 0.22), lava_crack, true)
+	crack.name = "EmberFlayedCrack"
+	_detail_box(Vector3(0.16, 0.16, 0.06), Vector3(0, 1.62, 0.22), lava_core, true)
+
+	# Fers rouillés aux poignets et aux chevilles, chaînes pendantes.
+	for wrist_x in [-0.55, 0.55]:
+		var shackle := _detail_box(Vector3(0.24, 0.14, 0.24), Vector3(wrist_x, 1.14, 0), shackle_iron)
+		shackle.name = "EmberFlayedShackle"
+		for chain_y in range(3):
+			_detail_box(Vector3(0.06, 0.08, 0.04), Vector3(wrist_x, 1.05 - chain_y * 0.09, 0.02), chain_color)
+	for ankle_x in [-0.26, 0.26]:
+		var ankle_shackle := _detail_box(Vector3(0.26, 0.14, 0.28), Vector3(ankle_x, 0.1, 0.02), shackle_iron)
+		ankle_shackle.name = "EmberFlayedShackle"
+		for chain_y in range(2):
+			_detail_box(Vector3(0.06, 0.09, 0.05), Vector3(0, 0.03 - chain_y * 0.08, 0.16), chain_color)
+
+	# Pagne de plaques irrégulières façon écailles brûlées.
+	for x in [-0.24, -0.08, 0.08, 0.24]:
+		var scale_piece := _detail_box(Vector3(0.15, 0.42 - abs(x) * 0.3, 0.08), Vector3(x, 0.66 - abs(x) * 0.15, 0.24), charred.lightened(0.03))
+		scale_piece.rotation.z = x * 0.2
+
+	# Griffes acérées, corps décharné et courbé vers l'avant.
+	for hand_x in [-0.55, 0.55]:
+		for finger in range(3):
+			var claw := _detail_box(Vector3(0.045, 0.3, 0.045), Vector3(hand_x + (finger - 1) * 0.06, 0.6, 0.15), charred.darkened(0.1))
+			claw.rotation.x = 0.55
+			claw.name = "EmberFlayedClaw"
+	for foot_x in [-0.26, 0.26]:
+		for toe in range(3):
+			_detail_box(Vector3(0.045, 0.05, 0.2), Vector3(foot_x + (toe - 1) * 0.05, 0.03, 0.18), charred.darkened(0.1))
+
+func _build_ember_flayed_claws() -> void:
+	var charred := Color("#241d17")
+	var lava_core := Color("#ff8a3d")
+	for claw_index in range(4):
+		var claw := _weapon_box(
+			Vector3(0.055, 0.38 - claw_index * 0.045, 0.055),
+			Vector3(-0.08 + claw_index * 0.055, -0.2 - claw_index * 0.03, 0.12),
+			charred
+		)
+		claw.rotation.x = 0.6
+		claw.name = "EmberFlayedWeaponClaw"
+	var glow := _weapon_box(Vector3(0.16, 0.16, 0.16), Vector3(0, 0.02, 0), lava_core, true)
+	glow.name = "EmberFlayedPalmGlow"
+
+func _build_magma_knight_details() -> void:
+	var dark_stone := Color("#221e1a")
+	var stone_edge := Color("#3c342c")
+	var lava_glow := Color("#ff5a1e")
+	var horn_black := Color("#171310")
+	var cloth_ember := Color("#5a1f10")
+
+	base_visual_scale = Vector3.ONE * 1.2
+	visual.scale = base_visual_scale
+
+	# Heaume cornu à fentes incandescentes.
+	var helm := _detail_box(Vector3(0.7, 0.5, 0.68), Vector3(0, 2.14, 0), dark_stone)
+	helm.name = "MagmaKnightHelm"
+	for horn_x in [-0.22, 0.22]:
+		var horn := _detail_box(Vector3(0.1, 0.32, 0.1), Vector3(horn_x, 2.5, -0.05), horn_black)
+		horn.rotation.z = -0.4 * sign(horn_x)
+		horn.rotation.x = -0.2
+	for eye_x in [-0.14, 0.14]:
+		var eye := _detail_box(Vector3(0.12, 0.05, 0.03), Vector3(eye_x, 2.13, 0.35), lava_glow, true)
+		eye.name = "MagmaKnightEye"
+	_detail_box(Vector3(0.1, 0.3, 0.05), Vector3(0, 1.95, 0.34), stone_edge)
+
+	# Plastron de pierre craquelée traversé par une croix de lave incandescente.
+	_detail_box(Vector3(0.98, 0.66, 0.6), Vector3(0, 1.5, 0), dark_stone)
+	var crack_v := _detail_box(Vector3(0.1, 0.6, 0.04), Vector3(0, 1.5, 0.31), lava_glow, true)
+	crack_v.name = "MagmaKnightCrack"
+	var crack_h := _detail_box(Vector3(0.42, 0.09, 0.04), Vector3(0, 1.62, 0.31), lava_glow, true)
+	crack_h.name = "MagmaKnightCrack"
+	for plate_y in [1.72, 1.5, 1.28]:
+		_detail_box(Vector3(0.94, 0.1, 0.62), Vector3(0, plate_y, 0.01), stone_edge.darkened((1.72 - plate_y) * 0.15))
+
+	# Épaulières massives à arêtes brisées.
+	for side in [-1.0, 1.0]:
+		for layer in range(3):
+			var pauldron := _detail_box(
+				Vector3(0.44 - layer * 0.04, 0.2, 0.66 - layer * 0.06),
+				Vector3(side * 0.62, 1.86 - layer * 0.13, -0.01),
+				stone_edge.darkened(layer * 0.08)
+			)
+			pauldron.rotation.z = -0.16 * side
+			pauldron.name = "MagmaKnightPauldron"
+
+	# Pagne de tissu carbonisé et jambières craquelées.
+	for x in [-0.18, 0.0, 0.18]:
+		var tatter := _detail_box(Vector3(0.16, 0.5 + abs(x), 0.07), Vector3(x, 0.7 - abs(x) * 0.1, 0.32), cloth_ember.darkened(abs(x) * 0.2))
+		tatter.rotation.z = x * 0.25
+	for leg_x in [-0.27, 0.27]:
+		_detail_box(Vector3(0.32, 0.32, 0.34), Vector3(leg_x, 0.42, 0), dark_stone.lightened(0.02))
+		_detail_box(Vector3(0.08, 0.3, 0.05), Vector3(leg_x, 0.42, 0.18), lava_glow, true)
+		_detail_box(Vector3(0.4, 0.22, 0.48), Vector3(leg_x, 0.13, 0.1), horn_black)
+
+func _build_magma_knight_sword() -> void:
+	var handle := _weapon_box(Vector3(0.14, 0.36, 0.14), Vector3(0, -0.1, 0), Color("#241a14"))
+	handle.name = "MagmaKnightSwordHandle"
+	_weapon_box(Vector3(0.6, 0.14, 0.18), Vector3(0, -0.3, 0), Color("#3a332c"))
+	var blade := _weapon_box(Vector3(0.26, 1.3, 0.14), Vector3(0, -1.0, 0), Color("#2b2622"))
+	blade.name = "MagmaKnightSword"
+	var vein := _weapon_box(Vector3(0.08, 1.1, 0.04), Vector3(0, -0.98, 0.09), Color("#ff5a1e"), true)
+	vein.name = "MagmaKnightSwordVein"
+	var tip := _weapon_box(Vector3(0.2, 0.3, 0.12), Vector3(0, -1.75, 0), Color("#332c26"))
+	tip.rotation.z = 0.1
 
 func _weapon_box(size: Vector3, position_: Vector3, color: Color, emissive := false) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
