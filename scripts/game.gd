@@ -176,6 +176,20 @@ func _terrain_material() -> StandardMaterial3D:
 	texture.color_ramp = gradient
 	mat.albedo_texture = texture
 	mat.uv1_scale = Vector3(5.0, 5.0, 5.0)
+	var normal_noise := FastNoiseLite.new()
+	normal_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	normal_noise.frequency = 0.12
+	normal_noise.fractal_octaves = 5
+	var normal_texture := NoiseTexture2D.new()
+	normal_texture.width = 512
+	normal_texture.height = 512
+	normal_texture.seamless = true
+	normal_texture.as_normal_map = true
+	normal_texture.bump_strength = 3.5
+	normal_texture.noise = normal_noise
+	mat.normal_enabled = true
+	mat.normal_texture = normal_texture
+	mat.normal_scale = 0.48
 	return mat
 
 func _outer_terrain_material() -> StandardMaterial3D:
@@ -196,6 +210,19 @@ func _outer_terrain_material() -> StandardMaterial3D:
 	texture.color_ramp = gradient
 	mat.albedo_texture = texture
 	mat.uv1_scale = Vector3(3.5, 3.5, 3.5)
+	var normal_noise := FastNoiseLite.new()
+	normal_noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	normal_noise.frequency = 0.085
+	var normal_texture := NoiseTexture2D.new()
+	normal_texture.width = 512
+	normal_texture.height = 512
+	normal_texture.seamless = true
+	normal_texture.as_normal_map = true
+	normal_texture.bump_strength = 4.0
+	normal_texture.noise = normal_noise
+	mat.normal_enabled = true
+	mat.normal_texture = normal_texture
+	mat.normal_scale = 0.56
 	return mat
 
 func _apply_mountain_material(node: Node) -> void:
@@ -723,7 +750,9 @@ func _spawn_obstacle(cell: Vector2i, record := false) -> void:
 	var paths := ["corrupted_rocks", "dead_tree", "bones", "soul_crystals"]
 	var scene := load("res://models/obstacles/%s.glb" % paths[posmod(cell.x + cell.y, paths.size())]) as PackedScene
 	if scene:
-		root.add_child(scene.instantiate())
+		var obstacle_model := scene.instantiate()
+		BuildingFactory.apply_art_direction(obstacle_model)
+		root.add_child(obstacle_model)
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.set_meta("obstacle_root", root)
