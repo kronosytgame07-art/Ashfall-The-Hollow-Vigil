@@ -56,7 +56,9 @@ func _run() -> void:
 	game.player.invulnerable_clock = 30.0
 	for frame in range(120):
 		await physics_frame
-	if not _require(game.player.global_position.y > 0.2, "Player fell below the world"):
+	if not _require(game.player.global_position.y > -0.2, "Player fell below the world"):
+		return
+	if not _require(game.player.is_on_floor(), "Player did not settle on the continuous world floor"):
 		return
 	if not _require(not game.player.is_dead, "Player died during idle runtime smoke test"):
 		return
