@@ -412,31 +412,99 @@ func _box(
 	return instance
 
 func _add_human_details() -> void:
-	_box(race_details, Vector3(0.12, 0.72, 0.12), Vector3(0, 2.55, -0.08), Color("#49171b"))
-	_box(race_details, Vector3(0.32, 0.13, 0.58), Vector3(-0.53, 1.56, 0), Color("#777d88"), 0.9)
-	_box(race_details, Vector3(0.32, 0.13, 0.58), Vector3(0.53, 1.56, 0), Color("#777d88"), 0.9)
+	var iron := Color("#373b43")
+	var iron_edge := Color("#606570")
+	var dark_iron := Color("#1c1f25")
+	var cloth := Color("#4a171d")
+	var leather := Color("#4b3023")
+	# Casque fermé à visière, nuque protégée et fente lumineuse.
+	_box(race_details, Vector3(0.64, 0.2, 0.64), Vector3(0, 2.23, 0), iron, 0.88)
+	_box(race_details, Vector3(0.58, 0.18, 0.61), Vector3(0, 2.08, 0.015), dark_iron, 0.9)
+	_box(race_details, Vector3(0.52, 0.075, 0.045), Vector3(0, 2.105, 0.335), Color("#050608"), 0.2)
+	_box(race_details, Vector3(0.38, 0.045, 0.025), Vector3(0, 2.105, 0.372), Color("#dc7132"), 0.1, true)
+	_box(race_details, Vector3(0.13, 0.25, 0.13), Vector3(0, 2.39, -0.04), iron_edge, 0.9)
+	# Plastron à plusieurs plaques, col, ceinture et tabard déchiré.
+	_box(race_details, Vector3(0.88, 0.28, 0.54), Vector3(0, 1.52, 0), iron, 0.9)
+	_box(race_details, Vector3(0.68, 0.3, 0.09), Vector3(0, 1.55, 0.31), iron_edge, 0.92)
+	_box(race_details, Vector3(0.46, 0.22, 0.07), Vector3(0, 1.72, 0.33), dark_iron, 0.9)
+	for y in [1.32, 1.18, 1.04]:
+		_box(race_details, Vector3(0.84, 0.09, 0.57), Vector3(0, y, 0), iron.darkened((1.32 - y) * 0.7), 0.88)
+	_box(race_details, Vector3(0.94, 0.14, 0.58), Vector3(0, 0.94, 0), leather, 0.15)
+	_box(race_details, Vector3(0.22, 0.2, 0.08), Vector3(0, 0.94, 0.34), iron_edge, 0.9)
+	_box(race_details, Vector3(0.48, 0.78, 0.055), Vector3(0, 0.67, 0.32), cloth)
+	for x in [-0.19, 0.0, 0.19]:
+		var rag := _box(race_details, Vector3(0.17, 0.3 + abs(x), 0.06), Vector3(x, 0.22 + abs(x) * 0.15, 0.32), cloth.darkened(abs(x) * 0.3))
+		rag.rotation.z = x * 0.24
+	# Épaulières surdimensionnées et segmentées, comme la référence.
+	for x in [-0.61, 0.61]:
+		for layer in range(3):
+			var shoulder := _box(
+				race_details,
+				Vector3(0.42 - layer * 0.035, 0.2, 0.66 - layer * 0.06),
+				Vector3(x, 1.68 - layer * 0.14, -0.015),
+				iron_edge.darkened(layer * 0.1),
+				0.9
+			)
+			shoulder.rotation.z = -0.13 * sign(x)
+		_box(race_details, Vector3(0.25, 0.28, 0.26), Vector3(x, 1.27, 0), dark_iron, 0.88)
+		_box(race_details, Vector3(0.29, 0.18, 0.3), Vector3(x, 1.09, 0), iron_edge, 0.9)
+		_box(race_details, Vector3(0.25, 0.28, 0.26), Vector3(x, 0.91, 0), iron, 0.9)
+	# Grèves, genouillères et bottes en plaques.
 	for x in [-0.28, 0.28]:
-		_box(race_details, Vector3(0.08, 0.28, 0.06), Vector3(x, 1.2, 0.28), Color("#a98b56"), 0.55)
-	_box(race_details, Vector3(0.5, 0.1, 0.56), Vector3(0, 2.31, -0.02), Color("#50555f"), 0.9)
-	_box(race_details, Vector3(0.14, 0.2, 0.08), Vector3(0, 1.78, 0.33), Color("#6d3d30"))
-	for x in [-0.38, 0.38]:
-		_box(race_details, Vector3(0.18, 0.46, 0.12), Vector3(x, 0.48, 0.04), Color("#777d88"), 0.86)
+		_box(race_details, Vector3(0.28, 0.2, 0.3), Vector3(x, 0.72, 0.025), iron_edge, 0.9)
+		_box(race_details, Vector3(0.25, 0.35, 0.25), Vector3(x, 0.48, 0), iron, 0.9)
+		_box(race_details, Vector3(0.31, 0.2, 0.42), Vector3(x, 0.17, 0.1), dark_iron, 0.88)
+	# Rivets visibles sans saturer le rendu Web.
+	for x in [-0.36, 0.36]:
+		for y in [1.41, 1.61]:
+			_box(race_details, Vector3(0.055, 0.055, 0.035), Vector3(x, y, 0.35), Color("#8c755b"), 0.7)
 
 func _add_orc_details() -> void:
-	for x in [-0.16, 0.16]:
-		var tusk := _box(race_details, Vector3(0.09, 0.28, 0.1), Vector3(x, 1.77, 0.39), Color("#d0c39b"))
-		tusk.rotation.z = -0.2 * sign(x)
-	for x in [-0.62, 0.62]:
-		_box(race_details, Vector3(0.42, 0.24, 0.68), Vector3(x, 1.54, 0), Color("#3e3b3d"), 0.7)
-		for spike in range(2):
-			var horn := _box(race_details, Vector3(0.1, 0.38, 0.1), Vector3(x, 1.78, -0.14 + spike * 0.28), Color("#8e836c"))
-			horn.rotation.z = -0.38 * sign(x)
-	_box(race_details, Vector3(0.58, 0.12, 0.05), Vector3(0, 1.84, 0.34), Color("#2a1513"))
-	_box(race_details, Vector3(0.34, 0.18, 0.08), Vector3(0, 1.67, 0.36), Color("#382319"))
-	for x in [-0.25, 0.25]:
-		_box(race_details, Vector3(0.12, 0.16, 0.1), Vector3(x, 1.92, 0.35), Color("#d04b2e"), 0.1, true)
-	for y in [0.96, 1.22, 1.48]:
-		_box(race_details, Vector3(0.94, 0.08, 0.52), Vector3(0, y, 0.03), Color("#51484a"), 0.72)
+	var skin := Color("#66733f")
+	var skin_shadow := Color("#49552f")
+	var rust := Color("#51453f")
+	var rust_edge := Color("#74665b")
+	var leather := Color("#513521")
+	# Tête massive : arcade, nez, mâchoire, oreilles, défenses et crête.
+	_box(race_details, Vector3(0.68, 0.2, 0.58), Vector3(0, 2.04, 0), skin, 0.0)
+	_box(race_details, Vector3(0.5, 0.2, 0.18), Vector3(0, 1.83, 0.3), skin_shadow)
+	_box(race_details, Vector3(0.2, 0.2, 0.18), Vector3(0, 1.98, 0.35), skin_shadow)
+	for x in [-0.47, 0.47]:
+		var ear := _box(race_details, Vector3(0.3, 0.13, 0.21), Vector3(x, 2.0, 0), skin)
+		ear.rotation.z = 0.18 * sign(x)
+	for x in [-0.18, 0.18]:
+		var tusk := _box(race_details, Vector3(0.1, 0.3, 0.1), Vector3(x, 1.78, 0.42), Color("#d0c39b"))
+		tusk.rotation.z = -0.18 * sign(x)
+		_box(race_details, Vector3(0.1, 0.07, 0.035), Vector3(x, 2.04, 0.39), Color("#d78737"), 0.0, true)
+	for z in [-0.16, 0.0, 0.16]:
+		_box(race_details, Vector3(0.14, 0.32 + abs(z), 0.16), Vector3(0, 2.3, z), Color("#171619"))
+	# Torse très large, harnais croisé clouté et ceinture à poches.
+	_box(race_details, Vector3(1.04, 0.72, 0.58), Vector3(0, 1.36, 0), skin_shadow)
+	for x in [-0.24, 0.24]:
+		var strap := _box(race_details, Vector3(0.13, 0.94, 0.07), Vector3(x, 1.45, 0.34), leather, 0.05)
+		strap.rotation.z = 0.5 * sign(x)
+		for y in [1.18, 1.46, 1.72]:
+			_box(race_details, Vector3(0.065, 0.065, 0.035), Vector3(x + (y - 1.45) * sign(x) * 0.46, y, 0.39), Color("#8b765d"), 0.75)
+	_box(race_details, Vector3(0.22, 0.22, 0.08), Vector3(0, 1.43, 0.38), rust_edge, 0.82)
+	_box(race_details, Vector3(1.08, 0.16, 0.62), Vector3(0, 0.91, 0), leather, 0.05)
+	_box(race_details, Vector3(0.26, 0.23, 0.1), Vector3(0, 0.91, 0.39), rust_edge, 0.8)
+	for x in [-0.42, 0.42]:
+		_box(race_details, Vector3(0.3, 0.36, 0.18), Vector3(x, 0.72, 0.3), Color("#76502b"))
+	# Armure d'épaule rouillée à couches, gros avant-bras et phalanges.
+	for x in [-0.66, 0.66]:
+		for layer in range(3):
+			var shoulder := _box(race_details, Vector3(0.48 - layer * 0.04, 0.2, 0.7 - layer * 0.07), Vector3(x, 1.65 - layer * 0.13, 0), rust_edge.darkened(layer * 0.1), 0.72)
+			shoulder.rotation.z = -0.14 * sign(x)
+		_box(race_details, Vector3(0.3, 0.32, 0.3), Vector3(x, 1.17, 0), skin, 0.0)
+		_box(race_details, Vector3(0.34, 0.28, 0.34), Vector3(x, 0.94, 0), rust, 0.62)
+		for finger in range(3):
+			_box(race_details, Vector3(0.08, 0.2, 0.1), Vector3(x + (finger - 1) * 0.08, 0.72, 0.04), skin_shadow)
+	# Lanières de cuisses, pagne et lourdes bottes.
+	_box(race_details, Vector3(0.54, 0.55, 0.07), Vector3(0, 0.55, 0.33), Color("#664322"))
+	for x in [-0.29, 0.29]:
+		_box(race_details, Vector3(0.27, 0.13, 0.28), Vector3(x, 0.56, 0), leather)
+		_box(race_details, Vector3(0.31, 0.32, 0.3), Vector3(x, 0.38, 0), rust, 0.55)
+		_box(race_details, Vector3(0.4, 0.2, 0.48), Vector3(x, 0.12, 0.11), Color("#33251c"), 0.2)
 
 func _add_goblin_details() -> void:
 	for x in [-0.43, 0.43]:
