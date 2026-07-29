@@ -48,6 +48,9 @@ var race_details: Node3D
 var weapon_trail: MeshInstance3D
 var weapon_model: Node3D
 var equipment_visuals: Node3D
+var back_shield: MeshInstance3D
+var back_shield_emblem: MeshInstance3D
+var base_cape: MeshInstance3D
 var race_limb_details: Array[MeshInstance3D] = []
 var _last_move := Vector3.FORWARD
 var _mouse_sensitivity := 0.003
@@ -215,18 +218,30 @@ func configure_race(selected_race: String) -> void:
 		"Orque":
 			visual.scale = Vector3(1.12, 1.08, 1.12)
 			_tint_skin(Color("#52623a"))
+			back_shield.visible = false
+			back_shield_emblem.visible = false
+			base_cape.visible = false
 			_add_orc_details()
 		"Gobelin":
 			visual.scale = Vector3(0.78, 0.78, 0.78)
 			_tint_skin(Color("#66733f"))
+			back_shield.visible = false
+			back_shield_emblem.visible = false
+			base_cape.visible = false
 			_add_goblin_details()
 		"Nain":
 			visual.scale = Vector3(1.08, 0.78, 1.08)
 			_tint_skin(Color("#8a604a"))
+			back_shield.visible = true
+			back_shield_emblem.visible = true
+			base_cape.visible = true
 			_add_dwarf_details()
 		_:
 			visual.scale = Vector3.ONE
 			_tint_skin(Color("#8d604b"))
+			back_shield.visible = true
+			back_shield_emblem.visible = true
+			base_cape.visible = true
 			_add_human_details()
 	_rebuild_equipment_visuals()
 
@@ -315,10 +330,28 @@ func _build_visual() -> void:
 	equipment_visuals = Node3D.new()
 	equipment_visuals.name = "VisibleEquipment"
 	visual.add_child(equipment_visuals)
-	_box(visual, Vector3(0.62, 0.72, 0.12), Vector3(-0.58, 1.18, 0.02), Color("#393d46"), 0.82)
-	_box(visual, Vector3(0.48, 0.58, 0.05), Vector3(-0.58, 1.18, 0.09), Color("#651c1f"), 0.15)
-	var cape := _box(visual, Vector3(0.66, 1.08, 0.08), Vector3(0, 1.2, -0.29), Color("#351014"), 0.0)
-	cape.rotation.x = -0.08
+	back_shield = _box(
+		visual,
+		Vector3(0.62, 0.72, 0.12),
+		Vector3(-0.58, 1.18, 0.02),
+		Color("#393d46"),
+		0.82
+	)
+	back_shield_emblem = _box(
+		visual,
+		Vector3(0.48, 0.58, 0.05),
+		Vector3(-0.58, 1.18, 0.09),
+		Color("#651c1f"),
+		0.15
+	)
+	base_cape = _box(
+		visual,
+		Vector3(0.66, 1.08, 0.08),
+		Vector3(0, 1.2, -0.29),
+		Color("#351014"),
+		0.0
+	)
+	base_cape.rotation.x = -0.08
 	weapon_trail = _box(
 		weapon_pivot,
 		Vector3(0.42, 1.18, 0.025),
@@ -340,8 +373,69 @@ func _rebuild_equipment_visuals() -> void:
 	var weapon: Dictionary = equipment.get("weapon", {})
 	var weapon_color: Color = weapon.get("color", Color("#aeb3bb"))
 	var weapon_name: String = weapon.get("name", "Épée")
+	var default_race_weapon := int(weapon.get("power", 0)) == 0
 	# L'origine locale est la paume : poignée en main, lame sous la garde.
-	if "hache" in weapon_name.to_lower():
+	if default_race_weapon and race_name == "Orque":
+		_box(
+			weapon_model,
+			Vector3(0.15, 1.28, 0.15),
+			Vector3(0, -0.5, 0),
+			Color("#4c2e1d"),
+			0.08
+		)
+		var orc_axe := _box(
+			weapon_model,
+			Vector3(0.72, 0.48, 0.16),
+			Vector3(0.23, -1.04, 0),
+			Color("#4e4a46"),
+			0.88
+		)
+		orc_axe.name = "OrcWarAxe"
+		_box(
+			weapon_model,
+			Vector3(0.18, 0.62, 0.17),
+			Vector3(-0.18, -1.0, 0),
+			Color("#2e2c2a"),
+			0.9
+		)
+		_box(
+			weapon_model,
+			Vector3(0.52, 0.1, 0.18),
+			Vector3(0.26, -1.27, 0),
+			Color("#81776c"),
+			0.9
+		)
+	elif default_race_weapon and race_name == "Gobelin":
+		_box(
+			weapon_model,
+			Vector3(0.12, 1.12, 0.12),
+			Vector3(0, -0.45, 0),
+			Color("#4f301d"),
+			0.05
+		)
+		var goblin_axe := _box(
+			weapon_model,
+			Vector3(0.58, 0.36, 0.13),
+			Vector3(0.18, -0.92, 0),
+			Color("#514d49"),
+			0.84
+		)
+		goblin_axe.name = "GoblinHatchet"
+		_box(
+			weapon_model,
+			Vector3(0.15, 0.5, 0.15),
+			Vector3(-0.14, -0.89, 0),
+			Color("#302e2c"),
+			0.86
+		)
+		_box(
+			weapon_model,
+			Vector3(0.43, 0.08, 0.14),
+			Vector3(0.21, -1.1, 0),
+			Color("#82786d"),
+			0.88
+		)
+	elif "hache" in weapon_name.to_lower():
 		_box(weapon_model, Vector3(0.11, 1.18, 0.11), Vector3(0, -0.49, 0), Color("#5b3824"), 0.1)
 		_box(weapon_model, Vector3(0.68, 0.4, 0.13), Vector3(0.22, -0.96, 0), weapon_color, 0.92)
 		_box(weapon_model, Vector3(0.15, 0.58, 0.16), Vector3(-0.16, -0.91, 0), weapon_color.darkened(0.22), 0.9)
@@ -521,10 +615,23 @@ func _add_orc_details() -> void:
 	var rust_edge := Color("#74665b")
 	var leather := Color("#513521")
 	# Tête massive : arcade, nez, mâchoire, oreilles, défenses et crête.
-	_box(race_details, Vector3(0.68, 0.2, 0.58), Vector3(0, 2.04, 0), skin, 0.0)
+	var orc_head := _box(
+		race_details,
+		Vector3(0.68, 0.2, 0.58),
+		Vector3(0, 2.04, 0),
+		skin,
+		0.0
+	)
+	orc_head.name = "OrcHead"
 	_box(race_details, Vector3(0.5, 0.2, 0.18), Vector3(0, 1.83, 0.3), skin_shadow)
 	_box(race_details, Vector3(0.2, 0.2, 0.18), Vector3(0, 1.98, 0.35), skin_shadow)
-	_box(race_details, Vector3(0.28, 0.06, 0.05), Vector3(-0.16, 2.12, 0.38), Color("#30351f"))
+	for brow_x in [-0.16, 0.16]:
+		_box(
+			race_details,
+			Vector3(0.28, 0.06, 0.05),
+			Vector3(brow_x, 2.12, 0.38),
+			Color("#30351f")
+		)
 	_box(race_details, Vector3(0.06, 0.045, 0.025), Vector3(-0.055, 1.95, 0.455), Color("#241d17"))
 	_box(race_details, Vector3(0.06, 0.045, 0.025), Vector3(0.055, 1.95, 0.455), Color("#241d17"))
 	for x in [-0.47, 0.47]:
@@ -533,6 +640,7 @@ func _add_orc_details() -> void:
 	for x in [-0.18, 0.18]:
 		var tusk := _box(race_details, Vector3(0.1, 0.3, 0.1), Vector3(x, 1.78, 0.42), Color("#d0c39b"))
 		tusk.rotation.z = -0.18 * sign(x)
+		tusk.name = "OrcTusk"
 		_box(race_details, Vector3(0.1, 0.07, 0.035), Vector3(x, 2.04, 0.39), Color("#d78737"), 0.0, true)
 	for z in [-0.16, 0.0, 0.16]:
 		_box(race_details, Vector3(0.14, 0.32 + abs(z), 0.16), Vector3(0, 2.3, z), Color("#171619"))
@@ -543,7 +651,14 @@ func _add_orc_details() -> void:
 		strap.rotation.z = 0.5 * sign(x)
 		for y in [1.18, 1.46, 1.72]:
 			_box(race_details, Vector3(0.065, 0.065, 0.035), Vector3(x + (y - 1.45) * sign(x) * 0.46, y, 0.39), Color("#8b765d"), 0.75)
-	_box(race_details, Vector3(0.22, 0.22, 0.08), Vector3(0, 1.43, 0.38), rust_edge, 0.82)
+	var harness_buckle := _box(
+		race_details,
+		Vector3(0.22, 0.22, 0.08),
+		Vector3(0, 1.43, 0.38),
+		rust_edge,
+		0.82
+	)
+	harness_buckle.name = "OrcHarness"
 	_box(race_details, Vector3(1.08, 0.16, 0.62), Vector3(0, 0.91, 0), leather, 0.05)
 	_box(race_details, Vector3(0.26, 0.23, 0.1), Vector3(0, 0.91, 0.39), rust_edge, 0.8)
 	for x in [-0.42, 0.42]:
@@ -553,6 +668,7 @@ func _add_orc_details() -> void:
 		for layer in range(3):
 			var shoulder := _box(race_details, Vector3(0.48 - layer * 0.04, 0.2, 0.7 - layer * 0.07), Vector3(x, 1.65 - layer * 0.13, 0), rust_edge.darkened(layer * 0.1), 0.72)
 			shoulder.rotation.z = -0.14 * sign(x)
+			shoulder.name = "OrcShoulderPlate"
 		var arm_parent := left_arm_pivot if x < 0.0 else weapon_pivot
 		_race_limb_box(arm_parent, Vector3(0.3, 0.32, 0.3), Vector3(0, -0.32, 0), skin, 0.0)
 		_race_limb_box(arm_parent, Vector3(0.34, 0.28, 0.34), Vector3(0, -0.56, 0), rust, 0.62)
@@ -574,10 +690,17 @@ func _add_goblin_details() -> void:
 	var scrap_iron := Color("#625c58")
 	var cloth := Color("#755129")
 	# Tête anguleuse : crâne, longues oreilles, arcade, nez et mâchoire à défenses.
-	_box(race_details, Vector3(0.62, 0.42, 0.54), Vector3(0, 2.0, 0), skin)
+	var goblin_head := _box(
+		race_details,
+		Vector3(0.62, 0.42, 0.54),
+		Vector3(0, 2.0, 0),
+		skin
+	)
+	goblin_head.name = "GoblinHead"
 	for x in [-0.49, 0.49]:
 		var ear := _box(race_details, Vector3(0.48, 0.12, 0.23), Vector3(x, 2.04, -0.01), skin)
 		ear.rotation.z = 0.2 * sign(x)
+		ear.name = "GoblinEar"
 		_box(race_details, Vector3(0.2, 0.075, 0.16), Vector3(x * 0.99, 2.03, 0.025), Color("#98704d"))
 	_box(race_details, Vector3(0.52, 0.1, 0.12), Vector3(0, 2.08, 0.3), skin_shadow)
 	_box(race_details, Vector3(0.17, 0.28, 0.18), Vector3(0, 1.93, 0.38), Color("#99704b"))
@@ -599,6 +722,7 @@ func _add_goblin_details() -> void:
 	for layer in range(3):
 		var shoulder := _box(race_details, Vector3(0.35 - layer * 0.035, 0.16, 0.54 - layer * 0.05), Vector3(0.47, 1.65 - layer * 0.11, 0), scrap_iron.darkened(layer * 0.1), 0.64)
 		shoulder.rotation.z = -0.15
+		shoulder.name = "GoblinScrapShoulder"
 	for x in [-0.45, 0.45]:
 		var arm_parent := left_arm_pivot if x < 0.0 else weapon_pivot
 		_race_limb_box(arm_parent, Vector3(0.22, 0.3, 0.22), Vector3(0, -0.32, 0), skin)

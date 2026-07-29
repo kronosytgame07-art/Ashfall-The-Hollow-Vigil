@@ -329,6 +329,8 @@ func _apply_archetype_details() -> void:
 		child.queue_free()
 	for child in weapon_parts.get_children():
 		child.queue_free()
+	weapon_parts.position = Vector3.ZERO
+	weapon_parts.rotation = Vector3.ZERO
 	var lower_name := enemy_name.to_lower()
 	if "errant" in lower_name:
 		_build_errant_details()
@@ -337,6 +339,10 @@ func _apply_archetype_details() -> void:
 	if "pilleur" in lower_name or "pillard" in lower_name:
 		_build_hollow_raider_details()
 		_build_hollow_raider_scythe()
+		return
+	if "déchu" in lower_name:
+		_build_fallen_details()
+		_build_fallen_greatsword()
 		return
 	_build_sword_weapon()
 	# Silhouette commune lisible : plaques superposées, protections articulées,
@@ -365,38 +371,7 @@ func _apply_archetype_details() -> void:
 	for x in [-0.27, 0.27]:
 		for y in [1.22, 1.47]:
 			_detail_box(Vector3(0.05, 0.05, 0.035), Vector3(x, y, 0.31), Color("#8b765e"))
-	if "déchu" in lower_name:
-		# Chevalier déchu de la référence : armure noire, visière cyan, chaînes,
-		# grand manteau en lambeaux et bouclier massif fixé dans le dos.
-		_detail_box(Vector3(0.66, 0.24, 0.66), Vector3(0, 2.13, 0), Color("#292b2e"))
-		_detail_box(Vector3(0.58, 0.22, 0.6), Vector3(0, 1.98, 0.01), Color("#17191c"))
-		_detail_box(Vector3(0.5, 0.08, 0.04), Vector3(0, 2.01, 0.34), Color("#05090a"))
-		for x in [-0.16, 0.16]:
-			_detail_box(Vector3(0.11, 0.055, 0.025), Vector3(x, 2.02, 0.375), Color("#31d7df"), true)
-		for y in [1.54, 1.36, 1.18]:
-			_detail_box(Vector3(0.92, 0.13, 0.57), Vector3(0, y, 0.02), Color("#343436").darkened((1.54 - y) * 0.5))
-		for side in [-1.0, 1.0]:
-			for layer in range(4):
-				var fallen_pauldron := _detail_box(Vector3(0.44 - layer * 0.035, 0.17, 0.68 - layer * 0.055), Vector3(side * 0.58, 1.7 - layer * 0.11, -0.01), Color("#444448").darkened(layer * 0.08))
-				fallen_pauldron.rotation.z = -0.13 * side
-		# Chaînes croisées simulées par des maillons métalliques courts.
-		for link in range(7):
-			var chain_x := -0.31 + link * 0.1
-			var chain_y := 1.68 - link * 0.09
-			var chain := _detail_box(Vector3(0.1, 0.055, 0.045), Vector3(chain_x, chain_y, 0.35), Color("#76634f"))
-			chain.rotation.z = -0.68
-			var chain_mirror := _detail_box(Vector3(0.1, 0.055, 0.045), Vector3(-chain_x, chain_y, 0.38), Color("#625343"))
-			chain_mirror.rotation.z = 0.68
-		_detail_box(Vector3(0.62, 0.92, 0.07), Vector3(0, 0.9, -0.32), Color("#151518"))
-		for x in [-0.24, 0.0, 0.24]:
-			var cape_strip := _detail_box(Vector3(0.2, 0.92 + abs(x), 0.065), Vector3(x, 0.52 - abs(x) * 0.12, -0.34), Color("#111216"))
-			cape_strip.rotation.z = x * 0.18
-		_detail_box(Vector3(0.92, 1.15, 0.12), Vector3(0, 1.08, -0.42), Color("#2b2929"))
-		_detail_box(Vector3(0.62, 0.82, 0.08), Vector3(0, 1.08, -0.5), Color("#5b201d"))
-		for x in [-0.26, 0.26]:
-			for y in [0.42, 0.64]:
-				_detail_box(Vector3(0.3, 0.18, 0.32), Vector3(x, y, 0.03), Color("#3d3d40"))
-	elif "givre" in lower_name or "boréal" in lower_name:
+	if "givre" in lower_name or "boréal" in lower_name:
 		for x in [-0.42, 0.0, 0.42]:
 			var crystal := _detail_box(Vector3(0.16, 0.72, 0.16), Vector3(x, 2.18 + abs(x), -0.16), Color("#82b8ce"), true)
 			crystal.rotation.z = x * 0.72
@@ -414,6 +389,169 @@ func _apply_archetype_details() -> void:
 			dagger.rotation.z = 0.45 * sign(x)
 	elif enemy_level >= 2:
 		_detail_box(Vector3(0.48, 0.62, 0.08), Vector3(0, 1.12, -0.31), Color("#42161b"))
+
+func _build_fallen_details() -> void:
+	var black_iron := Color("#202225")
+	var plate := Color("#36383b")
+	var plate_edge := Color("#555355")
+	var rust := Color("#59443a")
+	var leather := Color("#422a20")
+	var chain_color := Color("#766452")
+	var cloth := Color("#4a171b")
+	var cyan := Color("#2bd3dc")
+
+	base_visual_scale = Vector3.ONE * 1.08
+	visual.scale = base_visual_scale
+
+	# Heaume intégral à cimier, visière cyan et grille verticale.
+	var helmet_crown := _detail_box(
+		Vector3(0.72, 0.25, 0.7),
+		Vector3(0, 2.18, -0.01),
+		plate
+	)
+	helmet_crown.name = "FallenHelmet"
+	_detail_box(Vector3(0.65, 0.25, 0.64), Vector3(0, 2.01, 0), black_iron)
+	_detail_box(Vector3(0.54, 0.09, 0.045), Vector3(0, 2.07, 0.35), Color("#04090a"))
+	for eye_x in [-0.16, 0.16]:
+		var fallen_eye := _detail_box(
+			Vector3(0.11, 0.055, 0.025),
+			Vector3(eye_x, 2.08, 0.39),
+			cyan,
+			true
+		)
+		fallen_eye.name = "FallenCyanEye"
+	for grille_x in [-0.2, -0.1, 0.0, 0.1, 0.2]:
+		_detail_box(
+			Vector3(0.06, 0.25, 0.045),
+			Vector3(grille_x, 1.88, 0.37),
+			plate_edge
+		)
+	for crest_y in [2.36, 2.51, 2.64]:
+		var crest_height: float = 0.18 + (crest_y - 2.36) * 0.35
+		_detail_box(
+			Vector3(0.18, crest_height, 0.2),
+			Vector3(0, crest_y, -0.04),
+			black_iron
+		)
+
+	# Plastron noir superposé, col lourd et tabard bordeaux déchiré.
+	_detail_box(Vector3(0.95, 0.25, 0.6), Vector3(0, 1.58, 0), plate)
+	_detail_box(Vector3(0.72, 0.18, 0.12), Vector3(0, 1.68, 0.31), plate_edge)
+	for chest_y in [1.45, 1.28, 1.11]:
+		_detail_box(
+			Vector3(0.9, 0.14, 0.59),
+			Vector3(0, chest_y, 0),
+			black_iron.lightened((1.45 - chest_y) * 0.11)
+		)
+	_detail_box(Vector3(0.48, 0.83, 0.07), Vector3(0, 0.78, 0.34), cloth)
+	for tabard_x in [-0.18, 0.0, 0.18]:
+		var tabard_strip := _detail_box(
+			Vector3(0.16, 0.43 + abs(tabard_x), 0.075),
+			Vector3(tabard_x, 0.36, 0.35),
+			cloth.darkened(abs(tabard_x) * 0.38)
+		)
+		tabard_strip.rotation.z = tabard_x * 0.22
+
+	# Épaulières massives et protections articulées.
+	for side in [-1.0, 1.0]:
+		for layer in range(4):
+			var fallen_plate := _detail_box(
+				Vector3(
+					0.48 - layer * 0.04,
+					0.19,
+					0.72 - layer * 0.055
+				),
+				Vector3(side * 0.62, 1.75 - layer * 0.12, -0.01),
+				plate_edge.darkened(layer * 0.09)
+			)
+			fallen_plate.rotation.z = -0.14 * side
+			fallen_plate.name = "FallenShoulderPlate"
+		for arm_y in [1.26, 1.08, 0.9]:
+			_detail_box(
+				Vector3(0.28, 0.16, 0.32),
+				Vector3(side * 0.56, arm_y, 0.01),
+				plate.darkened((1.26 - arm_y) * 0.25)
+			)
+	for leg_x in [-0.27, 0.27]:
+		_detail_box(Vector3(0.3, 0.2, 0.34), Vector3(leg_x, 0.7, 0.02), plate_edge)
+		_detail_box(Vector3(0.29, 0.3, 0.3), Vector3(leg_x, 0.45, 0), plate)
+		_detail_box(Vector3(0.4, 0.22, 0.48), Vector3(leg_x, 0.14, 0.11), black_iron)
+
+	# Harnais de cuir et doubles chaînes croisées sur le torse.
+	for strap_side in [-1.0, 1.0]:
+		var harness := _detail_box(
+			Vector3(0.13, 1.02, 0.07),
+			Vector3(strap_side * 0.2, 1.4, 0.34),
+			leather
+		)
+		harness.rotation.z = 0.54 * strap_side
+	for link in range(8):
+		var link_x := -0.35 + link * 0.1
+		var link_y := 1.72 - link * 0.09
+		var chain_left := _detail_box(
+			Vector3(0.1, 0.06, 0.045),
+			Vector3(link_x, link_y, 0.4),
+			chain_color
+		)
+		chain_left.rotation.z = -0.68
+		chain_left.name = "FallenChestChain"
+		var chain_right := _detail_box(
+			Vector3(0.1, 0.06, 0.045),
+			Vector3(-link_x, link_y, 0.42),
+			chain_color.darkened(0.08)
+		)
+		chain_right.rotation.z = 0.68
+
+	# Grand manteau en lambeaux et pavois porté dans le dos.
+	for cape_x in [-0.32, -0.16, 0.0, 0.16, 0.32]:
+		var cape_length: float = 1.0 + abs(cape_x) * 0.6
+		var cape_strip := _detail_box(
+			Vector3(0.17, cape_length, 0.07),
+			Vector3(cape_x, 0.68 - abs(cape_x) * 0.1, -0.36),
+			Color("#111215").lightened(abs(cape_x) * 0.05)
+		)
+		cape_strip.rotation.z = cape_x * 0.2
+	var back_shield := _detail_box(
+		Vector3(0.98, 1.22, 0.14),
+		Vector3(0, 1.16, -0.48),
+		plate
+	)
+	back_shield.name = "FallenBackShield"
+	_detail_box(Vector3(0.76, 0.96, 0.07), Vector3(0, 1.16, -0.57), cloth.darkened(0.12))
+	_detail_box(Vector3(0.18, 0.86, 0.05), Vector3(0, 1.16, -0.62), plate_edge)
+	_detail_box(Vector3(0.65, 0.16, 0.05), Vector3(0, 1.16, -0.625), plate_edge)
+	for shield_x in [-0.32, 0.32]:
+		for shield_y in [0.76, 1.54]:
+			_detail_box(
+				Vector3(0.07, 0.07, 0.04),
+				Vector3(shield_x, shield_y, -0.65),
+				rust
+			)
+
+func _build_fallen_greatsword() -> void:
+	weapon_parts.position.y = 0.08
+	weapon_parts.rotation.z = 1.05
+	var handle := _weapon_box(
+		Vector3(0.15, 0.48, 0.15),
+		Vector3(0, -0.08, 0),
+		Color("#3d271c")
+	)
+	handle.name = "FallenGreatswordHandle"
+	_weapon_box(Vector3(0.76, 0.15, 0.2), Vector3(0, -0.29, 0), Color("#5b4c42"))
+	_weapon_box(Vector3(0.2, 0.18, 0.2), Vector3(0, 0.18, 0), Color("#51453d"))
+	var blade := _weapon_box(
+		Vector3(0.3, 1.38, 0.15),
+		Vector3(0, -0.98, 0),
+		Color("#555557")
+	)
+	blade.name = "FallenGreatsword"
+	_weapon_box(Vector3(0.16, 1.16, 0.17), Vector3(0, -0.94, 0), Color("#343538"))
+	var tip := _weapon_box(
+		Vector3(0.25, 0.34, 0.14),
+		Vector3(0, -1.75, 0),
+		Color("#656569")
+	)
+	tip.rotation.z = 0.12
 
 func _build_sword_weapon() -> void:
 	var handle := _weapon_box(

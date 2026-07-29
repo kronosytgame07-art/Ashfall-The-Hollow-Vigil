@@ -80,6 +80,32 @@ func _run() -> void:
 		"Equipped weapon is not anchored to the right hand grip"
 	):
 		return
+	game.player.configure_race("Orque")
+	await process_frame
+	if not _require(
+		game.player.find_child("OrcHead", true, false) != null
+		and game.player.find_child("OrcTusk", true, false) != null
+		and game.player.find_child("OrcHarness", true, false) != null
+		and game.player.find_child("OrcWarAxe", true, false) != null
+		and not game.player.back_shield.visible
+		and not game.player.base_cape.visible,
+		"Orc concept silhouette is incomplete"
+	):
+		return
+	game.player.configure_race("Gobelin")
+	await process_frame
+	if not _require(
+		game.player.find_child("GoblinHead", true, false) != null
+		and game.player.find_child("GoblinEar", true, false) != null
+		and game.player.find_child("GoblinScrapShoulder", true, false) != null
+		and game.player.find_child("GoblinHatchet", true, false) != null
+		and not game.player.back_shield.visible
+		and not game.player.base_cape.visible,
+		"Goblin concept silhouette is incomplete"
+	):
+		return
+	game.player.configure_race("Humain")
+	await process_frame
 	var first_enemy := game.get_tree().get_first_node_in_group("enemy") as AshfallSoulsEnemy
 	if not _require(
 		is_instance_valid(first_enemy)
@@ -91,12 +117,15 @@ func _run() -> void:
 		return
 	var errant: AshfallSoulsEnemy
 	var hollow_raider: AshfallSoulsEnemy
+	var fallen: AshfallSoulsEnemy
 	for enemy_node in game.get_tree().get_nodes_in_group("enemy"):
 		var enemy := enemy_node as AshfallSoulsEnemy
 		if enemy.enemy_name == "Errant":
 			errant = enemy
 		elif enemy.enemy_name == "Pillard creux":
 			hollow_raider = enemy
+		elif enemy.enemy_name == "Déchu":
+			fallen = enemy
 	if not _require(
 		is_instance_valid(errant)
 		and errant.find_child("ErrantHood", true, false) != null
@@ -113,6 +142,16 @@ func _run() -> void:
 		and hollow_raider.find_child("HollowRaiderScytheBlade", true, false) != null
 		and hollow_raider.find_child("EnemySwordBlade", true, false) == null,
 		"Hollow Raider concept silhouette is incomplete"
+	):
+		return
+	if not _require(
+		is_instance_valid(fallen)
+		and fallen.find_child("FallenHelmet", true, false) != null
+		and fallen.find_child("FallenCyanEye", true, false) != null
+		and fallen.find_child("FallenBackShield", true, false) != null
+		and fallen.find_child("FallenGreatsword", true, false) != null
+		and fallen.find_child("EnemySwordBlade", true, false) == null,
+		"Fallen Knight concept silhouette is incomplete"
 	):
 		return
 	var grounded_y: float = game.player.global_position.y
