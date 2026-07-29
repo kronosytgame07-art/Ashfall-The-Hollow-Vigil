@@ -136,7 +136,7 @@ func _generate_loot() -> Array[Dictionary]:
 		metal = Color("#78aeca")
 	elif "braise" in enemy_name.to_lower() or "magma" in enemy_name.to_lower():
 		metal = Color("#b84a2d")
-	var weapon_kind := ["Épée", "Hache", "Marteau"][posmod(enemy_level + enemy_name.length(), 3)]
+	var weapon_kind: String = ["Épée", "Hache", "Marteau"][posmod(enemy_level + enemy_name.length(), 3)]
 	var drops: Array[Dictionary] = [{
 		"name": "%s de %s" % [weapon_kind, enemy_name],
 		"slot": "weapon",
