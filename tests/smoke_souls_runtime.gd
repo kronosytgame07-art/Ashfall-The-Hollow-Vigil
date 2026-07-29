@@ -68,6 +68,27 @@ func _run() -> void:
 		return
 	if not _require(game.player.health == game.player.MAX_HEALTH, "Player lost health while idle"):
 		return
+	if not _require(
+		is_instance_valid(game.player.left_arm_pivot)
+		and is_instance_valid(game.player.left_leg_pivot)
+		and is_instance_valid(game.player.right_leg_pivot),
+		"Player articulated limb pivots are missing"
+	):
+		return
+	if not _require(
+		game.player.weapon_model.get_parent() == game.player.weapon_grip,
+		"Equipped weapon is not anchored to the right hand grip"
+	):
+		return
+	var first_enemy := game.get_tree().get_first_node_in_group("enemy") as AshfallSoulsEnemy
+	if not _require(
+		is_instance_valid(first_enemy)
+		and is_instance_valid(first_enemy.left_arm_pivot)
+		and is_instance_valid(first_enemy.left_leg_pivot)
+		and first_enemy.weapon_grip.get_parent() == first_enemy.arm_pivot,
+		"Enemy articulated combat rig is incomplete"
+	):
+		return
 	var grounded_y: float = game.player.global_position.y
 	Input.action_press("jump")
 	await physics_frame
