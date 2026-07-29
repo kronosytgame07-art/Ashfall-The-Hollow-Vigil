@@ -43,6 +43,12 @@ const canvasBox = await page.locator("canvas").evaluate(element => {
   const rect = element.getBoundingClientRect();
   return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
 });
+// The first pointer interaction gives the exported Godot canvas browser focus.
+await page.mouse.click(
+  canvasBox.x + canvasBox.width * 0.5,
+  canvasBox.y + canvasBox.height * 0.25
+);
+await page.waitForTimeout(300);
 await page.mouse.click(
   canvasBox.x + (640 / 1280) * canvasBox.width,
   canvasBox.y + (459 / 720) * canvasBox.height
@@ -55,7 +61,7 @@ const changedRatio = compare(menuShot, worldShot);
 if (worldStats.nonDarkRatio < 0.01 || changedRatio < 0.03) {
   throw new Error(
     `The world did not become visibly rendered after Play: ` +
-    `${JSON.stringify({ menuStats, worldStats, changedRatio })}`
+    `${JSON.stringify({ canvasBox, menuStats, worldStats, changedRatio })}`
   );
 }
 
