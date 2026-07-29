@@ -215,6 +215,33 @@ func _limb_chain(name_: String, x: float, y: float, arm := false) -> Array[Node3
 	return [upper_pivot, joint]
 
 func _build_character() -> void:
+	var authored := load("res://models/units/worker.glb") as PackedScene
+	if authored:
+		var imported := authored.instantiate() as Node3D
+		add_child(imported)
+		_root_visual = imported.find_child("CharacterVisual", true, false) as Node3D
+		if not _root_visual:
+			_root_visual = imported
+		_root_visual.scale = Vector3.ONE * character_scale
+		_torso = _root_visual.find_child("Torso", true, false) as Node3D
+		_left_hip = _root_visual.find_child("LeftLeg", true, false) as Node3D
+		_right_hip = _root_visual.find_child("RightLeg", true, false) as Node3D
+		_left_shoulder = _root_visual.find_child("LeftArm", true, false) as Node3D
+		_right_shoulder = _root_visual.find_child("RightArm", true, false) as Node3D
+		_tool_pivot = _root_visual.find_child("Weapon", true, false) as Node3D
+		if _torso and _left_hip and _right_hip and _left_shoulder and _right_shoulder and _tool_pivot:
+			# The authored mesh keeps animation pivots while providing rounded,
+			# bevelled anatomy. Separate knee/elbow controls remain optional.
+			_left_knee = Node3D.new()
+			_right_knee = Node3D.new()
+			_left_elbow = Node3D.new()
+			_right_elbow = Node3D.new()
+			_left_hip.add_child(_left_knee)
+			_right_hip.add_child(_right_knee)
+			_left_shoulder.add_child(_left_elbow)
+			_right_shoulder.add_child(_right_elbow)
+			return
+		imported.queue_free()
 	_root_visual = Node3D.new()
 	_root_visual.name = "CharacterVisual"
 	_root_visual.scale = Vector3.ONE * character_scale
