@@ -67,7 +67,7 @@ func _build_environment() -> void:
 
 	var outer_ground := MeshInstance3D.new()
 	var outer_plane := PlaneMesh.new()
-	outer_plane.size = Vector2(78, 78)
+	outer_plane.size = Vector2(140, 140)
 	outer_ground.mesh = outer_plane
 	outer_ground.material_override = _outer_terrain_material()
 	$World.add_child(outer_ground)
@@ -153,22 +153,31 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	root.add_child(body)
 
 func _add_village_atmosphere() -> void:
-	var patches := _new_root("AshAndEarthPatches")
-	for i in range(18):
+	var patches := _new_root("ScorchedGroundTiles")
+	var ground_materials := [
+		_material(Color("#242126")),
+		_material(Color("#302a27")),
+		_material(Color("#3c3028")),
+		_material(Color("#252a22"))
+	]
+	for i in range(52):
 		var angle := float(i) * 2.399
-		var radius := 6.0 + float((i * 7) % 16)
-		var patch := MeshInstance3D.new()
-		var disc := CylinderMesh.new()
-		disc.top_radius = 0.38 + float(i % 4) * 0.19
-		disc.bottom_radius = disc.top_radius * 1.16
-		disc.height = 0.012
-		disc.radial_segments = 12
-		patch.mesh = disc
-		patch.position = Vector3(cos(angle) * radius, 0.018, sin(angle) * radius)
-		patch.scale.z = 0.55 + float(i % 3) * 0.13
-		patch.rotation.y = angle
-		patch.material_override = _material(Color("#44382f") if i % 4 == 0 else Color("#242127"))
-		patches.add_child(patch)
+		var radius := 4.0 + float((i * 17) % 43)
+		var tile_position := Vector3(cos(angle) * radius, 0.024, sin(angle) * radius)
+		var tile := _add_box(
+			patches,
+			tile_position,
+			Vector3(0.55 + float(i % 5) * 0.19, 0.018, 0.48 + float((i * 3) % 5) * 0.16),
+			ground_materials[i % ground_materials.size()]
+		)
+		tile.rotation.y = angle + float(i % 3) * 0.31
+		if i % 7 == 0:
+			var ember_material := _material(Color("#a93412"))
+			ember_material.emission_enabled = true
+			ember_material.emission = Color("#d83b12")
+			ember_material.emission_energy_multiplier = 1.8
+			var ember := _add_box(patches, tile_position + Vector3(0.0, 0.025, 0.0), Vector3(0.18, 0.018, 0.035), ember_material)
+			ember.rotation.y = angle - 0.4
 
 	for index in building_nodes:
 		var kind := str(state.buildings[int(index)].kind)
