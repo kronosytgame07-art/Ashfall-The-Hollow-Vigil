@@ -49,7 +49,9 @@ Refonte complète du prototype en jeu de stratégie **3D sous Godot 4**.
 - `models/buildings/` : les douze véritables modèles GLB des bâtiments ;
 - `models/obstacles/` : les modèles GLB de végétation morte, roches, os et cristaux ;
 - `models/environment/mountain_ring.glb` : terrain extérieur montagneux en relief ;
-- `tools/generate_models.mjs` : forge déterministe des assets GLB ;
+- `tools/generate_authored_assets.py` : génération Blender des bâtiments,
+  obstacles et personnages détaillés (courbes, biseaux et silhouettes organiques) ;
+- `tools/generate_models.mjs` : forge de secours pour les anciens assets GLB ;
 - `scripts/villager.gd` : villageois articulé, locomotion dans toutes les directions
   et animation de travail ;
 - `scripts/combat_unit.gd` : troupes 3D, déplacements et attaques.

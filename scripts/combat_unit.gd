@@ -136,6 +136,29 @@ func _pivot_limb(parent: Node3D, name_: String, pos: Vector3, size: Vector3, col
 
 func _build_model() -> void:
 	var scale_factor := 1.22 if kind == UnitKind.BRUTE else 1.0
+	var authored_paths := {
+		UnitKind.WARRIOR: "res://models/units/warrior.glb",
+		UnitKind.ARCHER: "res://models/units/archer.glb",
+		UnitKind.BRUTE: "res://models/units/brute.glb",
+		UnitKind.HERO: "res://models/units/hero.glb",
+	}
+	var authored := load(authored_paths[kind]) as PackedScene
+	if authored:
+		var imported := authored.instantiate() as Node3D
+		add_child(imported)
+		_visual = imported.find_child("CharacterVisual", true, false) as Node3D
+		if not _visual:
+			_visual = imported
+		_visual.scale = Vector3.ONE * scale_factor * camp_scale
+		_torso = _visual.find_child("Torso", true, false) as Node3D
+		_left_leg = _visual.find_child("LeftLeg", true, false) as Node3D
+		_right_leg = _visual.find_child("RightLeg", true, false) as Node3D
+		_left_arm = _visual.find_child("LeftArm", true, false) as Node3D
+		_right_arm = _visual.find_child("RightArm", true, false) as Node3D
+		_weapon = _visual.find_child("Weapon", true, false) as Node3D
+		if _torso and _left_leg and _right_leg and _left_arm and _right_arm and _weapon:
+			return
+		imported.queue_free()
 	_visual = Node3D.new()
 	_visual.scale = Vector3.ONE * scale_factor * camp_scale
 	add_child(_visual)
