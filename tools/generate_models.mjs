@@ -117,6 +117,21 @@ function tiledRoof(m,{halfW,depth,eaveY,ridgeY,rows=10,columns=12}){
     m.beam3("roof",[0,ridgeY+.09,z0],[0,ridgeY+.09,z1],.19);
   }
 }
+function conicalShingles(m,{cx=0,cz=0,radius,eaveY,apexY,rings=7,segments=18}){
+  const height=apexY-eaveY,slope=Math.atan2(height,radius),radial=radius/rings;
+  for(let ring=0;ring<rings;ring++){
+    const distance=radius-(ring+.5)*radial;
+    const y=eaveY+height*(1-distance/radius);
+    const count=Math.max(8,Math.round(segments*(distance/radius)));
+    for(let segment=0;segment<count;segment++){
+      const angle=segment*TAU/count+(ring%2)*TAU/count*.5;
+      const width=Math.max(.16,TAU*distance/count*1.16);
+      m.boxEuler("roof",[cx+Math.sin(angle)*distance,y+.04,cz+Math.cos(angle)*distance],
+        [width,.085,radial*1.25],slope,angle,0);
+    }
+  }
+  m.cone("iron",[cx,apexY+.22,cz],.12,.48,8);
+}
 function gothicDress(m,w,d,height=2.2){
   // Contreforts, ferrures, braseros et pieux donnent à chaque silhouette une
   // lecture dark-fantasy cohérente sans dépasser son empreinte de grille.
@@ -227,14 +242,18 @@ function mine(){
 }
 function sawmill(){
   const m=new Model("Sawmill");base(m,3.9,3.9);m.box("wood",[.35,1.25,-.25],[2.65,1.7,2.35]);
-  timberFrame(m,2.7,2.4,1.85);m.cone("roof",[.35,2.75,-.25],2.05,1.35,4);
+  timberFrame(m,2.7,2.4,1.85);
+  m.roofPanel("roof",-1,3.35,2.08,1.78,2.85,.16);m.roofPanel("roof",1,3.35,2.08,1.78,2.85,.16);
+  tiledRoof(m,{halfW:1.78,depth:2.85,eaveY:2.14,ridgeY:3.35,rows:8,columns:9});
   for(let i=0;i<5;i++){m.cylinder("wood",[-1.35,.53,-1.25+i*.48],.17,2.5,10); }
   m.cylinder("iron",[1.0,1.15,1.22],.72,.09,24);m.box("darkwood",[1.0,.62,1.22],[1.75,.3,.7]);
   gothicDress(m,3.9,3.9,2.8);for(const z of [-1.45,1.45])m.beam3("iron",[-1.5,.55,z],[1.5,.55,z],.07);return m;
 }
 function barracks(){
   const m=new Model("Barracks");base(m,4.0,4.0);m.box("stone",[0,1.55,0],[3.2,2.25,2.9]);
-  timberFrame(m,3.25,2.95,2.45);m.cone("roof",[0,3.25,0],2.45,1.5,4);
+  timberFrame(m,3.25,2.95,2.45);
+  m.roofPanel("roof",-1,4.05,2.55,2.05,3.35,.18);m.roofPanel("roof",1,4.05,2.55,2.05,3.35,.18);
+  tiledRoof(m,{halfW:2.05,depth:3.35,eaveY:2.62,ridgeY:4.05,rows:9,columns:10});
   m.box("darkwood",[0,1.28,1.5],[.82,1.72,.14]);m.box("cloth",[0,3.75,1.72],[1.4,.62,.05]);
   for(const x of [-1.35,1.35])torch(m,x,1.55,1.62);
   gothicDress(m,4,4,3.4);for(const x of [-.9,0,.9])m.box("iron",[x,2.15,1.52],[.08,.72,.1]);
@@ -245,17 +264,21 @@ function barracks(){
 function camp(){
   const m=new Model("Ashen Legion Camp");
   m.box("earth",[0,.1,0],[5.75,.2,5.75]);
-  for(let i=0;i<18;i++){const a=i*TAU/18,r=2.55+(i%3)*.08;m.box(i%2?"stone":"basalt",[Math.cos(a)*r,.24,Math.sin(a)*r],[.48,.28,.36],-a)}
-  for(const [x,z,r] of [[-1.95,-1.82,.12],[1.95,-1.78,-.1],[-2.0,1.86,-.08],[2.04,1.82,.09]]){
-    m.cone("cloth",[x,1.0,z],.82,1.58,4);m.box("darkwood",[x,.23,z],[1.42,.14,1.42],r);
-    m.box("iron",[x,1.12,z],[.07,1.85,.07]);
+  // Camp ouvert centré sur le brasier : aucune tente ne masque les troupes.
+  for(let i=0;i<16;i++){const a=i*TAU/16,r=.92;m.box(i%3?"stone":"stone2",[Math.cos(a)*r,.25,Math.sin(a)*r],[.38,.3,.3],-a)}
+  for(let i=0;i<6;i++){const a=i*TAU/6;m.boxEuler("wood",[Math.sin(a)*.3,.38,Math.cos(a)*.3],[.18,.16,1.35],0,a+.48,0)}
+  for(let i=0;i<7;i++){const a=i*TAU/7;m.cone("ember",[Math.cos(a)*.28,.58+Math.sin(i)*.06,Math.sin(a)*.28],.18,.78+(i%2)*.2,9)}
+  m.cone("ember",[0,1.04,0],.28,1.35,10);
+  // Bancs et râteliers restent en périphérie pour laisser cinq anneaux libres.
+  for(const [x,z,ry] of [[-2.1,0,0],[2.1,0,0],[0,2.15,Math.PI/2]]){
+    m.box("wood",[x,.38,z],[1.15,.16,.34],ry);m.box("darkwood",[x,.18,z],[.16,.45,.16],ry);
   }
-  m.cylinder("stone",[0,.32,0],.82,.34,14);m.cylinder("ember",[0,.52,0],.46,.26,12,.28);
-  for(let i=0;i<5;i++){const a=i*TAU/5;m.box("wood",[Math.cos(a)*.38,.55,Math.sin(a)*.38],[.12,.12,1.0],a)}
-  for(let i=0;i<12;i++){const a=i*TAU/12,r=2.62;m.cone("darkwood",[Math.cos(a)*r,.62,Math.sin(a)*r],.11,1.18,6)}
-  for(const x of [-1.25,1.25]){m.box("wood",[x,.48,.15],[1.15,.14,.32]);m.box("iron",[x,.67,.15],[.7,.08,.08]);}
-  m.box("iron",[0,1.35,-2.5],[.08,2.3,.08]);m.box("cloth",[.38,1.85,-2.5],[.68,.82,.05]);
-  m.box("gold",[.38,1.86,-2.54],[.08,.46,.03]);
+  for(const x of [-2.35,2.35]){
+    m.box("wood",[x,1.05,-1.65],[.12,1.75,.12]);m.box("wood",[x,1.62,-1.65],[.72,.1,.12]);
+    for(const dx of [-.22,.22])m.beam3("iron",[x+dx,.22,-1.65],[x+dx,1.72,-1.65],.045);
+  }
+  m.box("iron",[0,1.45,-2.42],[.08,2.55,.08]);m.box("cloth",[.38,2.0,-2.42],[.68,.9,.05]);
+  m.box("gold",[.38,2.0,-2.46],[.08,.5,.03]);
   return m;
 }
 function altar(){
@@ -264,19 +287,23 @@ function altar(){
   m.cylinder("soul",[0,2.08,0],.38,.9,12,0);gothicDress(m,3.9,3.9,2.6);return m;
 }
 function forge(){
-  const m=new Model("Forge");base(m,3.9,3.9);m.box("stone",[0,1.35,0],[3.0,2.0,2.7]);m.cone("roof",[0,2.8,0],2.2,1.3,4);
+  const m=new Model("Forge");base(m,3.9,3.9);m.box("stone",[0,1.35,0],[3.0,2.0,2.7]);
+  m.roofPanel("roof",-1,3.65,2.3,1.85,3.05,.16);m.roofPanel("roof",1,3.65,2.3,1.85,3.05,.16);
+  tiledRoof(m,{halfW:1.85,depth:3.05,eaveY:2.36,ridgeY:3.65,rows:8,columns:9});
   m.cylinder("stone2",[.95,2.4,-.6],.36,3.4,10,.3);m.box("iron",[-.65,.78,1.35],[1.05,.28,.52]);
   m.box("ember",[-.65,.56,1.35],[.72,.12,.36]);torch(m,1.25,1.45,1.48);
   gothicDress(m,3.9,3.9,3.0);for(const y of [1.2,1.65,2.1])m.box("iron",[.96,y,-.25],[.78,.07,.82]);return m;
 }
 function tower(){
   const m=new Model("Watch Tower");base(m,3.9,3.9);m.cylinder("stone",[0,2.6,0],1.42,4.65,12,1.25);
-  m.cylinder("stone2",[0,4.82,0],1.7,.45,12);crenels(m,1.6,5.28,12);m.cone("roof",[0,5.78,0],1.65,1.45,12);
+  m.cylinder("stone2",[0,4.82,0],1.7,.45,16);crenels(m,1.6,5.28,12);
+  conicalShingles(m,{radius:1.72,eaveY:5.18,apexY:6.62,rings:8,segments:22});
   windowGlow(m,0,3.1,1.33,.3,.7);torch(m,1.25,4.85,1.1);gothicDress(m,3.9,3.9,4.8);
   for(let i=0;i<8;i++){const a=i*TAU/8;m.box("iron",[Math.cos(a)*1.47,3.8,Math.sin(a)*1.47],[.08,1.3,.08],-a)}return m;
 }
 function laboratory(){
-  const m=new Model("Laboratory");base(m,3.9,3.9);m.cylinder("stone",[0,1.55,0],1.45,2.45,12,1.32);m.cone("roof",[0,3.25,0],1.9,1.2,12);
+  const m=new Model("Laboratory");base(m,3.9,3.9);m.cylinder("stone",[0,1.55,0],1.45,2.45,16,1.32);
+  conicalShingles(m,{radius:1.85,eaveY:2.72,apexY:4.02,rings:7,segments:20});
   for(const [x,c] of [[-.72,"soul"],[.72,"ember"]]){m.cylinder("iron",[x,1.22,1.35],.3,.9,12,.22);m.cylinder(c,[x,1.52,1.35],.18,.42,10,.15)}
   m.cylinder("iron",[.95,2.55,-.45],.22,2.5,10,.18);gothicDress(m,3.9,3.9,3.2);
   for(let i=0;i<5;i++){const a=i*TAU/5;m.cone("crystal",[Math.cos(a)*1.15,.62,Math.sin(a)*1.15],.12,.55,6)}return m;
@@ -295,7 +322,8 @@ function yard(){
   gothicDress(m,3.9,3.9,2.5);m.beam3("iron",[-1.25,2.65,-1.25],[1.25,3.55,-1.25],.09);
   m.beam3("wood",[1.2,.4,-1.2],[1.2,3.45,-1.2],.2);m.beam3("wood",[1.2,3.45,-1.2],[-.75,3.45,-1.2],.18);
   m.box("iron",[-.68,2.62,-1.2],[.07,1.62,.07]);m.box("stone",[-.68,1.72,-1.2],[.52,.42,.5]);
-  m.roofPanel("cloth",-1,2.75,2.12,1.55,2.7,.12);m.roofPanel("cloth",1,2.75,2.12,1.55,2.7,.12);
+  m.roofPanel("roof",-1,2.82,2.08,1.55,2.7,.12);m.roofPanel("roof",1,2.82,2.08,1.55,2.7,.12);
+  tiledRoof(m,{halfW:1.55,depth:2.7,eaveY:2.13,ridgeY:2.82,rows:6,columns:8});
   for(const z of [-.8,0,.8]){m.box("wood",[-1.5,.45,z],[.72,.22,.28]);m.box("iron",[-1.5,.67,z],[.38,.08,.08]);}return m;
 }
 function wall(){
