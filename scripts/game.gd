@@ -24,6 +24,8 @@ var selection_info: Label
 var action_button: Button
 var train_button: Button
 var raid_button: Button
+var build_panel: PanelContainer
+var detail_panel: PanelContainer
 var autosave_clock := 0.0
 
 func _ready() -> void:
@@ -37,6 +39,8 @@ func _ready() -> void:
 	else:
 		_create_new_village()
 	_spawn_villagers()
+	_add_village_paths()
+	_add_village_atmosphere()
 	_refresh_ui()
 
 func _process(delta: float) -> void:
@@ -77,32 +81,34 @@ func _build_environment() -> void:
 	var environment := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("#08070a")
+	env.background_color = Color("#09080b")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#777189")
-	env.ambient_light_energy = 0.72
+	env.ambient_light_color = Color("#6d7480")
+	env.ambient_light_energy = 0.48
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.glow_enabled = true
 	env.fog_enabled = true
-	env.fog_light_color = Color("#211d29")
-	env.fog_density = 0.007
+	env.fog_light_color = Color("#17131b")
+	env.fog_density = 0.004
 	environment.environment = env
 	$World.add_child(environment)
 	var moon := DirectionalLight3D.new()
 	moon.rotation_degrees = Vector3(-54, -32, 0)
-	moon.light_color = Color("#aab7df")
-	moon.light_energy = 1.4
+	moon.light_color = Color("#c3c8d1")
+	moon.light_energy = 1.05
 	moon.shadow_enabled = true
 	$World.add_child(moon)
 	var ground := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(74, 74)
 	ground.mesh = plane
-	ground.material_override = _material(Color("#24232a"))
+	ground.material_override = _terrain_material()
 	$World.add_child(ground)
 	var mountain_scene := load("res://models/environment/mountain_ring.glb") as PackedScene
 	if mountain_scene:
-		$World.add_child(mountain_scene.instantiate())
+		var mountains := mountain_scene.instantiate()
+		mountains.scale = Vector3(0.9, 0.72, 0.9)
+		$World.add_child(mountains)
 	grid_root = _new_root("Grid")
 	buildings_root = _new_root("Buildings")
 	obstacles_root = _new_root("Obstacles")
@@ -122,8 +128,29 @@ func _material(color: Color, metallic := 0.0) -> StandardMaterial3D:
 	mat.metallic = metallic
 	return mat
 
+func _terrain_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color("#262229")
+	mat.roughness = 0.98
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.frequency = 0.055
+	noise.fractal_octaves = 4
+	var texture := NoiseTexture2D.new()
+	texture.width = 512
+	texture.height = 512
+	texture.seamless = true
+	texture.noise = noise
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([Color("#151419"), Color("#2d292e"), Color("#49382e")])
+	gradient.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
+	texture.color_ramp = gradient
+	mat.albedo_texture = texture
+	mat.uv1_scale = Vector3(5.0, 5.0, 5.0)
+	return mat
+
 func _build_grid() -> void:
-	var line_mat := _material(Color(0.28, 0.25, 0.31, 0.42))
+	var line_mat := _material(Color(0.34, 0.29, 0.31, 0.19))
 	line_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	for i in range(GRID_SIZE + 1):
@@ -144,10 +171,10 @@ func _add_box(parent: Node, pos: Vector3, size: Vector3, mat: Material) -> MeshI
 func _panel() -> PanelContainer:
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.045, 0.037, 0.052, 0.92)
-	style.border_color = Color("#8b5b2d")
+	style.bg_color = Color(0.028, 0.025, 0.032, 0.88)
+	style.border_color = Color("#6f4729")
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
+	style.set_corner_radius_all(10)
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 10
@@ -161,21 +188,31 @@ func _build_interface() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$Interface.add_child(hud)
 	var top := _panel()
-	top.position = Vector2(16, 14)
-	top.size = Vector2(620, 72)
+	top.position = Vector2(14, 12)
+	top.size = Vector2(570, 62)
 	hud.add_child(top)
 	var top_box := VBoxContainer.new()
 	top.add_child(top_box)
 	var title := Label.new()
 	title.text = "ASHFALL  •  THE HOLLOW VIGIL"
-	title.add_theme_font_size_override("font_size", 21)
+	title.add_theme_font_size_override("font_size", 17)
 	top_box.add_child(title)
 	resource_label = Label.new()
 	top_box.add_child(resource_label)
-	var build_panel := _panel()
-	build_panel.position = Vector2(16, 96)
-	build_panel.size = Vector2(510, 150)
+	var build_toggle := Button.new()
+	build_toggle.text = "⚒  CONSTRUIRE"
+	build_toggle.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	build_toggle.position = Vector2(14, -64)
+	build_toggle.size = Vector2(170, 46)
+	build_toggle.mouse_filter = Control.MOUSE_FILTER_STOP
+	hud.add_child(build_toggle)
+	build_panel = _panel()
+	build_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	build_panel.position = Vector2(14, -258)
+	build_panel.size = Vector2(470, 184)
+	build_panel.visible = false
 	hud.add_child(build_panel)
+	build_toggle.pressed.connect(func(): build_panel.visible = not build_panel.visible)
 	var build_box := VBoxContainer.new()
 	build_panel.add_child(build_box)
 	var build_title := Label.new()
@@ -189,37 +226,45 @@ func _build_interface() -> void:
 		button.text = "%s %d×%d" % [BuildingFactory.label(kind), fp.x, fp.y]
 		button.pressed.connect(_begin_placement.bind(kind))
 		buttons.add_child(button)
-	var detail := _panel()
-	detail.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	detail.position = Vector2(-326, 14)
-	detail.size = Vector2(310, 230)
-	hud.add_child(detail)
+	detail_panel = _panel()
+	detail_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	detail_panel.position = Vector2(-304, 12)
+	detail_panel.size = Vector2(290, 218)
+	detail_panel.visible = false
+	hud.add_child(detail_panel)
 	var detail_box := VBoxContainer.new()
-	detail.add_child(detail_box)
+	detail_panel.add_child(detail_box)
 	selection_title = Label.new()
 	selection_title.text = "VILLAGE"
 	selection_title.add_theme_font_size_override("font_size", 19)
 	detail_box.add_child(selection_title)
 	selection_info = Label.new()
 	selection_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	selection_info.custom_minimum_size.y = 82
+	selection_info.custom_minimum_size.y = 72
 	detail_box.add_child(selection_info)
 	action_button = Button.new()
 	action_button.text = "Améliorer"
 	action_button.pressed.connect(_selected_action)
 	detail_box.add_child(action_button)
+	var army_panel := _panel()
+	army_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	army_panel.position = Vector2(-288, -116)
+	army_panel.size = Vector2(274, 98)
+	hud.add_child(army_panel)
+	var army_box := VBoxContainer.new()
+	army_panel.add_child(army_box)
 	train_button = Button.new()
 	train_button.text = "Entraîner un guerrier"
 	train_button.pressed.connect(_train_warrior)
-	detail_box.add_child(train_button)
+	army_box.add_child(train_button)
 	raid_button = Button.new()
 	raid_button.text = "Lancer une expédition"
 	raid_button.pressed.connect(_launch_raid)
-	detail_box.add_child(raid_button)
+	army_box.add_child(raid_button)
 	status_label = Label.new()
 	status_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	status_label.position = Vector2(16, -54)
-	status_label.size = Vector2(840, 38)
+	status_label.position = Vector2(200, -54)
+	status_label.size = Vector2(720, 38)
 	status_label.add_theme_color_override("font_color", Color("#e8c58d"))
 	hud.add_child(status_label)
 
@@ -277,7 +322,7 @@ func _spawn_building_node(index: int) -> void:
 	_update_one_building_visual(index, _now())
 
 func _add_footprint_base(building: Node3D, fp: Vector2i) -> void:
-	var base := _add_box(building, Vector3(0, 0.06, 0), Vector3(fp.x * TILE_SIZE * 0.96, 0.12, fp.y * TILE_SIZE * 0.96), _material(Color("#28242b")))
+	var base := _add_box(building, Vector3(0, 0.045, 0), Vector3(fp.x * TILE_SIZE * 0.9, 0.09, fp.y * TILE_SIZE * 0.9), _material(Color("#201d22")))
 	building.move_child(base, 0)
 
 func _add_building_collision(building: Node3D, fp: Vector2i, index: int) -> void:
@@ -433,6 +478,49 @@ func _launch_raid() -> void:
 	state.save()
 	_refresh_ui()
 
+func _add_village_paths() -> void:
+	if building_nodes.is_empty():
+		return
+	var hub := Vector3.ZERO
+	for index in building_nodes:
+		if str(state.buildings[int(index)].kind) == "town_hall":
+			hub = building_nodes[index].global_position
+			break
+	var path_root := _new_root("VillagePaths")
+	var path_mat := _material(Color("#40342d"))
+	for index in building_nodes:
+		var destination: Vector3 = building_nodes[index].global_position
+		if destination.distance_to(hub) < 1.0:
+			continue
+		var direction := destination - hub
+		direction.y = 0.0
+		var length := maxf(0.0, direction.length() - 3.0)
+		if length < 1.0:
+			continue
+		var midpoint := hub + direction.normalized() * (length * 0.5 + 1.5)
+		var strip := _add_box(path_root, midpoint + Vector3(0, 0.025, 0), Vector3(1.05, 0.045, length), path_mat)
+		strip.rotation.y = atan2(direction.x, direction.z)
+		for stone_index in range(floori(length / 1.25)):
+			var t := (stone_index + 0.5) / maxf(1.0, length / 1.25)
+			var stone_position := hub.lerp(destination, t)
+			var side := sin(float(stone_index * 17 + index * 3)) * 0.34
+			var right := Vector3(direction.z, 0, -direction.x).normalized()
+			_add_box(path_root, stone_position + right * side + Vector3(0, 0.055, 0), Vector3(0.72, 0.075, 0.5), _material(Color("#574b43")))
+
+func _add_village_atmosphere() -> void:
+	for index in building_nodes:
+		var kind := str(state.buildings[int(index)].kind)
+		if kind != "town_hall" and kind != "army_camp" and kind != "forge":
+			continue
+		var light := OmniLight3D.new()
+		light.name = kind.to_pascal_case() + "WarmLight"
+		light.position = building_nodes[index].global_position + Vector3(0, 2.2 if kind == "town_hall" else 1.1, 0)
+		light.light_color = Color("#ff7a2f")
+		light.light_energy = 3.2 if kind == "town_hall" else 2.1
+		light.omni_range = 8.0 if kind == "town_hall" else 5.0
+		light.shadow_enabled = true
+		$World.add_child(light)
+
 func _spawn_villagers() -> void:
 	for i in range(state.builders_total + 3):
 		var villager := AshfallVillager.new()
@@ -444,13 +532,13 @@ func _spawn_villagers() -> void:
 		var unit := AshfallCombatUnit.new()
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR if i % 3 else AshfallCombatUnit.UnitKind.ARCHER
 		unit.position = _camp_unit_position(i, camp_center)
+		unit.rotation.y = atan2(camp_center.x - unit.position.x, camp_center.z - unit.position.z)
 		troops_root.add_child(unit)
 
 func _army_camp_center() -> Vector3:
 	for index in building_nodes:
 		if str(state.buildings[int(index)].kind) == "army_camp":
-			# Le GLB du camp place son feu principal à +1,35 m sur X/Z.
-			return building_nodes[index].global_position + Vector3(1.35, 0.0, 1.35)
+			return building_nodes[index].global_position
 	return Vector3(9.0, 0.0, 9.0)
 
 func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
@@ -458,8 +546,9 @@ func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
 	var ring := 0 if slot < 8 else 1 + (slot - 8) / 16
 	var ring_slot := slot if ring == 0 else posmod(slot - 8, 16)
 	var ring_count := 8 if ring == 0 else 16
-	var angle := TAU * float(ring_slot) / float(ring_count) + ring * 0.16
-	var radius := 1.25 + ring * CAMP_UNIT_SPACING
+	var organic_offset := sin(float(slot * 19 + 7)) * 0.15
+	var angle := TAU * float(ring_slot) / float(ring_count) + ring * 0.16 + organic_offset
+	var radius := 1.25 + ring * CAMP_UNIT_SPACING + cos(float(slot * 11)) * 0.16
 	return center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 
 func _assign_builder(target: Vector3) -> void:
@@ -512,10 +601,12 @@ func _refresh_ui() -> void:
 	]
 	train_button.text = "Entraîner guerrier (100 or / 45 bois)  •  Armée %d" % int(state.army.warrior)
 	if selected_id < 0 or selected_id >= state.buildings.size():
+		detail_panel.visible = false
 		selection_title.text = "VILLAGE"
 		selection_info.text = "Sélectionnez un bâtiment pour collecter sa production ou l'améliorer.\nLa progression est sauvegardée automatiquement."
 		action_button.visible = false
 		return
+	detail_panel.visible = true
 	var data := state.buildings[selected_id]
 	var kind := str(data.kind)
 	var remaining := maxi(0, int(data.finish_at) - now)
