@@ -49,10 +49,7 @@ await page.mouse.click(
   canvasBox.y + canvasBox.height * 0.25
 );
 await page.waitForTimeout(300);
-await page.mouse.click(
-  canvasBox.x + (640 / 1280) * canvasBox.width,
-  canvasBox.y + (459 / 720) * canvasBox.height
-);
+await page.keyboard.press("Enter");
 await page.waitForTimeout(6_000);
 const worldShot = await page.screenshot();
 fs.writeFileSync("test-results/world.png", worldShot);
