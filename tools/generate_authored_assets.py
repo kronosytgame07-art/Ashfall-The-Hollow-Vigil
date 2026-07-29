@@ -14,6 +14,7 @@ COLORS = {
     "gold": (0.72, 0.32, 0.035, 1), "ember": (1.0, 0.08, 0.005, 1),
     "soul": (0.34, 0.035, 0.78, 1), "bone": (0.55, 0.49, 0.38, 1),
     "skin": (0.42, 0.22, 0.12, 1), "leather": (0.17, 0.075, 0.035, 1),
+    "moss": (0.075, 0.12, 0.065, 1), "ash": (0.055, 0.05, 0.06, 1),
 }
 MATS = {}
 
@@ -134,6 +135,133 @@ def stone_foundation(size):
                      (0.48, 0.25 + (i % 3)*0.05, 0.38), "stone_light", 100+i)
 
 
+def keep_world_parent(obj, parent):
+    world = obj.matrix_world.copy()
+    obj.parent = parent
+    obj.matrix_world = world
+    return obj
+
+
+def progression_group(level):
+    group = bpy.data.objects.new(f"UpgradeLevel{level}", None)
+    bpy.context.collection.objects.link(group)
+    return group
+
+
+def crystal(name, loc, radius, height, material="soul", sides=7, rot=0):
+    verts = []
+    for ring_y, ring_radius in ((0, radius*.72), (.12*height, radius), (.78*height, radius*.68)):
+        for i in range(sides):
+            a = i*math.tau/sides + rot
+            verts.append((loc[0]+math.cos(a)*ring_radius, loc[1]+ring_y, loc[2]+math.sin(a)*ring_radius))
+    verts.append((loc[0], loc[1]+height, loc[2]))
+    faces = []
+    for ring in range(2):
+        for i in range(sides):
+            n=(i+1)%sides
+            faces.append((ring*sides+i, ring*sides+n, (ring+1)*sides+n, (ring+1)*sides+i))
+    for i in range(sides):
+        n=(i+1)%sides
+        faces.append((2*sides+i,2*sides+n,3*sides))
+    mesh=bpy.data.meshes.new(name)
+    mesh.from_pydata(verts,[],faces); mesh.update()
+    obj=bpy.data.objects.new(name,mesh); bpy.context.collection.objects.link(obj)
+    return finish(obj,material,.025)
+
+
+def build_town_hall():
+    reset()
+    stone_foundation(5.5)
+    cube("KeepLower",(0,1.05,0),(4.15,1.8,3.75),"stone",.24)
+    cube("KeepUpper",(0,2.15,-.2),(3.25,1.25,3.0),"wood",.18)
+    roof("GreatHallRoof",(0,2.78,-.2),4.25,3.75,1.35,"cloth")
+    cube("GrandDoor",(0,.95,1.94),(1.05,1.6,.18),"wood_dark",.12)
+    for y in (.48,.92,1.36):
+        cube("DoorBand",(0,y,2.05),(.98,.075,.06),"iron",.025)
+    for x in (-1.65,1.65):
+        curve_beam("HallPost",[(x,.25,1.75),(x,2.72,1.75)],.12,"wood_dark")
+        sphere("TorchBowl",(x,1.25,2.02),(.18,.12,.18),"iron")
+        sphere("TorchFlame",(x,1.48,2.02),(.10,.26,.10),"ember",2)
+    for x in (-1.25,1.25):
+        cube("WindowFrame",(x,1.93,1.39),(.58,.72,.12),"iron",.08)
+        sphere("WindowGlow",(x,1.93,1.48),(.21,.28,.07),"ember",2)
+    return "models/buildings/town_hall.glb"
+
+
+def add_level_progression(kind):
+    radius = 2.55 if kind == "town_hall" else 1.72 if kind != "wall" else .85
+    for level in range(2, 11):
+        group = progression_group(level)
+        angle = (level-2)*math.tau/9 + .35
+        x, z = math.cos(angle)*radius, math.sin(angle)*radius
+        if kind == "town_hall":
+            if level in (2,3):
+                for side in (-1,1):
+                    keep_world_parent(cube(f"L{level}Buttress",(side*(1.8+.12*level),.7,z*.18),
+                                           (.48,1.35,.72),"stone_light",.12),group)
+            elif level in (4,5):
+                keep_world_parent(cyl(f"L{level}CornerTower",(x*.78,2.0,z*.78),.55,3.4,
+                                      "stone",18,bevel=.09),group)
+                keep_world_parent(roof(f"L{level}TowerRoof",(x*.78,3.7,z*.78),1.4,1.4,.85,"cloth"),group)
+            elif level == 6:
+                for side in (-1,1):
+                    keep_world_parent(curve_beam(f"L6BannerPole{side}",[(side*2.15,.3,0),(side*2.15,4.6,0)],.05,"iron"),group)
+                    keep_world_parent(cube(f"L6Banner{side}",(side*1.83,3.75,0),(.56,1.25,.05),"cloth",.03),group)
+            elif level in (7,8):
+                for i in range(4):
+                    a=i*math.tau/4+level*.2
+                    keep_world_parent(crystal(f"L{level}SoulSpire{i}",(math.cos(a)*2.05,.25,math.sin(a)*2.05),
+                                              .18,.9+.18*(level-7),"soul",7,a),group)
+            elif level == 9:
+                for i in range(8):
+                    a=i*math.tau/8
+                    keep_world_parent(cyl(f"L9CrownSpike{i}",(math.cos(a)*1.45,4.0,math.sin(a)*1.25),
+                                          .09,.72,"iron",8,rot=(0,0,a)),group)
+            else:
+                keep_world_parent(sphere("L10Heart",(0,4.55,0),(.42,.62,.42),"soul",3),group)
+                for i in range(3):
+                    keep_world_parent(cyl(f"L10Halo{i}",(0,4.55,0),.72+i*.13,.025,"gold",24,
+                                          rot=(math.pi/2+i*.4,0,i*.7)),group)
+        elif kind == "army_camp":
+            if level <= 4:
+                keep_world_parent(curve_beam(f"L{level}FireLog",[(x*.45,.18,z*.45),(-x*.2,.2,-z*.2)],.10,"wood"),group)
+                keep_world_parent(sphere(f"L{level}Coal",(x*.18,.22,z*.18),(.22,.12,.22),"ember",2),group)
+            elif level <= 7:
+                keep_world_parent(cyl(f"L{level}Shield",(x,.62,z),.38,.11,"iron",20,rot=(math.pi/2,0,angle)),group)
+                keep_world_parent(curve_beam(f"L{level}Spear",[(x,.15,z),(x,2.55,z)],.035,"iron"),group)
+            else:
+                keep_world_parent(curve_beam(f"L{level}Totem",[(x,.1,z),(x,3.1,z)],.09,"wood_dark"),group)
+                keep_world_parent(cube(f"L{level}WarBanner",(x+.28,2.45,z),(.5,1.0,.04),"cloth",.03),group)
+        elif kind == "gold_mine":
+            if level <= 4:
+                keep_world_parent(organic_rock(f"L{level}Ore",(x,.35,z),(.42,.38,.42),"stone",900+level),group)
+                keep_world_parent(crystal(f"L{level}GoldVein",(x,.45,z),.12,.55,"gold",7,angle),group)
+            elif level <= 7:
+                keep_world_parent(curve_beam(f"L{level}Rail",[(x,.1,z),(x*.4,.12,z*.4)],.04,"iron"),group)
+                keep_world_parent(cyl(f"L{level}Gear",(x,1.0,z),.34,.10,"iron",20,rot=(math.pi/2,0,angle)),group)
+            else:
+                keep_world_parent(curve_beam(f"L{level}Crane",[(x,.1,z),(x,2.8,z),(x*.2,3.0,z*.2)],.075,"iron"),group)
+                keep_world_parent(sphere(f"L{level}OreCart",(x*.35,.55,z*.35),(.5,.28,.34),"gold",2),group)
+        elif kind in ("barracks","builders_yard"):
+            if level <= 4:
+                keep_world_parent(curve_beam(f"L{level}Reinforcement",[(x,.15,z),(x,2.25,z)],.08,"wood_dark"),group)
+                keep_world_parent(cube(f"L{level}SupplyCrate",(x*.9,.38,z*.9),(.62,.62,.62),"wood",.1),group)
+            elif level <= 7:
+                keep_world_parent(cyl(f"L{level}ArmorRack",(x,.8,z),.36,.12,"iron",20,rot=(math.pi/2,0,angle)),group)
+                keep_world_parent(curve_beam(f"L{level}Standard",[(x,.1,z),(x,3.0,z)],.045,"iron"),group)
+            else:
+                keep_world_parent(roof(f"L{level}TurretRoof",(x*.75,2.75,z*.75),1.25,1.25,.8,"cloth"),group)
+                keep_world_parent(cyl(f"L{level}Turret",(x*.75,1.55,z*.75),.5,2.4,"stone",16),group)
+        else:
+            material = "soul" if kind in ("soul_altar","laboratory","spell_hall") else "iron"
+            if level % 3 == 2:
+                keep_world_parent(organic_rock(f"L{level}Foundation",(x,.28,z),(.4,.35,.4),"stone_light",1000+level),group)
+            elif level % 3 == 0:
+                keep_world_parent(curve_beam(f"L{level}Spire",[(x,.15,z),(x,2.3+.15*level,z)],.055,material),group)
+            else:
+                keep_world_parent(crystal(f"L{level}Relic",(x,.2,z),.15,.65+.05*level,material,7,angle),group)
+
+
 def build_mine():
     reset()
     stone_foundation(4.0)
@@ -198,19 +326,26 @@ def build_yard():
 def build_obstacle(kind):
     reset()
     if kind == "dead_tree":
-        curve_beam("TwistedTrunk", [(0,0,0), (.12,.8,.05), (-.1,1.7,.12), (.18,2.8,0)], .16, "wood_dark")
-        for i in range(8):
+        for i in range(7):
+            a=i*math.tau/7
+            curve_beam(f"Root_{i}",[(0,.16,0),(math.cos(a)*.55,.08,math.sin(a)*.55),
+                                    (math.cos(a)*1.0,.03,math.sin(a)*1.0)],.09,"wood_dark")
+        curve_beam("TwistedTrunk", [(0,0,0), (.12,.8,.05), (-.1,1.7,.12), (.18,2.8,0),(-.08,3.75,.08)], .24, "wood_dark")
+        for i in range(13):
             a = i * 2.1
-            start = (math.sin(a)*.1, 1.0+i*.18, math.cos(a)*.08)
-            end = (math.sin(a)*(.8+i*.05), 1.7+i*.2, math.cos(a)*(.7+i*.04))
-            curve_beam(f"Branch_{i}", [start, end, (end[0]+math.sin(a+.8)*.35,end[1]+.25,end[2]+math.cos(a+.8)*.3)], .055, "wood")
+            start = (math.sin(a)*.1, 1.0+(i%7)*.38, math.cos(a)*.08)
+            end = (math.sin(a)*(1.0+(i%3)*.18), 1.65+(i%7)*.38, math.cos(a)*(.85+(i%4)*.12))
+            tip=(end[0]+math.sin(a+.8)*.52,end[1]+.38,end[2]+math.cos(a+.8)*.44)
+            curve_beam(f"Branch_{i}", [start, end, tip], .075 if i<6 else .045, "wood")
+            if i%3==0:
+                curve_beam(f"Twig_{i}",[end,(end[0]+math.sin(a-1)*.45,end[1]+.3,end[2]+math.cos(a-1)*.4)],.028,"wood_dark")
     elif kind == "corrupted_rocks":
         for i in range(13):
             a=i*2.399
             organic_rock(f"Rock_{i}",(math.cos(a)*(.2+i*.045),.2+i*.04,math.sin(a)*(.2+i*.045)),(.28,.35+i*.025,.25),"stone",400+i)
         for i in range(7):
             a=i*math.tau/7
-            cyl(f"Crystal_{i}",(math.cos(a)*.48,.55,math.sin(a)*.48),.09,.8+(i%3)*.22,"soul",vertices=6,rot=(0.12,0,a))
+            crystal(f"Crystal_{i}",(math.cos(a)*.48,.12,math.sin(a)*.48),.13,.9+(i%3)*.3,"soul",7,a)
     elif kind == "bones":
         sphere("Skull",(0,.28,0),(.34,.3,.3),"bone")
         for x in (-.13,.13):
@@ -219,6 +354,50 @@ def build_obstacle(kind):
             a=i*.7
             curve_beam(f"Bone_{i}",[(math.cos(a)*.25,.12,math.sin(a)*.25),(math.cos(a)*.8,.1,math.sin(a)*.7)],.045,"bone")
     return f"models/obstacles/{kind}.glb"
+
+
+def build_soul_crystals():
+    reset()
+    for i in range(11):
+        a=i*2.399
+        radius=.12+(i%3)*.045
+        distance=.12+(i%5)*.16
+        crystal(f"SoulCrystal_{i}",(math.cos(a)*distance,.08,math.sin(a)*distance),
+                radius,.65+(i%4)*.24,"soul",7,a)
+    for i in range(8):
+        a=i*math.tau/8
+        organic_rock(f"CrystalBase_{i}",(math.cos(a)*.68,.12,math.sin(a)*.68),
+                     (.25,.18,.24),"stone",1100+i)
+    return "models/obstacles/soul_crystals.glb"
+
+
+def build_environment():
+    reset()
+    # Four cliff walls stay outside the exact 48x48 playable square.
+    for side in range(4):
+        for i in range(11):
+            along=-31.5+i*6.3+(i%2)*.6
+            edge=27.4+(i%3)*1.25
+            x,z=(along,edge) if side==0 else (along,-edge) if side==1 else (edge,along) if side==2 else (-edge,along)
+            height=3.2+(i%5)*1.15
+            organic_rock(f"Cliff_{side}_{i}",(x,height*.42,z),(3.65,height,1.85),
+                         "stone_light" if i%4 else "stone",1200+side*30+i)
+            if i%4==0:
+                crystal(f"OuterCrystal_{side}_{i}",(x*.985,.15,z*.985),.22,1.1+(i%3)*.4,"soul",7,i)
+    # Silhouettes behind the cliffs create depth without entering the grid.
+    for i in range(10):
+        a=i*math.tau/10+.13
+        r=34+(i%4)*2.1
+        curve_beam(f"OuterTree_{i}",[(math.cos(a)*r,0,math.sin(a)*r),
+                                    (math.cos(a)*r,3.2+(i%3),math.sin(a)*r),
+                                    (math.cos(a)*r+.5*math.sin(a),5.0+(i%4),math.sin(a)*r-.5*math.cos(a))],
+                   .18,"wood_dark")
+        for branch in range(2):
+            y=2.7+branch*.8
+            curve_beam(f"OuterBranch_{i}_{branch}",[(math.cos(a)*r,y,math.sin(a)*r),
+                       (math.cos(a)*r+math.cos(a+branch*2.1)*1.2,y+.65,
+                        math.sin(a)*r+math.sin(a+branch*2.1)*1.2)],.065,"wood_dark")
+    return "models/environment/mountain_ring.glb"
 
 
 def build_dark_fantasy_building(kind):
@@ -363,12 +542,23 @@ def export(relpath):
     )
 
 
-for builder in (build_mine, build_barracks, build_yard):
-    export(builder())
+for kind, builder in (
+    ("town_hall", build_town_hall),
+    ("gold_mine", build_mine),
+    ("barracks", build_barracks),
+    ("builders_yard", build_yard),
+):
+    path=builder()
+    add_level_progression(kind)
+    export(path)
 for building in ("sawmill", "army_camp", "soul_altar", "forge", "tower", "laboratory", "spell_hall", "wall"):
-    export(build_dark_fantasy_building(building))
+    path=build_dark_fantasy_building(building)
+    add_level_progression(building)
+    export(path)
 for obstacle in ("dead_tree", "corrupted_rocks", "bones"):
     export(build_obstacle(obstacle))
+export(build_soul_crystals())
+export(build_environment())
 for unit in ("warrior", "archer", "brute", "hero", "worker"):
     export(build_unit(unit))
 print("Exported Blender-authored dark-fantasy asset batch")
