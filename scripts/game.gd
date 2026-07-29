@@ -3,7 +3,6 @@ extends Node3D
 const GRID_SIZE := 24
 const TILE_SIZE := 2.0
 const BUILDABLE_HALF := GRID_SIZE * TILE_SIZE * 0.5
-const CAMP_UNIT_SPACING := 0.62
 
 var state := AshfallGameState.new()
 var occupied: Dictionary = {}
@@ -39,6 +38,7 @@ func _ready() -> void:
 	else:
 		_create_new_village()
 	_spawn_villagers()
+	_resume_active_builders()
 	_add_village_paths()
 	_add_village_atmosphere()
 	_refresh_ui()
@@ -98,22 +98,44 @@ func _build_environment() -> void:
 	moon.light_energy = 1.05
 	moon.shadow_enabled = true
 	$World.add_child(moon)
-	var ground := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(74, 74)
-	ground.mesh = plane
-	ground.material_override = _terrain_material()
-	$World.add_child(ground)
+	var outer_ground := MeshInstance3D.new()
+	var outer_plane := PlaneMesh.new()
+	outer_plane.size = Vector2(78, 78)
+	outer_ground.mesh = outer_plane
+	outer_ground.material_override = _material(Color("#302d33"))
+	$World.add_child(outer_ground)
+	var village_ground := MeshInstance3D.new()
+	var village_plane := PlaneMesh.new()
+	village_plane.size = Vector2(GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE)
+	village_ground.mesh = village_plane
+	village_ground.position.y = 0.015
+	village_ground.material_override = _terrain_material()
+	$World.add_child(village_ground)
+	_add_ground_collision()
 	var mountain_scene := load("res://models/environment/mountain_ring.glb") as PackedScene
 	if mountain_scene:
 		var mountains := mountain_scene.instantiate()
-		mountains.scale = Vector3(0.9, 0.72, 0.9)
+		mountains.scale = Vector3(1.0, 0.55, 1.0)
+		_apply_mountain_material(mountains)
 		$World.add_child(mountains)
 	grid_root = _new_root("Grid")
 	buildings_root = _new_root("Buildings")
 	obstacles_root = _new_root("Obstacles")
 	villagers_root = _new_root("Villagers")
 	troops_root = _new_root("Troops")
+
+func _add_ground_collision() -> void:
+	var body := StaticBody3D.new()
+	body.name = "GroundCollision"
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var collider := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(78.0, 0.4, 78.0)
+	collider.shape = shape
+	collider.position.y = -0.2
+	body.add_child(collider)
+	$World.add_child(body)
 
 func _new_root(root_name: String) -> Node3D:
 	var root := Node3D.new()
@@ -142,12 +164,21 @@ func _terrain_material() -> StandardMaterial3D:
 	texture.seamless = true
 	texture.noise = noise
 	var gradient := Gradient.new()
-	gradient.colors = PackedColorArray([Color("#151419"), Color("#2d292e"), Color("#49382e")])
+	gradient.colors = PackedColorArray([Color("#343037"), Color("#514740"), Color("#6b5543")])
 	gradient.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
 	texture.color_ramp = gradient
 	mat.albedo_texture = texture
 	mat.uv1_scale = Vector3(5.0, 5.0, 5.0)
 	return mat
+
+func _apply_mountain_material(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mountain_mat := StandardMaterial3D.new()
+		mountain_mat.albedo_color = Color("#3d3940")
+		mountain_mat.roughness = 1.0
+		(node as MeshInstance3D).material_override = mountain_mat
+	for child in node.get_children():
+		_apply_mountain_material(child)
 
 func _build_grid() -> void:
 	var line_mat := _material(Color(0.34, 0.29, 0.31, 0.19))
@@ -248,8 +279,10 @@ func _build_interface() -> void:
 	detail_box.add_child(action_button)
 	var army_panel := _panel()
 	army_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	army_panel.position = Vector2(-288, -116)
-	army_panel.size = Vector2(274, 98)
+	army_panel.offset_left = -370
+	army_panel.offset_top = -116
+	army_panel.offset_right = -14
+	army_panel.offset_bottom = -18
 	hud.add_child(army_panel)
 	var army_box := VBoxContainer.new()
 	army_panel.add_child(army_box)
@@ -445,13 +478,14 @@ func _train_warrior() -> void:
 		_set_status("Pas assez de ressources pour entraîner un guerrier.")
 		return
 	state.army.warrior = int(state.army.warrior) + 1
-	var unit := AshfallCombatUnit.new()
-	unit.kind = AshfallCombatUnit.UnitKind.WARRIOR
-	var slot := troops_root.get_child_count()
-	var camp_center := _army_camp_center()
-	unit.position = camp_center + Vector3(-2.8, 0, -2.4)
-	troops_root.add_child(unit)
-	unit.move_to(_camp_unit_position(slot, camp_center))
+	if troops_root.get_child_count() < 16:
+		var unit := AshfallCombatUnit.new()
+		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR
+		var slot := troops_root.get_child_count()
+		var camp_center := _army_camp_center()
+		unit.position = camp_center + Vector3(-2.8, 0, -2.4)
+		troops_root.add_child(unit)
+		unit.move_to(_camp_unit_position(slot, camp_center))
 	state.save()
 	_refresh_ui()
 	_set_status("Guerrier entraîné et déployé au camp.")
@@ -487,7 +521,6 @@ func _add_village_paths() -> void:
 			hub = building_nodes[index].global_position
 			break
 	var path_root := _new_root("VillagePaths")
-	var path_mat := _material(Color("#40342d"))
 	for index in building_nodes:
 		var destination: Vector3 = building_nodes[index].global_position
 		if destination.distance_to(hub) < 1.0:
@@ -497,17 +530,33 @@ func _add_village_paths() -> void:
 		var length := maxf(0.0, direction.length() - 3.0)
 		if length < 1.0:
 			continue
-		var midpoint := hub + direction.normalized() * (length * 0.5 + 1.5)
-		var strip := _add_box(path_root, midpoint + Vector3(0, 0.025, 0), Vector3(1.05, 0.045, length), path_mat)
-		strip.rotation.y = atan2(direction.x, direction.z)
 		for stone_index in range(floori(length / 1.25)):
 			var t := (stone_index + 0.5) / maxf(1.0, length / 1.25)
+			var curve := sin(t * PI) * sin(float(index * 2 + 1)) * 0.7
+			var side := curve + sin(float(stone_index * 17 + index * 3)) * 0.28
 			var stone_position := hub.lerp(destination, t)
-			var side := sin(float(stone_index * 17 + index * 3)) * 0.34
 			var right := Vector3(direction.z, 0, -direction.x).normalized()
-			_add_box(path_root, stone_position + right * side + Vector3(0, 0.055, 0), Vector3(0.72, 0.075, 0.5), _material(Color("#574b43")))
+			var shade := Color("#6a594b") if stone_index % 3 else Color("#4c4542")
+			var stone := _add_box(path_root, stone_position + right * side + Vector3(0, 0.055, 0), Vector3(0.64 + (stone_index % 2) * 0.16, 0.075, 0.42), _material(shade))
+			stone.rotation.y = atan2(direction.x, direction.z) + sin(float(stone_index * 5)) * 0.18
 
 func _add_village_atmosphere() -> void:
+	var patches := _new_root("AshAndEarthPatches")
+	for i in range(26):
+		var angle := float(i) * 2.399
+		var radius := 5.0 + float((i * 7) % 17)
+		var patch := MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		disc.top_radius = 0.7 + float(i % 4) * 0.38
+		disc.bottom_radius = disc.top_radius * 1.08
+		disc.height = 0.025
+		disc.radial_segments = 9
+		patch.mesh = disc
+		patch.position = Vector3(cos(angle) * radius, 0.018, sin(angle) * radius)
+		patch.scale.z = 0.55 + float(i % 3) * 0.17
+		patch.rotation.y = angle
+		patch.material_override = _material(Color("#58483b") if i % 4 == 0 else Color("#29262b"))
+		patches.add_child(patch)
 	for index in building_nodes:
 		var kind := str(state.buildings[int(index)].kind)
 		if kind != "town_hall" and kind != "army_camp" and kind != "forge":
@@ -528,7 +577,7 @@ func _spawn_villagers() -> void:
 		villager.stride_phase = i * 1.1
 		villagers_root.add_child(villager)
 	var camp_center := _army_camp_center()
-	for i in range(mini(int(state.army.warrior), 24)):
+	for i in range(mini(int(state.army.warrior), 16)):
 		var unit := AshfallCombatUnit.new()
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR if i % 3 else AshfallCombatUnit.UnitKind.ARCHER
 		unit.position = _camp_unit_position(i, camp_center)
@@ -543,19 +592,25 @@ func _army_camp_center() -> Vector3:
 
 func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
 	# Anneaux serrés autour du brasero : 8, puis 16 unités, sans ligne infinie.
-	var ring := 0 if slot < 8 else 1 + (slot - 8) / 16
-	var ring_slot := slot if ring == 0 else posmod(slot - 8, 16)
-	var ring_count := 8 if ring == 0 else 16
+	var ring := 0 if slot < 8 else 1 + (slot - 8) / 8
+	var ring_slot := posmod(slot, 8)
+	var ring_count := 8
 	var organic_offset := sin(float(slot * 19 + 7)) * 0.15
 	var angle := TAU * float(ring_slot) / float(ring_count) + ring * 0.16 + organic_offset
-	var radius := 1.25 + ring * CAMP_UNIT_SPACING + cos(float(slot * 11)) * 0.16
+	var radius := 0.78 + ring * 0.48 + cos(float(slot * 11)) * 0.08
 	return center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 
 func _assign_builder(target: Vector3) -> void:
 	for villager in villagers_root.get_children():
-		if villager is AshfallVillager and villager.state != AshfallVillager.State.WORK:
+		if villager is AshfallVillager and (villager.state == AshfallVillager.State.WALK or villager.state == AshfallVillager.State.IDLE):
 			villager.set_work_target(target + Vector3(2.4, 0, 1.0))
 			return
+
+func _resume_active_builders() -> void:
+	var now := _now()
+	for index in building_nodes:
+		if int(state.buildings[int(index)].finish_at) > now:
+			_assign_builder(building_nodes[index].global_position)
 
 func _spawn_obstacle(cell: Vector2i) -> void:
 	occupied[cell] = "obstacle"
@@ -578,8 +633,15 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	root.add_child(body)
 
 func _update_building_visuals(now: int) -> void:
+	var has_active_construction := false
 	for index in building_nodes:
+		if int(state.buildings[int(index)].finish_at) > now:
+			has_active_construction = true
 		_update_one_building_visual(int(index), now)
+	if not has_active_construction:
+		for villager in villagers_root.get_children() if villagers_root else []:
+			if villager is AshfallVillager and villager.state == AshfallVillager.State.WORK:
+				villager.stop_work()
 
 func _update_one_building_visual(index: int, now: int) -> void:
 	if not building_nodes.has(index):
@@ -588,7 +650,7 @@ func _update_one_building_visual(index: int, now: int) -> void:
 	var node: Node3D = building_nodes[index]
 	var constructing := int(data.finish_at) > now
 	node.scale = Vector3.ONE * (0.82 if constructing else 1.0)
-	if not constructing:
+	if constructing:
 		for villager in villagers_root.get_children() if villagers_root else []:
 			if villager is AshfallVillager and villager.state == AshfallVillager.State.RUN and villager.target.distance_to(node.global_position) < 4.0:
 				villager.start_work()

@@ -188,7 +188,14 @@ function mine(){
   for(let i=0;i<8;i++){const a=i*TAU/8;m.box("wood",[Math.cos(a)*1.35,1.1,Math.sin(a)*1.35],[.18,1.35,.18],-a)}
   m.cylinder("iron",[0,1.82,0],1.15,.18,16);m.cylinder("gold",[0,2.02,0],.72,.45,10,.58);
   for(let i=0;i<7;i++){const a=i*2.4;m.cone("gold",[Math.cos(a)*.58,2.45+Math.sin(i)*.12,Math.sin(a)*.58],.18,.68,6)}
-  m.box("darkwood",[0,.9,1.5],[.85,1.2,.12]);torch(m,1.45,1.25,1.45);gothicDress(m,3.9,3.9,2.5);return m;
+  m.box("basalt",[0,.92,1.51],[1.15,1.42,.22]);m.box("darkwood",[0,.86,1.64],[.76,1.12,.14]);
+  for(const x of [-.3,.3])m.box("iron",[x,.86,1.74],[.06,1.0,.05]);
+  for(const x of [-.52,.52])m.box("wood",[x,1.12,1.68],[.16,1.55,.16]);
+  m.beam3("wood",[-.62,1.82,1.68],[.62,1.82,1.68],.17);
+  m.beam3("iron",[.42,1.82,1.68],[1.15,2.5,.75],.08);
+  m.box("iron",[1.15,2.12,.75],[.08,.78,.08]);m.box("gold",[1.15,1.72,.75],[.32,.22,.28]);
+  for(const x of [-.42,.42])m.beam3("iron",[x,.18,1.75],[x,.2,2.55],.055);
+  torch(m,1.45,1.25,1.45);gothicDress(m,3.9,3.9,2.5);return m;
 }
 function sawmill(){
   const m=new Model("Sawmill");base(m,3.9,3.9);m.box("wood",[.35,1.25,-.25],[2.65,1.7,2.35]);
@@ -202,14 +209,17 @@ function barracks(){
   timberFrame(m,3.25,2.95,2.45);m.cone("roof",[0,3.25,0],2.45,1.5,4);
   m.box("darkwood",[0,1.28,1.5],[.82,1.72,.14]);m.box("cloth",[0,3.75,1.72],[1.4,.62,.05]);
   for(const x of [-1.35,1.35])torch(m,x,1.55,1.62);
-  gothicDress(m,4,4,3.4);for(const x of [-.9,0,.9])m.box("iron",[x,2.15,1.52],[.08,.72,.1]);return m;
+  gothicDress(m,4,4,3.4);for(const x of [-.9,0,.9])m.box("iron",[x,2.15,1.52],[.08,.72,.1]);
+  for(const x of [-1.38,1.38]){m.cylinder("wood",[x,.82,-1.52],.1,1.25,8);m.box("iron",[x,1.38,-1.52],[.62,.08,.08]);m.box("iron",[x,1.05,-1.52],[.08,.62,.08]);}
+  m.box("iron",[0,1.22,1.58],[.94,.08,.08]);m.box("cloth",[0,2.72,1.6],[.72,.88,.05]);
+  for(const x of [-.48,0,.48])m.cone("iron",[x,3.02,1.63],.07,.32,5);return m;
 }
 function camp(){
   const m=new Model("Ashen Legion Camp");
   m.box("earth",[0,.1,0],[5.75,.2,5.75]);
   for(let i=0;i<18;i++){const a=i*TAU/18,r=2.55+(i%3)*.08;m.box(i%2?"stone":"basalt",[Math.cos(a)*r,.24,Math.sin(a)*r],[.48,.28,.36],-a)}
-  for(const [x,z,r] of [[-1.65,-1.45,.12],[1.65,-1.4,-.1],[-1.75,1.55,-.08],[1.8,1.55,.09]]){
-    m.cone("cloth",[x,1.0,z],1.02,1.72,4);m.box("darkwood",[x,.23,z],[1.75,.14,1.75],r);
+  for(const [x,z,r] of [[-1.95,-1.82,.12],[1.95,-1.78,-.1],[-2.0,1.86,-.08],[2.04,1.82,.09]]){
+    m.cone("cloth",[x,1.0,z],.82,1.58,4);m.box("darkwood",[x,.23,z],[1.42,.14,1.42],r);
     m.box("iron",[x,1.12,z],[.07,1.85,.07]);
   }
   m.cylinder("stone",[0,.32,0],.82,.34,14);m.cylinder("ember",[0,.52,0],.46,.26,12,.28);
@@ -254,7 +264,11 @@ function yard(){
   for(const z of [-1.3,1.3])m.beam("wood",[-1.3,2.55,z],[1.3,2.55,z],.2);
   for(const x of [-1.3,1.3])m.beam("wood",[x,2.55,-1.3],[x,2.55,1.3],.2);
   m.stairs("wood",[0,.32,.65],2.2,.22,.4,5,-1);m.box("iron",[.9,.72,1.25],[.8,.18,.5]);
-  gothicDress(m,3.9,3.9,2.5);m.beam3("iron",[-1.25,2.65,-1.25],[1.25,3.55,-1.25],.09);return m;
+  gothicDress(m,3.9,3.9,2.5);m.beam3("iron",[-1.25,2.65,-1.25],[1.25,3.55,-1.25],.09);
+  m.beam3("wood",[1.2,.4,-1.2],[1.2,3.45,-1.2],.2);m.beam3("wood",[1.2,3.45,-1.2],[-.75,3.45,-1.2],.18);
+  m.box("iron",[-.68,2.62,-1.2],[.07,1.62,.07]);m.box("stone",[-.68,1.72,-1.2],[.52,.42,.5]);
+  m.roofPanel("cloth",-1,2.75,2.12,1.55,2.7,.12);m.roofPanel("cloth",1,2.75,2.12,1.55,2.7,.12);
+  for(const z of [-.8,0,.8]){m.box("wood",[-1.5,.45,z],[.72,.22,.28]);m.box("iron",[-1.5,.67,z],[.38,.08,.08]);}return m;
 }
 function wall(){
   const m=new Model("Wall");base(m,1.9,1.9);m.box("stone",[0,.95,0],[1.72,1.55,1.5]);
@@ -264,18 +278,21 @@ function wall(){
 
 function rock(){
   const m=new Model("Corrupted Rocks");base(m,1.9,1.9);
-  for(let i=0;i<7;i++){const a=i*2.3,r=.25+i*.035;m.cone(i%3===0?"crystal":"stone2",[Math.cos(a)*.58,.45+i*.05,Math.sin(a)*.58],r,.75+i*.12,6)}
+  for(let i=0;i<11;i++){const a=i*2.3,r=.18+i*.024;m.cone(i%3===0?"crystal":"stone2",[Math.cos(a)*(.38+i*.035),.4+i*.045,Math.sin(a)*(.38+i*.035)],r,.62+i*.1,6)}
+  for(let i=0;i<5;i++){const a=i*TAU/5;m.box("soul",[Math.cos(a)*.72,.22,Math.sin(a)*.72],[.12,.08,.34],-a)}
   return m;
 }
 function deadTree(){
   const m=new Model("Dead Tree");base(m,1.9,1.9);m.cylinder("darkwood",[0,1.45,0],.34,2.8,9,.22);
-  for(const [a,y,l] of [[-.75,2.1,1.7],[.65,2.5,1.55],[-1.15,2.75,1.1]]){const end=[Math.sin(a)*l,y+Math.cos(a)*l,Math.cos(a)*l*.2];m.beam("wood",[0,y,0],end,.18)}
+  for(const [a,y,l] of [[-.75,2.1,1.7],[.65,2.5,1.55],[-1.15,2.75,1.1],[1.35,1.72,1.25]]){const end=[Math.sin(a)*l,y+Math.cos(a)*l,Math.cos(a)*l*.2];m.beam3("wood",[0,y,0],end,.18);m.beam3("darkwood",end,[end[0]+Math.sin(a+.8)*.62,end[1]+.42,end[2]+Math.cos(a+.8)*.35],.09)}
   for(let i=0;i<6;i++){const a=i*TAU/6;m.beam("darkwood",[0,.18,0],[Math.cos(a)*.9,.05,Math.sin(a)*.9],.12)}return m;
 }
 function bones(){
   const m=new Model("Bones");base(m,1.9,1.9);
   for(let i=0;i<8;i++){const a=i*.83;m.beam("bone",[-.45+Math.cos(a)*.35,.25,-.3+Math.sin(a)*.3],[.45+Math.cos(a)*.3,.18,.3+Math.sin(a)*.25],.11)}
-  m.cylinder("bone",[.28,.32,-.18],.32,.42,10,.28);return m;
+  m.cylinder("bone",[.28,.32,-.18],.32,.42,10,.28);
+  for(const x of [-.13,.13])m.box("basalt",[.28+x,.39,.05],[.09,.08,.05]);
+  m.box("bone",[.28,.25,.2],[.16,.1,.22]);return m;
 }
 function crystals(){
   const m=new Model("Soul Crystals");base(m,1.9,1.9);
@@ -291,6 +308,7 @@ function scenery(){
   };
   for(let iz=0;iz<N;iz++)for(let ix=0;ix<N;ix++){
     const x=-size/2+ix*step,z=-size/2+iz*step,x1=x+step,z1=z+step;
+    if(Math.max(Math.abs((x+x1)/2),Math.abs((z+z1)/2))<25.2)continue;
     const a=[x,h(x,z),z],b=[x1,h(x1,z),z],c=[x1,h(x1,z1),z1],d=[x,h(x,z1),z1];
     m.tri("earth",a,c,b);m.tri("earth",a,d,c)
   }
@@ -298,6 +316,11 @@ function scenery(){
     m.cone(i%4===0?"basalt":"stone",[x,h(x,z)+1.3,z],1.2+(i%3)*.45,3.5+(i%6)*1.15,7)}
   for(let i=0;i<18;i++){const a=i*TAU/18,r=31,x=Math.cos(a)*r,z=Math.sin(a)*r;
     m.box("stone",[x,h(x,z)+1.0,z],[1.2+(i%3)*.5,2+(i%4)*.8,.9],-a)}
+  for(let i=0;i<16;i++){const a=i*2.399,r=27.5+(i%3)*1.1,x=Math.cos(a)*r,z=Math.sin(a)*r,y=h(x,z);
+    m.cylinder("darkwood",[x,y+1.15,z],.18,2.3,7,.11);
+    m.beam3("wood",[x,y+1.6,z],[x+Math.sin(a+.7)*1.05,y+2.35,z+Math.cos(a+.7)*.7],.11);
+    if(i%4===0){m.box("stone2",[x+1.1,y+.65,z],[1.4,1.3,.32],-a);m.cone("ember",[x+1.1,y+1.45,z],.12,.38,7)}
+  }
   return m;
 }
 
