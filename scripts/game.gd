@@ -1,6 +1,6 @@
 extends Node3D
 
-const GRID_SIZE := 24
+const GRID_SIZE := 50
 const TILE_SIZE := 2.0
 const BUILDABLE_HALF := GRID_SIZE * TILE_SIZE * 0.5
 
@@ -26,6 +26,9 @@ var raid_button: Button
 var build_panel: PanelContainer
 var detail_panel: PanelContainer
 var autosave_clock := 0.0
+var obstacle_respawn_clock := 0.0
+const OBSTACLE_RESPAWN_SECONDS := 600.0
+const MAX_OBSTACLES := 24
 
 func _ready() -> void:
 	_build_environment()
@@ -47,6 +50,10 @@ func _process(delta: float) -> void:
 	var now := _now()
 	state.tick_production(now)
 	autosave_clock += delta
+	obstacle_respawn_clock += delta
+	if obstacle_respawn_clock >= OBSTACLE_RESPAWN_SECONDS:
+		obstacle_respawn_clock -= OBSTACLE_RESPAWN_SECONDS
+		_spawn_random_obstacle()
 	if autosave_clock >= 2.0:
 		autosave_clock = 0.0
 		state.save()
@@ -100,7 +107,7 @@ func _build_environment() -> void:
 	$World.add_child(moon)
 	var outer_ground := MeshInstance3D.new()
 	var outer_plane := PlaneMesh.new()
-	outer_plane.size = Vector2(78, 78)
+	outer_plane.size = Vector2(140, 140)
 	outer_ground.mesh = outer_plane
 	outer_ground.material_override = _outer_terrain_material()
 	$World.add_child(outer_ground)
@@ -130,7 +137,7 @@ func _add_ground_collision() -> void:
 	body.collision_mask = 0
 	var collider := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(78.0, 0.4, 78.0)
+	shape.size = Vector3(140.0, 0.4, 140.0)
 	collider.shape = shape
 	collider.position.y = -0.2
 	body.add_child(collider)
@@ -321,14 +328,14 @@ func _build_interface() -> void:
 	hud.add_child(status_label)
 
 func _create_new_village() -> void:
-	_add_building_record("town_hall", Vector2i(10, 10), 1, 0)
-	_add_building_record("gold_mine", Vector2i(5, 9), 1, 0)
-	_add_building_record("sawmill", Vector2i(5, 13), 1, 0)
-	_add_building_record("barracks", Vector2i(16, 11), 1, 0)
-	_add_building_record("army_camp", Vector2i(15, 15), 1, 0)
-	_add_building_record("builders_yard", Vector2i(9, 16), 1, 0)
+	_add_building_record("town_hall", Vector2i(23, 23), 1, 0)
+	_add_building_record("gold_mine", Vector2i(18, 22), 1, 0)
+	_add_building_record("sawmill", Vector2i(18, 26), 1, 0)
+	_add_building_record("barracks", Vector2i(29, 24), 1, 0)
+	_add_building_record("army_camp", Vector2i(28, 28), 1, 0)
+	_add_building_record("builders_yard", Vector2i(22, 29), 1, 0)
 	state.last_update = _now()
-	for cell in [Vector2i(3, 4), Vector2i(20, 5), Vector2i(5, 19), Vector2i(18, 18)]:
+	for cell in [Vector2i(16, 17), Vector2i(33, 18), Vector2i(18, 32), Vector2i(31, 31)]:
 		_spawn_obstacle(cell)
 	state.save()
 
@@ -341,7 +348,7 @@ func _restore_village() -> void:
 		var cell := Vector2i(int(cell_data[0]), int(cell_data[1]))
 		_mark_occupied(str(data.kind), cell)
 		_spawn_building_node(index)
-	for cell in [Vector2i(3, 4), Vector2i(20, 5), Vector2i(5, 19), Vector2i(18, 18)]:
+	for cell in [Vector2i(16, 17), Vector2i(33, 18), Vector2i(18, 32), Vector2i(31, 31)]:
 		if not occupied.has(cell):
 			_spawn_obstacle(cell)
 
@@ -408,6 +415,7 @@ func _try_place(kind: String, cell: Vector2i) -> void:
 		return
 	var finish_at := now + BuildingFactory.build_time(kind)
 	var index := _add_building_record(kind, cell, 1, finish_at)
+	_add_village_paths()
 	_clear_ghost()
 	selected_id = index
 	_assign_builder(building_nodes[index].global_position)
@@ -539,30 +547,76 @@ func _launch_raid() -> void:
 func _add_village_paths() -> void:
 	if building_nodes.is_empty():
 		return
+	var previous := $World.get_node_or_null("VillagePaths")
+	if previous:
+		previous.name = "RetiredVillagePaths"
+		previous.queue_free()
 	var hub := Vector3.ZERO
 	for index in building_nodes:
 		if str(state.buildings[int(index)].kind) == "town_hall":
 			hub = building_nodes[index].global_position
 			break
 	var path_root := _new_root("VillagePaths")
+	var network_points: Array[Vector3] = [hub]
+	var pending: Array[Vector3] = []
 	for index in building_nodes:
 		var destination: Vector3 = building_nodes[index].global_position
-		if destination.distance_to(hub) < 1.0:
-			continue
-		var direction := destination - hub
-		direction.y = 0.0
-		var length := maxf(0.0, direction.length() - 3.0)
-		if length < 1.0:
-			continue
-		for stone_index in range(floori(length / 1.25)):
-			var t := (stone_index + 0.5) / maxf(1.0, length / 1.25)
-			var curve := sin(t * PI) * sin(float(index * 2 + 1)) * 0.7
-			var side := curve + sin(float(stone_index * 17 + index * 3)) * 0.28
-			var stone_position := hub.lerp(destination, t)
-			var right := Vector3(direction.z, 0, -direction.x).normalized()
-			var shade := Color("#6a594b") if stone_index % 3 else Color("#4c4542")
-			var stone := _add_box(path_root, stone_position + right * side + Vector3(0, 0.055, 0), Vector3(0.64 + (stone_index % 2) * 0.16, 0.075, 0.42), _material(shade))
-			stone.rotation.y = atan2(direction.x, direction.z) + sin(float(stone_index * 5)) * 0.18
+		if destination.distance_to(hub) >= 1.0:
+			pending.append(destination)
+	while not pending.is_empty():
+		var best_destination_index := 0
+		var best_anchor := hub
+		var best_distance := INF
+		for destination_index in range(pending.size()):
+			for anchor in network_points:
+				var distance := pending[destination_index].distance_squared_to(anchor)
+				if distance < best_distance:
+					best_distance = distance
+					best_destination_index = destination_index
+					best_anchor = anchor
+		var destination := pending[best_destination_index]
+		var new_points := _lay_road_segment(path_root, best_anchor, destination)
+		network_points.append_array(new_points)
+		network_points.append(destination)
+		pending.remove_at(best_destination_index)
+
+func _lay_road_segment(path_root: Node3D, start: Vector3, finish: Vector3) -> Array[Vector3]:
+	var direction := finish - start
+	direction.y = 0.0
+	var length := maxf(0.0, direction.length() - 2.4)
+	var samples: Array[Vector3] = []
+	if length < 0.8:
+		return samples
+	var forward := direction.normalized()
+	var count := maxi(1, ceili(length / 0.72))
+	var road_materials := [
+		_material(Color("#4a4039")),
+		_material(Color("#39363a")),
+		_material(Color("#57483a"))
+	]
+	for tile_index in range(count):
+		var distance := 1.2 + (tile_index + 0.5) * length / count
+		var position := start + forward * distance
+		var tile := _add_box(
+			path_root,
+			position + Vector3(0, 0.038, 0),
+			Vector3(1.16, 0.055, length / count + 0.08),
+			road_materials[tile_index % road_materials.size()]
+		)
+		tile.rotation.y = atan2(forward.x, forward.z)
+		if tile_index % 3 == 0:
+			samples.append(position)
+	return samples
+
+func _spawn_random_obstacle() -> void:
+	if obstacles_root == null or obstacles_root.get_child_count() >= MAX_OBSTACLES:
+		return
+	for attempt in range(120):
+		var cell := Vector2i(randi_range(1, GRID_SIZE - 2), randi_range(1, GRID_SIZE - 2))
+		if not occupied.has(cell):
+			_spawn_obstacle(cell)
+			_set_status("Un nouvel obstacle est apparu dans le village.")
+			return
 
 func _add_village_atmosphere() -> void:
 	var patches := _new_root("AshAndEarthPatches")

@@ -58,7 +58,7 @@ func tick_production(now: int) -> void:
 
 func save() -> void:
 	var payload := {
-		"version": 2,
+		"version": 3,
 		"resources": resources,
 		"trophies": trophies,
 		"builders_total": builders_total,
@@ -80,6 +80,7 @@ func load_save() -> bool:
 	if not parsed is Dictionary:
 		return false
 	resources.merge(parsed.get("resources", {}), true)
+	var save_version := int(parsed.get("version", 1))
 	trophies = int(parsed.get("trophies", 0))
 	builders_total = int(parsed.get("builders_total", 2))
 	buildings.clear()
@@ -88,6 +89,13 @@ func load_save() -> bool:
 		for raw_building in saved_buildings:
 			var migrated := _migrate_building(raw_building)
 			if not migrated.is_empty():
+				if save_version < 3:
+					var migrated_cell: Array = migrated.cell
+					var footprint := BuildingFactory.footprint(str(migrated.kind))
+					migrated.cell = [
+						clampi(int(migrated_cell[0]) + 13, 0, 50 - footprint.x),
+						clampi(int(migrated_cell[1]) + 13, 0, 50 - footprint.y)
+					]
 				buildings.append(migrated)
 	army.merge(parsed.get("army", {}), true)
 	last_update = int(parsed.get("last_update", Time.get_unix_time_from_system()))
@@ -114,8 +122,8 @@ func _migrate_building(raw_building: Variant) -> Dictionary:
 	else:
 		return {}
 	var footprint := BuildingFactory.footprint(kind)
-	x = clampi(x, 0, 24 - footprint.x)
-	y = clampi(y, 0, 24 - footprint.y)
+	x = clampi(x, 0, 50 - footprint.x)
+	y = clampi(y, 0, 50 - footprint.y)
 	return {
 		"kind": kind,
 		"cell": [x, y],
