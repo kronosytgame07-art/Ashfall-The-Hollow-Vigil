@@ -13,6 +13,23 @@ func _initialize() -> void:
 		push_error("3D validation exceeded the two-minute safety limit")
 		quit(1)
 	)
+	for script_path in [
+		"res://scripts/souls_world.gd",
+		"res://scripts/souls_player.gd",
+		"res://scripts/souls_enemy.gd"
+	]:
+		assert(ResourceLoader.exists(script_path), "Missing action-RPG controller: " + script_path)
+		var action_rpg_script := load(script_path) as Script
+		assert(
+			action_rpg_script != null and action_rpg_script.can_instantiate(),
+			"Action-RPG controller cannot instantiate: " + script_path
+		)
+	var main_scene := load("res://scenes/main.tscn") as PackedScene
+	assert(main_scene != null, "The new action-RPG main scene cannot load")
+	var main_instance := main_scene.instantiate()
+	assert(main_instance.get_script().resource_path == "res://scripts/souls_world.gd",
+		"The main scene must launch the soulslike cube world")
+	main_instance.free()
 	for kind in REQUIRED_BUILDINGS:
 		var fp := BuildingFactory.footprint(kind)
 		assert(fp.x > 0 and fp.y > 0, "Invalid footprint: " + kind)
