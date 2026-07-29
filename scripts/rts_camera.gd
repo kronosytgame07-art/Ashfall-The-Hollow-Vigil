@@ -2,8 +2,8 @@ class_name RTSCamera
 extends Node3D
 
 @export var target := Vector3.ZERO
-@export_range(12.0, 55.0) var distance := 25.0
-@export_range(25.0, 70.0) var pitch_degrees := 51.0
+@export_range(11.0, 48.0) var distance := 19.0
+@export_range(25.0, 70.0) var pitch_degrees := 46.0
 @export var yaw_degrees := 45.0
 @export var pan_speed := 18.0
 @export var zoom_speed := 2.4
@@ -36,9 +36,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_dragging = event.pressed
 			_last_pointer = event.position
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			distance = clampf(distance - zoom_speed, 12.0, 55.0)
+			distance = clampf(distance - zoom_speed, 11.0, 48.0)
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			distance = clampf(distance + zoom_speed, 12.0, 55.0)
+			distance = clampf(distance + zoom_speed, 11.0, 48.0)
 	elif event is InputEventMouseMotion and _dragging:
 		_pan_screen_delta(event.position - _last_pointer)
 		_last_pointer = event.position
@@ -56,7 +56,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var points := _touches.values()
 			var pinch: float = points[0].distance_to(points[1])
 			if _last_pinch_distance > 0.0:
-				distance = clampf(distance - (pinch - _last_pinch_distance) * 0.025, 12.0, 55.0)
+				distance = clampf(distance - (pinch - _last_pinch_distance) * 0.025, 11.0, 48.0)
 			_last_pinch_distance = pinch
 
 func _pan_screen_delta(delta: Vector2) -> void:
