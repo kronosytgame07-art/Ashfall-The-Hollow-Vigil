@@ -532,9 +532,15 @@ def build_unit(kind):
 def export(relpath):
     path = os.path.join(ROOT, relpath)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    for obj in bpy.context.scene.objects:
-        if obj.parent is None:
-            obj.rotation_euler.x += math.pi / 2
+    # Convert the entire authored Y-up scene as one hierarchy. Rotating every
+    # loose mesh separately made horizontal X/Z coordinates become vertical in
+    # Godot, producing a 73-metre wall through the camera.
+    scene_root = bpy.data.objects.new("GodotAssetRoot", None)
+    bpy.context.collection.objects.link(scene_root)
+    for obj in list(bpy.context.scene.objects):
+        if obj != scene_root and obj.parent is None:
+            keep_world_parent(obj, scene_root)
+    scene_root.rotation_euler.x = math.pi / 2
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.export_scene.gltf(
         filepath=path, export_format="GLB", use_selection=True,
