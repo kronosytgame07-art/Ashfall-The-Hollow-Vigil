@@ -123,7 +123,9 @@ func _build_environment() -> void:
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.glow_enabled = true
 	environment.glow_intensity = 1.25
-	environment.fog_enabled = true
+	# Height fog is disabled in the compatibility Web renderer until its
+	# visibility is calibrated; it previously swallowed the entire ground pass.
+	environment.fog_enabled = false
 	environment.fog_light_color = Color("#17131d")
 	environment.fog_density = 0.018
 	environment.fog_height = 1.2
@@ -206,10 +208,11 @@ func _build_continuous_ground_collision() -> void:
 	var fallback_mesh := PlaneMesh.new()
 	fallback_mesh.size = Vector2(WORLD_HALF * 2.0, WORLD_HALF * 2.0)
 	fallback_ground.mesh = fallback_mesh
-	fallback_ground.position.y = -0.015
+	fallback_ground.position.y = 0.035
 	var fallback_material := StandardMaterial3D.new()
 	fallback_material.albedo_color = Color("#211f25")
 	fallback_material.roughness = 0.98
+	fallback_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	fallback_ground.material_override = fallback_material
 	$World.add_child(fallback_ground)
 
@@ -346,15 +349,20 @@ func _build_world_follow_camera() -> void:
 	camera_fill.shadow_enabled = false
 	follow_camera.add_child(camera_fill)
 	var target := player.global_position + Vector3(0, 1.15, 0)
-	var offset := player.camera_pivot.global_basis * Vector3(0.7, 1.8, 5.8)
-	follow_camera.global_position = target + offset
+	follow_camera.global_position = target + Vector3(0.7, 4.2, 6.2)
 	follow_camera.look_at(target, Vector3.UP)
 
 func _update_world_follow_camera(delta: float) -> void:
 	if not is_instance_valid(follow_camera) or not is_instance_valid(player):
 		return
 	var target := player.global_position + Vector3(0, 1.15, 0)
-	var orbit_offset := player.camera_pivot.global_basis * Vector3(0.7, 1.8, 5.8)
+	var yaw := player.camera_pivot.rotation.y
+	var pitch := player.camera_pivot.rotation.x
+	var orbit_offset := Vector3(
+		sin(yaw) * 6.2,
+		4.2 + clampf(-pitch * 3.0, -1.4, 1.8),
+		cos(yaw) * 6.2
+	)
 	var desired_position := target + orbit_offset
 	follow_camera.global_position = follow_camera.global_position.lerp(
 		desired_position,
@@ -534,6 +542,7 @@ func _show_title_menu() -> void:
 		game_started = true
 		menu.queue_free()
 		player.process_mode = Node.PROCESS_MODE_INHERIT
+		player.invulnerable_clock = 10.0
 		for enemy in get_tree().get_nodes_in_group("enemy"):
 			enemy.process_mode = Node.PROCESS_MODE_INHERIT
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
