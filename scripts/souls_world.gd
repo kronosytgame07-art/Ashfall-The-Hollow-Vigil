@@ -106,6 +106,16 @@ func _ensure_input_actions() -> void:
 		InputMap.action_add_event("attack", click)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if (
+		event is InputEventKey
+		and event.pressed
+		and event.keycode == KEY_ENTER
+		and is_instance_valid(menu)
+		and world_ready
+	):
+		_start_game()
+		get_viewport().set_input_as_handled()
+		return
 	if awaiting_action.is_empty():
 		return
 	if event is InputEventKey and event.pressed:
@@ -599,15 +609,7 @@ func _show_title_menu() -> void:
 	play_button.position = Vector2(490, 430)
 	play_button.size = Vector2(300, 58)
 	play_button.disabled = true
-	play_button.pressed.connect(func():
-		if not world_ready:
-			return
-		game_started = true
-		menu.queue_free()
-		player.process_mode = Node.PROCESS_MODE_INHERIT
-		player.invulnerable_clock = 10.0
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	)
+	play_button.pressed.connect(_start_game)
 	_style_button(play_button)
 	menu.add_child(play_button)
 	var settings := Button.new()
@@ -632,6 +634,15 @@ func _show_title_menu() -> void:
 	boot_status.add_theme_color_override("font_color", Color("#b79775"))
 	menu.add_child(boot_status)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _start_game() -> void:
+	if not world_ready or game_started:
+		return
+	game_started = true
+	menu.queue_free()
+	player.process_mode = Node.PROCESS_MODE_INHERIT
+	player.invulnerable_clock = 10.0
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _build_controls_menu() -> void:
 	controls_panel = ColorRect.new()
