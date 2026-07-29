@@ -33,6 +33,10 @@ func _initialize() -> void:
 	assert(game_state.resources.gold == 1150, "Resource subtraction failed")
 	assert(BuildingFactory.footprint("town_hall") == Vector2i(3, 3), "Town hall must occupy 3x3")
 	assert(BuildingFactory.footprint("gold_mine") == Vector2i(2, 2), "Gold mine must occupy 2x2")
+	assert(game_state._migrate_building({"kind": "town_hall", "cell": []}).is_empty(),
+		"Malformed browser saves must be rejected without indexing an empty cell")
+	var migrated := game_state._migrate_building({"kind": "gold_mine", "cell": {"x": 5, "y": 9}})
+	assert(migrated.cell == [5, 9], "Legacy dictionary coordinates must migrate")
 	var compact_unit := AshfallCombatUnit.new()
 	assert(compact_unit.camp_scale <= 0.5, "Camp troops must remain compact enough to gather around fires")
 	compact_unit.free()

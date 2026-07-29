@@ -47,7 +47,7 @@ def finish(obj, material, bevel=0.08):
     if bevel:
         mod = obj.modifiers.new("Hand-worked bevels", "BEVEL")
         mod.width = bevel
-        mod.segments = 3
+        mod.segments = 2
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     bpy.ops.object.shade_smooth_by_angle()
@@ -82,7 +82,7 @@ def sphere(name, loc, scale, material, subdivisions=2):
 
 def organic_rock(name, loc, scale, material="stone", seed=0):
     rng = random.Random(seed)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1, location=loc)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1, location=loc)
     o = bpy.context.object
     o.name = name
     for v in o.data.vertices:

@@ -317,6 +317,8 @@ func _restore_village() -> void:
 	for index in range(state.buildings.size()):
 		var data := state.buildings[index]
 		var cell_data: Array = data.get("cell", [0, 0])
+		if cell_data.size() < 2:
+			continue
 		var cell := Vector2i(int(cell_data[0]), int(cell_data[1]))
 		_mark_occupied(str(data.kind), cell)
 		_spawn_building_node(index)
@@ -342,6 +344,8 @@ func _spawn_building_node(index: int) -> void:
 	var data := state.buildings[index]
 	var kind := str(data.kind)
 	var cell_data: Array = data.cell
+	if cell_data.size() < 2:
+		return
 	var cell := Vector2i(int(cell_data[0]), int(cell_data[1]))
 	var fp := BuildingFactory.footprint(kind)
 	var building := BuildingFactory.create(kind)

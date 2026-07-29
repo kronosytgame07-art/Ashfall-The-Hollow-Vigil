@@ -82,7 +82,44 @@ func load_save() -> bool:
 	resources.merge(parsed.get("resources", {}), true)
 	trophies = int(parsed.get("trophies", 0))
 	builders_total = int(parsed.get("builders_total", 2))
-	buildings.assign(parsed.get("buildings", []))
+	buildings.clear()
+	var saved_buildings = parsed.get("buildings", [])
+	if saved_buildings is Array:
+		for raw_building in saved_buildings:
+			var migrated := _migrate_building(raw_building)
+			if not migrated.is_empty():
+				buildings.append(migrated)
 	army.merge(parsed.get("army", {}), true)
 	last_update = int(parsed.get("last_update", Time.get_unix_time_from_system()))
-	return true
+	# An obsolete or corrupted browser save must create a fresh village instead
+	# of crashing before the first rendered frame.
+	return not buildings.is_empty()
+
+func _migrate_building(raw_building: Variant) -> Dictionary:
+	if not raw_building is Dictionary:
+		return {}
+	var data: Dictionary = raw_building
+	var kind := str(data.get("kind", ""))
+	if kind.is_empty() or BuildingFactory.definition(kind).is_empty():
+		return {}
+	var raw_cell = data.get("cell", [])
+	var x := 0
+	var y := 0
+	if raw_cell is Array and raw_cell.size() >= 2:
+		x = int(raw_cell[0])
+		y = int(raw_cell[1])
+	elif raw_cell is Dictionary and raw_cell.has("x") and raw_cell.has("y"):
+		x = int(raw_cell.x)
+		y = int(raw_cell.y)
+	else:
+		return {}
+	var footprint := BuildingFactory.footprint(kind)
+	x = clampi(x, 0, 24 - footprint.x)
+	y = clampi(y, 0, 24 - footprint.y)
+	return {
+		"kind": kind,
+		"cell": [x, y],
+		"level": maxi(1, int(data.get("level", 1))),
+		"finish_at": maxi(0, int(data.get("finish_at", 0))),
+		"stored": maxf(0.0, float(data.get("stored", 0.0))),
+	}
