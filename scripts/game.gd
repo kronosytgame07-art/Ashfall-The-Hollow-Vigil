@@ -293,7 +293,7 @@ func _build_interface() -> void:
 	top_box.add_child(resource_label)
 	var build_toggle := Button.new()
 	build_toggle.text = "  CONSTRUIRE"
-	build_toggle.icon = load("res://assets/ui/icon_hammer.svg")
+	build_toggle.icon = load("res://ui/icons/icon_hammer.svg")
 	build_toggle.icon_max_width = 28
 	_style_button(build_toggle, Color("#a66536"))
 	build_toggle.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -356,14 +356,14 @@ func _build_interface() -> void:
 	army_panel.add_child(army_box)
 	train_button = Button.new()
 	train_button.text = "  Entraîner un guerrier"
-	train_button.icon = load("res://assets/ui/icon_shield.svg")
+	train_button.icon = load("res://ui/icons/icon_shield.svg")
 	train_button.icon_max_width = 26
 	_style_button(train_button, Color("#8e4a37"))
 	train_button.pressed.connect(_train_warrior)
 	army_box.add_child(train_button)
 	raid_button = Button.new()
 	raid_button.text = "  Lancer une expédition"
-	raid_button.icon = load("res://assets/ui/icon_swords.svg")
+	raid_button.icon = load("res://ui/icons/icon_swords.svg")
 	raid_button.icon_max_width = 26
 	_style_button(raid_button, Color("#a66536"))
 	raid_button.pressed.connect(_launch_raid)
@@ -415,13 +415,13 @@ func _build_main_menu() -> void:
 	subtitle.add_theme_font_size_override("font_size", 17)
 	subtitle.add_theme_color_override("font_color", Color("#a79ba7"))
 	box.add_child(subtitle)
-	var village_button := _menu_button("  CONTINUER LE VILLAGE", "res://assets/ui/icon_town.svg")
+	var village_button := _menu_button("  CONTINUER LE VILLAGE", "res://ui/icons/icon_town.svg")
 	village_button.pressed.connect(_enter_village)
 	box.add_child(village_button)
-	var combat_button := _menu_button("  COMBAT PVPVE", "res://assets/ui/icon_swords.svg")
+	var combat_button := _menu_button("  COMBAT PVPVE", "res://ui/icons/icon_swords.svg")
 	combat_button.pressed.connect(_enter_pvpve_battle)
 	box.add_child(combat_button)
-	var settings_button := _menu_button("  OPTIONS", "res://assets/ui/icon_settings.svg")
+	var settings_button := _menu_button("  OPTIONS", "res://ui/icons/icon_settings.svg")
 	box.add_child(settings_button)
 	var option_row := HBoxContainer.new()
 	option_row.visible = false
@@ -480,12 +480,12 @@ func _style_button(button: Button, accent: Color) -> void:
 
 func _building_icon_path(kind: String) -> String:
 	if kind in ["barracks", "army_camp", "tower", "wall"]:
-		return "res://assets/ui/icon_shield.svg"
+		return "res://ui/icons/icon_shield.svg"
 	if kind in ["sawmill", "builders_yard", "forge"]:
-		return "res://assets/ui/icon_hammer.svg"
+		return "res://ui/icons/icon_hammer.svg"
 	if kind in ["laboratory", "spell_hall", "soul_altar"]:
-		return "res://assets/ui/icon_settings.svg"
-	return "res://assets/ui/icon_town.svg"
+		return "res://ui/icons/icon_settings.svg"
+	return "res://ui/icons/icon_town.svg"
 
 func _enter_village() -> void:
 	game_started = true
