@@ -3,6 +3,26 @@ extends Node3D
 const PLAYER_SCRIPT := preload("res://scripts/souls_player.gd")
 const ENEMY_SCRIPT := preload("res://scripts/souls_enemy.gd")
 const WORLD_HALF := 30
+const CONTROL_ACTIONS := {
+	"move_forward": "AVANCER",
+	"move_back": "RECULER",
+	"move_left": "ALLER À GAUCHE",
+	"move_right": "ALLER À DROITE",
+	"sprint": "COURIR",
+	"dodge": "ESQUIVER",
+	"attack": "ATTAQUER",
+	"interact": "INTERAGIR",
+}
+const DEFAULT_KEYS := {
+	"move_forward": KEY_W,
+	"move_back": KEY_S,
+	"move_left": KEY_A,
+	"move_right": KEY_D,
+	"sprint": KEY_SHIFT,
+	"dodge": KEY_SPACE,
+	"attack": KEY_F,
+	"interact": KEY_E,
+}
 
 var player: AshfallSoulsPlayer
 var health_bar: ProgressBar
@@ -18,9 +38,13 @@ var game_started := false
 var selected_race := "Humain"
 var checkpoint_position := Vector3(0, 1.2, 10)
 var fire_light: OmniLight3D
+var controls_panel: Control
+var control_buttons: Dictionary = {}
+var awaiting_action := ""
 
 func _ready() -> void:
 	_ensure_input_actions()
+	_load_controls()
 	_build_environment()
 	_build_voxel_world()
 	_build_ruins()
@@ -45,27 +69,35 @@ func _process(delta: float) -> void:
 		player.take_damage(999.0)
 
 func _ensure_input_actions() -> void:
-	var actions := {
-		"move_forward": KEY_W,
-		"move_back": KEY_S,
-		"move_left": KEY_A,
-		"move_right": KEY_D,
-		"sprint": KEY_SHIFT,
-		"dodge": KEY_SPACE,
-		"attack": KEY_F,
-		"interact": KEY_E,
-	}
-	for action in actions:
+	for action in DEFAULT_KEYS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
 		if InputMap.action_get_events(action).is_empty():
 			var event := InputEventKey.new()
-			event.physical_keycode = actions[action]
+			event.physical_keycode = DEFAULT_KEYS[action]
 			InputMap.action_add_event(action, event)
 	if InputMap.action_get_events("attack").size() == 1:
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		InputMap.action_add_event("attack", click)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if awaiting_action.is_empty():
+		return
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE:
+			_cancel_rebinding()
+			get_viewport().set_input_as_handled()
+			return
+		var key_event := InputEventKey.new()
+		key_event.physical_keycode = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+		_apply_binding(awaiting_action, key_event)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed:
+		var mouse_event := InputEventMouseButton.new()
+		mouse_event.button_index = event.button_index
+		_apply_binding(awaiting_action, mouse_event)
+		get_viewport().set_input_as_handled()
 
 func _build_environment() -> void:
 	var world_environment := WorldEnvironment.new()
@@ -341,7 +373,16 @@ func _build_interface() -> void:
 	controls.add_theme_font_size_override("font_size", 14)
 	controls.add_theme_color_override("font_color", Color("#837b78"))
 	hud.add_child(controls)
+	var controls_button := Button.new()
+	controls_button.text = "⚙  COMMANDES"
+	controls_button.position = Vector2(1070, 30)
+	controls_button.size = Vector2(180, 42)
+	controls_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	controls_button.pressed.connect(_open_controls_menu)
+	_style_button(controls_button)
+	hud.add_child(controls_button)
 	_build_death_overlay(hud)
+	_build_controls_menu()
 
 func _build_death_overlay(hud: Control) -> void:
 	death_overlay = ColorRect.new()
@@ -427,6 +468,13 @@ func _show_title_menu() -> void:
 	)
 	_style_button(play)
 	menu.add_child(play)
+	var settings := Button.new()
+	settings.text = "COMMANDES"
+	settings.position = Vector2(490, 500)
+	settings.size = Vector2(300, 48)
+	settings.pressed.connect(_open_controls_menu)
+	_style_button(settings)
+	menu.add_child(settings)
 	var direction := Label.new()
 	direction.text = "ACTION-RPG CUBIQUE  •  PROTOTYPE JOUABLE"
 	direction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -435,6 +483,157 @@ func _show_title_menu() -> void:
 	direction.add_theme_color_override("font_color", Color("#554d54"))
 	menu.add_child(direction)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _build_controls_menu() -> void:
+	controls_panel = ColorRect.new()
+	controls_panel.color = Color(0.018, 0.014, 0.023, 0.97)
+	controls_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	controls_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	controls_panel.visible = false
+	$Interface.add_child(controls_panel)
+	var title := Label.new()
+	title.text = "COMMANDES"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.position = Vector2(0, 54)
+	title.size = Vector2(1280, 50)
+	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", Color("#d3c4b0"))
+	controls_panel.add_child(title)
+	var hint := Label.new()
+	hint.text = "Cliquez sur une commande, puis appuyez sur la touche ou le bouton de souris souhaité."
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.position = Vector2(0, 108)
+	hint.size = Vector2(1280, 32)
+	hint.add_theme_color_override("font_color", Color("#8e8176"))
+	controls_panel.add_child(hint)
+	var list := VBoxContainer.new()
+	list.position = Vector2(400, 158)
+	list.size = Vector2(480, 400)
+	list.add_theme_constant_override("separation", 8)
+	controls_panel.add_child(list)
+	for action in CONTROL_ACTIONS:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 20)
+		list.add_child(row)
+		var action_label := Label.new()
+		action_label.text = CONTROL_ACTIONS[action]
+		action_label.custom_minimum_size = Vector2(245, 42)
+		action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		action_label.add_theme_font_size_override("font_size", 16)
+		action_label.add_theme_color_override("font_color", Color("#b8aa99"))
+		row.add_child(action_label)
+		var binding := Button.new()
+		binding.custom_minimum_size = Vector2(210, 42)
+		binding.text = _binding_text(action)
+		binding.pressed.connect(_begin_rebinding.bind(action))
+		_style_button(binding)
+		row.add_child(binding)
+		control_buttons[action] = binding
+	var reset := Button.new()
+	reset.text = "RÉTABLIR PAR DÉFAUT"
+	reset.position = Vector2(400, 610)
+	reset.size = Vector2(225, 44)
+	reset.pressed.connect(_reset_controls)
+	_style_button(reset)
+	controls_panel.add_child(reset)
+	var close := Button.new()
+	close.text = "VALIDER ET REVENIR"
+	close.position = Vector2(655, 610)
+	close.size = Vector2(225, 44)
+	close.pressed.connect(_close_controls_menu)
+	_style_button(close)
+	controls_panel.add_child(close)
+
+func _open_controls_menu() -> void:
+	controls_panel.visible = true
+	controls_panel.move_to_front()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if is_instance_valid(player):
+		player.process_mode = Node.PROCESS_MODE_DISABLED
+
+func _close_controls_menu() -> void:
+	_cancel_rebinding()
+	controls_panel.visible = false
+	if game_started and is_instance_valid(player) and not player.is_dead:
+		player.process_mode = Node.PROCESS_MODE_INHERIT
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _begin_rebinding(action: String) -> void:
+	awaiting_action = action
+	for action_name in control_buttons:
+		control_buttons[action_name].disabled = action_name != action
+	control_buttons[action].text = "APPUYEZ SUR UNE TOUCHE…"
+
+func _cancel_rebinding() -> void:
+	if not awaiting_action.is_empty() and control_buttons.has(awaiting_action):
+		control_buttons[awaiting_action].text = _binding_text(awaiting_action)
+	awaiting_action = ""
+	for button in control_buttons.values():
+		button.disabled = false
+
+func _apply_binding(action: String, event: InputEvent) -> void:
+	InputMap.action_erase_events(action)
+	InputMap.action_add_event(action, event)
+	awaiting_action = ""
+	for action_name in control_buttons:
+		control_buttons[action_name].disabled = false
+		control_buttons[action_name].text = _binding_text(action_name)
+	_save_controls()
+
+func _binding_text(action: String) -> String:
+	var events := InputMap.action_get_events(action)
+	if events.is_empty():
+		return "NON ASSIGNÉ"
+	return (events[0] as InputEvent).as_text().to_upper()
+
+func _reset_controls() -> void:
+	for action in DEFAULT_KEYS:
+		InputMap.action_erase_events(action)
+		var event := InputEventKey.new()
+		event.physical_keycode = DEFAULT_KEYS[action]
+		InputMap.action_add_event(action, event)
+	var attack_click := InputEventMouseButton.new()
+	attack_click.button_index = MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("attack", attack_click)
+	for action in control_buttons:
+		control_buttons[action].text = _binding_text(action)
+	_save_controls()
+
+func _save_controls() -> void:
+	var config := ConfigFile.new()
+	for action in CONTROL_ACTIONS:
+		var events := InputMap.action_get_events(action)
+		if events.is_empty():
+			continue
+		var event := events[0]
+		if event is InputEventKey:
+			config.set_value(action, "type", "key")
+			config.set_value(action, "code", event.physical_keycode)
+		elif event is InputEventMouseButton:
+			config.set_value(action, "type", "mouse")
+			config.set_value(action, "code", event.button_index)
+	config.save("user://controls.cfg")
+
+func _load_controls() -> void:
+	var config := ConfigFile.new()
+	if config.load("user://controls.cfg") != OK:
+		return
+	for action in CONTROL_ACTIONS:
+		if not config.has_section_key(action, "code"):
+			continue
+		var event_type: String = config.get_value(action, "type", "key")
+		var code: int = config.get_value(action, "code", 0)
+		var event: InputEvent
+		if event_type == "mouse":
+			var mouse_event := InputEventMouseButton.new()
+			mouse_event.button_index = code
+			event = mouse_event
+		else:
+			var key_event := InputEventKey.new()
+			key_event.physical_keycode = code
+			event = key_event
+		InputMap.action_erase_events(action)
+		InputMap.action_add_event(action, event)
 
 func _hud_bar(color: Color, value_: float) -> ProgressBar:
 	var bar := ProgressBar.new()

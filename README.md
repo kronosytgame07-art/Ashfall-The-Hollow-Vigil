@@ -8,18 +8,22 @@ et la progression dans un monde ouvert.
 ## Prototype jouable
 
 - personnage cubique équipé d’une armure, d’une épée et d’un bouclier ;
-- choix entre Humain, Orque, Gobelin et Nain avant l’entrée dans le monde ;
+- choix entre Humain, Orque, Gobelin et Nain, avec silhouettes, visages,
+  équipements et proportions propres à chaque race ;
 - caméra libre à la troisième personne ;
 - déplacement, course, endurance, attaque directionnelle et esquive avec
   invulnérabilité temporaire ;
+- combo de trois coups, fenêtres d’impact, traînée d’arme, recul, réactions aux
+  coups et nombres de dégâts en 3D ;
 - santé, mort et retour au dernier brasier ;
-- ennemis de niveaux différents avec détection, poursuite, attaque et récompense
-  en âmes ;
+- ennemis de niveaux et d’archétypes différents avec silhouettes personnalisées,
+  télégraphie des attaques, poursuite et récompense en âmes ;
 - zone centrale adaptée au niveau 1 ;
 - frontières vers une région volcanique et une région enneigée contenant des
   adversaires nettement plus dangereux ;
 - ruines, chapelle brisée, arbres morts, falaises et matériaux cubiques texturés ;
 - interface dark fantasy et menu de sélection du personnage.
+- menu de commandes entièrement remappables, sauvegardées localement.
 
 ## Contrôles
 
@@ -32,6 +36,9 @@ et la progression dans un monde ouvert.
 | Course | Maj |
 | Repos au brasier | E |
 | Libérer la souris | Échap |
+
+Toutes ces commandes peuvent être remplacées depuis le bouton **COMMANDES** du
+menu principal ou du HUD.
 
 ## Architecture active
 
