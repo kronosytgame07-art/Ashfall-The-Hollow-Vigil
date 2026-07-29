@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 import { PNG } from "pngjs";
 import fs from "node:fs";
 
@@ -7,6 +7,7 @@ if (!url) throw new Error("ASHFALL_PAGES_URL is required");
 
 const browser = await chromium.launch({
   headless: true,
+  executablePath: "/usr/bin/google-chrome",
   args: [
     "--enable-webgl",
     "--ignore-gpu-blocklist",
