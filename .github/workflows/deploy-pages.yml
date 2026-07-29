@@ -74,3 +74,21 @@ jobs:
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Install browser smoke-test dependencies
+        run: |
+          npm install --no-save playwright@1.55.0 pngjs@7.0.0
+          npx playwright install --with-deps chromium
+
+      - name: Test the deployed game in Chromium
+        env:
+          ASHFALL_PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node tests/web_pages_smoke.mjs
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-smoke-diagnostics
+          path: test-results
+          if-no-files-found: ignore
