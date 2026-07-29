@@ -32,7 +32,8 @@ fs.writeFileSync("test-results/menu.png", menuShot);
 const menuStats = analyze(menuShot);
 if (menuStats.nonDarkRatio < 0.002) {
   throw new Error(
-    `The deployed canvas is visually black: ${JSON.stringify(menuStats)}`
+    `The deployed canvas is visually black: ${JSON.stringify(menuStats)}\n` +
+    `Browser errors:\n${browserErrors.join("\n") || "(none)"}`
   );
 }
 
