@@ -479,7 +479,11 @@ func _animate(delta: float) -> void:
 	if is_dead:
 		visual.rotation.z = lerpf(visual.rotation.z, 1.42, 4.0 * delta)
 	elif is_dodging:
-		visual.rotation.x = -sin(dodge_clock / 0.52 * PI) * 0.62
+		# Roulade complète : le personnage boucle un tour plein vers l'avant
+		# pendant toute la durée de l'esquive, au lieu d'un simple tangage.
+		var roll_phase := clampf(dodge_clock / 0.52, 0.0, 1.0)
+		visual.rotation.x = -roll_phase * TAU
+		visual.position.y = sin(roll_phase * PI) * 0.34
 		left_leg_pivot.rotation.x = lerpf(left_leg_pivot.rotation.x, -0.45, 0.25)
 		right_leg_pivot.rotation.x = lerpf(right_leg_pivot.rotation.x, 0.45, 0.25)
 	elif is_attacking:

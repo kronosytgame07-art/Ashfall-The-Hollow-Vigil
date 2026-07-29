@@ -118,6 +118,10 @@ func _run() -> void:
 	var errant: AshfallSoulsEnemy
 	var hollow_raider: AshfallSoulsEnemy
 	var fallen: AshfallSoulsEnemy
+	var frost_revenant: AshfallSoulsEnemy
+	var boreal_guard: AshfallSoulsEnemy
+	var ember_flayed: AshfallSoulsEnemy
+	var magma_knight: AshfallSoulsEnemy
 	for enemy_node in game.get_tree().get_nodes_in_group("enemy"):
 		var enemy := enemy_node as AshfallSoulsEnemy
 		if enemy.enemy_name == "Errant":
@@ -126,6 +130,14 @@ func _run() -> void:
 			hollow_raider = enemy
 		elif enemy.enemy_name == "Déchu":
 			fallen = enemy
+		elif enemy.enemy_name == "Revenant de givre":
+			frost_revenant = enemy
+		elif enemy.enemy_name == "Garde boréal":
+			boreal_guard = enemy
+		elif enemy.enemy_name == "Écorché de braise":
+			ember_flayed = enemy
+		elif enemy.enemy_name == "Chevalier du magma":
+			magma_knight = enemy
 	if not _require(
 		is_instance_valid(errant)
 		and errant.find_child("ErrantHood", true, false) != null
@@ -152,6 +164,42 @@ func _run() -> void:
 		and fallen.find_child("FallenGreatsword", true, false) != null
 		and fallen.find_child("EnemySwordBlade", true, false) == null,
 		"Fallen Knight concept silhouette is incomplete"
+	):
+		return
+	if not _require(
+		is_instance_valid(frost_revenant)
+		and frost_revenant.find_child("FrostRevenantSkull", true, false) != null
+		and frost_revenant.find_child("FrostRevenantIcicleSkirt", true, false) != null
+		and frost_revenant.find_child("FrostRevenantWeaponClaw", true, false) != null
+		and frost_revenant.find_child("EnemySwordBlade", true, false) == null,
+		"Frost Revenant concept silhouette is incomplete"
+	):
+		return
+	if not _require(
+		is_instance_valid(boreal_guard)
+		and boreal_guard.find_child("BorealGuardHelm", true, false) != null
+		and boreal_guard.find_child("BorealGuardFurMantle", true, false) != null
+		and boreal_guard.find_child("BorealGuardAxe", true, false) != null
+		and boreal_guard.find_child("EnemySwordBlade", true, false) == null,
+		"Boreal Guard concept silhouette is incomplete"
+	):
+		return
+	if not _require(
+		is_instance_valid(ember_flayed)
+		and ember_flayed.find_child("EmberFlayedSkull", true, false) != null
+		and ember_flayed.find_child("EmberFlayedShackle", true, false) != null
+		and ember_flayed.find_child("EmberFlayedWeaponClaw", true, false) != null
+		and ember_flayed.find_child("EnemySwordBlade", true, false) == null,
+		"Ember Flayed concept silhouette is incomplete"
+	):
+		return
+	if not _require(
+		is_instance_valid(magma_knight)
+		and magma_knight.find_child("MagmaKnightHelm", true, false) != null
+		and magma_knight.find_child("MagmaKnightCrack", true, false) != null
+		and magma_knight.find_child("MagmaKnightSword", true, false) != null
+		and magma_knight.find_child("EnemySwordBlade", true, false) == null,
+		"Magma Knight concept silhouette is incomplete"
 	):
 		return
 	var grounded_y: float = game.player.global_position.y
