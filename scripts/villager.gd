@@ -7,7 +7,8 @@ enum State { IDLE, WALK, RUN, WORK }
 @export var run_speed := 4.15
 @export var acceleration := 7.5
 @export var turn_speed := 9.0
-@export var roam_radius := 18.0
+@export var roam_radius := 21.0
+@export_range(0.35, 0.65, 0.01) var character_scale := 0.48
 
 var state := State.WALK
 var target := Vector3.ZERO
@@ -73,7 +74,7 @@ func stop_work() -> void:
 func _update_locomotion(delta: float) -> void:
 	var offset := target - global_position
 	offset.y = 0.0
-	if offset.length() < 0.48:
+	if offset.length() < 0.28:
 		if _work_requested:
 			start_work()
 		else:
@@ -91,8 +92,8 @@ func _update_locomotion(delta: float) -> void:
 		var away: Vector3 = global_position - unit.global_position
 		away.y = 0.0
 		var distance := away.length()
-		if distance > 0.001 and distance < 1.05:
-			separation += away.normalized() * (1.05 - distance) * 2.4
+		if distance > 0.001 and distance < 0.58:
+			separation += away.normalized() * (0.58 - distance) * 2.4
 	desired_velocity += separation
 	velocity.x = move_toward(velocity.x, desired_velocity.x, acceleration * delta)
 	velocity.z = move_toward(velocity.z, desired_velocity.z, acceleration * delta)
@@ -160,10 +161,10 @@ func _animate_work() -> void:
 func _build_collision() -> void:
 	var collider := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.38
-	capsule.height = 2.35
+	capsule.radius = 0.38 * character_scale
+	capsule.height = 2.35 * character_scale
 	collider.shape = capsule
-	collider.position.y = 1.18
+	collider.position.y = 1.18 * character_scale
 	add_child(collider)
 
 func _mat(color: Color, metallic := 0.0) -> StandardMaterial3D:
@@ -188,19 +189,27 @@ func _box_part(parent: Node3D, name_: String, size: Vector3, position_: Vector3,
 	mesh.size = size
 	return _mesh_part(parent, name_, mesh, position_, color, metallic)
 
+func _cylinder_part(parent: Node3D, name_: String, radius: float, height: float, position_: Vector3, color: Color, metallic := 0.0) -> MeshInstance3D:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius * 0.92
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 9
+	return _mesh_part(parent, name_, mesh, position_, color, metallic)
+
 func _limb_chain(name_: String, x: float, y: float, arm := false) -> Array[Node3D]:
 	var upper_pivot := Node3D.new()
 	upper_pivot.name = name_ + "Upper"
 	upper_pivot.position = Vector3(x, y, 0.0)
 	_root_visual.add_child(upper_pivot)
-	var upper_size := Vector3(0.23, 0.55, 0.26) if arm else Vector3(0.32, 0.55, 0.38)
-	_box_part(upper_pivot, "UpperMesh", upper_size, Vector3(0, -upper_size.y * 0.5, 0), Color("#3a2921") if arm else Color("#25242a"))
+	var upper_height := 0.55
+	_cylinder_part(upper_pivot, "UpperMesh", 0.13 if arm else 0.18, upper_height, Vector3(0, -upper_height * 0.5, 0), Color("#3a2921") if arm else Color("#25242a"))
 	var joint := Node3D.new()
 	joint.name = name_ + ("Elbow" if arm else "Knee")
-	joint.position = Vector3(0, -upper_size.y, 0)
+	joint.position = Vector3(0, -upper_height, 0)
 	upper_pivot.add_child(joint)
-	var lower_size := Vector3(0.21, 0.5, 0.24) if arm else Vector3(0.29, 0.52, 0.35)
-	_box_part(joint, "LowerMesh", lower_size, Vector3(0, -lower_size.y * 0.5, 0), Color("#34241f") if arm else Color("#202026"))
+	var lower_height := 0.5 if arm else 0.52
+	_cylinder_part(joint, "LowerMesh", 0.12 if arm else 0.16, lower_height, Vector3(0, -lower_height * 0.5, 0), Color("#34241f") if arm else Color("#202026"))
 	if not arm:
 		_box_part(joint, "Boot", Vector3(0.38, 0.22, 0.58), Vector3(0, -0.57, 0.12), Color("#141116"))
 	return [upper_pivot, joint]
@@ -208,6 +217,7 @@ func _limb_chain(name_: String, x: float, y: float, arm := false) -> Array[Node3
 func _build_character() -> void:
 	_root_visual = Node3D.new()
 	_root_visual.name = "CharacterVisual"
+	_root_visual.scale = Vector3.ONE * character_scale
 	add_child(_root_visual)
 	_torso = Node3D.new()
 	_torso.name = "Torso"
@@ -217,6 +227,9 @@ func _build_character() -> void:
 	_box_part(_torso, "LeatherApron", Vector3(0.7, 0.86, 0.08), Vector3(0, -0.02, -0.35), Color("#6d4228"))
 	_box_part(_torso, "Belt", Vector3(1.12, 0.15, 0.69), Vector3(0, -0.42, 0), Color("#171316"))
 	_box_part(_torso, "BeltBuckle", Vector3(0.18, 0.18, 0.08), Vector3(0, -0.42, -0.39), Color("#9d7438"), 0.65)
+	_box_part(_torso, "ToolRoll", Vector3(0.48, 0.32, 0.18), Vector3(-0.38, -0.25, 0.36), Color("#52301f"))
+	for x in [-0.13, 0.0, 0.13]:
+		_cylinder_part(_torso, "BeltTool", 0.035, 0.42, Vector3(x - 0.38, -0.25, 0.48), Color("#777278"), 0.55)
 	var head_mesh := SphereMesh.new()
 	head_mesh.radius = 0.34
 	head_mesh.height = 0.68
@@ -226,6 +239,8 @@ func _build_character() -> void:
 	hood_mesh.height = 0.78
 	var hood := _mesh_part(_torso, "Hood", hood_mesh, Vector3(0, 0.9, -0.08), Color("#2a201f"))
 	hood.scale = Vector3(1.0, 1.06, 0.88)
+	var scarf := _cylinder_part(_torso, "Scarf", 0.4, 0.18, Vector3(0, 0.55, 0), Color("#592026"))
+	scarf.scale.z = 0.86
 	var eye_mesh := SphereMesh.new()
 	eye_mesh.radius = 0.045
 	eye_mesh.height = 0.09

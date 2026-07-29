@@ -36,5 +36,8 @@ func _initialize() -> void:
 	var compact_unit := AshfallCombatUnit.new()
 	assert(compact_unit.camp_scale <= 0.5, "Camp troops must remain compact enough to gather around fires")
 	compact_unit.free()
+	var compact_villager := AshfallVillager.new()
+	assert(is_equal_approx(compact_villager.character_scale, 0.48), "Villagers must match troop scale")
+	compact_villager.free()
 	print("Ashfall 3D validation: assets, compact dark-fantasy units, economy, footprints and 8-way movement, OK")
 	quit()

@@ -38,6 +38,7 @@ func _ready() -> void:
 	else:
 		_create_new_village()
 	_spawn_villagers()
+	_resume_active_builders()
 	_add_village_paths()
 	_add_village_atmosphere()
 	_refresh_ui()
@@ -97,16 +98,24 @@ func _build_environment() -> void:
 	moon.light_energy = 1.05
 	moon.shadow_enabled = true
 	$World.add_child(moon)
-	var ground := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(74, 74)
-	ground.mesh = plane
-	ground.material_override = _terrain_material()
-	$World.add_child(ground)
+	var outer_ground := MeshInstance3D.new()
+	var outer_plane := PlaneMesh.new()
+	outer_plane.size = Vector2(78, 78)
+	outer_ground.mesh = outer_plane
+	outer_ground.material_override = _material(Color("#302d33"))
+	$World.add_child(outer_ground)
+	var village_ground := MeshInstance3D.new()
+	var village_plane := PlaneMesh.new()
+	village_plane.size = Vector2(GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE)
+	village_ground.mesh = village_plane
+	village_ground.position.y = 0.015
+	village_ground.material_override = _terrain_material()
+	$World.add_child(village_ground)
+	_add_ground_collision()
 	var mountain_scene := load("res://models/environment/mountain_ring.glb") as PackedScene
 	if mountain_scene:
 		var mountains := mountain_scene.instantiate()
-		mountains.scale = Vector3(0.84, 0.5, 0.84)
+		mountains.scale = Vector3(1.0, 0.55, 1.0)
 		_apply_mountain_material(mountains)
 		$World.add_child(mountains)
 	grid_root = _new_root("Grid")
@@ -114,6 +123,19 @@ func _build_environment() -> void:
 	obstacles_root = _new_root("Obstacles")
 	villagers_root = _new_root("Villagers")
 	troops_root = _new_root("Troops")
+
+func _add_ground_collision() -> void:
+	var body := StaticBody3D.new()
+	body.name = "GroundCollision"
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var collider := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(78.0, 0.4, 78.0)
+	collider.shape = shape
+	collider.position.y = -0.2
+	body.add_child(collider)
+	$World.add_child(body)
 
 func _new_root(root_name: String) -> Node3D:
 	var root := Node3D.new()
@@ -580,9 +602,15 @@ func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
 
 func _assign_builder(target: Vector3) -> void:
 	for villager in villagers_root.get_children():
-		if villager is AshfallVillager and villager.state != AshfallVillager.State.WORK:
+		if villager is AshfallVillager and (villager.state == AshfallVillager.State.WALK or villager.state == AshfallVillager.State.IDLE):
 			villager.set_work_target(target + Vector3(2.4, 0, 1.0))
 			return
+
+func _resume_active_builders() -> void:
+	var now := _now()
+	for index in building_nodes:
+		if int(state.buildings[int(index)].finish_at) > now:
+			_assign_builder(building_nodes[index].global_position)
 
 func _spawn_obstacle(cell: Vector2i) -> void:
 	occupied[cell] = "obstacle"
@@ -605,8 +633,15 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	root.add_child(body)
 
 func _update_building_visuals(now: int) -> void:
+	var has_active_construction := false
 	for index in building_nodes:
+		if int(state.buildings[int(index)].finish_at) > now:
+			has_active_construction = true
 		_update_one_building_visual(int(index), now)
+	if not has_active_construction:
+		for villager in villagers_root.get_children() if villagers_root else []:
+			if villager is AshfallVillager and villager.state == AshfallVillager.State.WORK:
+				villager.stop_work()
 
 func _update_one_building_visual(index: int, now: int) -> void:
 	if not building_nodes.has(index):
@@ -615,7 +650,7 @@ func _update_one_building_visual(index: int, now: int) -> void:
 	var node: Node3D = building_nodes[index]
 	var constructing := int(data.finish_at) > now
 	node.scale = Vector3.ONE * (0.82 if constructing else 1.0)
-	if not constructing:
+	if constructing:
 		for villager in villagers_root.get_children() if villagers_root else []:
 			if villager is AshfallVillager and villager.state == AshfallVillager.State.RUN and villager.target.distance_to(node.global_position) < 4.0:
 				villager.start_work()

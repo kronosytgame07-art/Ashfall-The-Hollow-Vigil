@@ -129,7 +129,9 @@ func _pivot_limb(parent: Node3D, name_: String, pos: Vector3, size: Vector3, col
 	pivot.name = name_
 	pivot.position = pos
 	parent.add_child(pivot)
-	_box(pivot, size, Vector3(0, -size.y * 0.5, 0), color)
+	_cylinder(pivot, size.x * 0.46, size.y, Vector3(0, -size.y * 0.5, 0), color)
+	if "Leg" in name_:
+		_box(pivot, Vector3(size.x * 1.25, 0.2, size.z * 1.45), Vector3(0, -size.y - 0.04, -0.08), Color("#17171b"))
 	return pivot
 
 func _build_model() -> void:
@@ -158,6 +160,8 @@ func _build_model() -> void:
 	var cape_color := Color("#3a1015") if kind != UnitKind.ARCHER else Color("#182419")
 	var cape := _box(_torso, Vector3(0.72, 0.94, 0.08), Vector3(0, -0.02, 0.35), cape_color)
 	cape.rotation.x = -0.08
+	for x in [-0.32, 0.32]:
+		_cylinder(_torso, 0.055, 0.12, Vector3(x, 0.46, -0.32), Color("#a56a2d"), 0.8)
 	var head := MeshInstance3D.new()
 	var head_mesh := SphereMesh.new()
 	head_mesh.radius = 0.31
