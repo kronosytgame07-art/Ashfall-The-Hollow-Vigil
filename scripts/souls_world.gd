@@ -10,6 +10,7 @@ const CONTROL_ACTIONS := {
 	"move_right": "ALLER À DROITE",
 	"sprint": "COURIR",
 	"dodge": "ESQUIVER",
+	"jump": "SAUTER",
 	"attack": "ATTAQUER",
 	"interact": "INTERAGIR",
 }
@@ -19,7 +20,8 @@ const DEFAULT_KEYS := {
 	"move_left": KEY_A,
 	"move_right": KEY_D,
 	"sprint": KEY_SHIFT,
-	"dodge": KEY_SPACE,
+	"dodge": KEY_Q,
+	"jump": KEY_SPACE,
 	"attack": KEY_F,
 	"interact": KEY_E,
 }
@@ -37,7 +39,7 @@ var souls := 0
 var game_started := false
 var selected_race := "Humain"
 var checkpoint_position := Vector3(0, 1.2, 10)
-var safe_spawn_position := Vector3(0, 2.4, 10)
+var safe_spawn_position := Vector3(0, 2.4, 13.6)
 var fire_light: OmniLight3D
 var controls_panel: Control
 var control_buttons: Dictionary = {}
@@ -47,10 +49,12 @@ var enemies_active := false
 var world_ready := false
 var play_button: Button
 var boot_status: Label
+var inventory_label: Label
 
 func _ready() -> void:
 	_ensure_input_actions()
 	_load_controls()
+	_migrate_legacy_controls()
 	_spawn_player()
 	_build_world_follow_camera()
 	_build_interface()
@@ -82,8 +86,18 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player) or player.is_dead:
 		return
 	var distance_to_fire := player.global_position.distance_to(checkpoint_position)
-	prompt_label.visible = distance_to_fire < 3.0
-	if distance_to_fire < 3.0 and Input.is_action_just_pressed("interact"):
+	var nearest_corpse := _nearest_lootable_corpse()
+	prompt_label.visible = distance_to_fire < 3.0 or nearest_corpse != null
+	if nearest_corpse != null:
+		prompt_label.text = "[ E ] FOUILLER  •  %s" % nearest_corpse.enemy_name.to_upper()
+	elif distance_to_fire < 3.0:
+		prompt_label.text = "[ E ] SE REPOSER AU BRASIER"
+	if nearest_corpse != null and Input.is_action_just_pressed("interact"):
+		var recovered: Array = nearest_corpse.loot_all()
+		player.equip_loot(recovered)
+		_update_inventory_hud()
+		_flash_message("BUTIN RÉCUPÉRÉ  •  %s" % _loot_names(recovered))
+	elif distance_to_fire < 3.0 and Input.is_action_just_pressed("interact"):
 		player.rest_at(safe_spawn_position)
 		_respawn_enemies()
 		_flash_message("REPOS ACCORDÉ  •  LES OMBRES REVIENNENT")
@@ -104,6 +118,23 @@ func _ensure_input_actions() -> void:
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		InputMap.action_add_event("attack", click)
+
+func _migrate_legacy_controls() -> void:
+	# Older browser saves used Space for dodge. Reserve Space for jumping and
+	# move that legacy binding to Q without overwriting a deliberate new choice.
+	var dodge_events := InputMap.action_get_events("dodge")
+	var jump_events := InputMap.action_get_events("jump")
+	if dodge_events.size() == 1 and dodge_events[0] is InputEventKey:
+		if dodge_events[0].physical_keycode == KEY_SPACE:
+			InputMap.action_erase_events("dodge")
+			var dodge_key := InputEventKey.new()
+			dodge_key.physical_keycode = KEY_Q
+			InputMap.action_add_event("dodge", dodge_key)
+	if jump_events.is_empty():
+		var jump_key := InputEventKey.new()
+		jump_key.physical_keycode = KEY_SPACE
+		InputMap.action_add_event("jump", jump_key)
+	_save_controls()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (
@@ -463,6 +494,8 @@ func _spawn_enemies() -> void:
 func _respawn_enemies() -> void:
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		enemy.queue_free()
+	for corpse in get_tree().get_nodes_in_group("corpse"):
+		corpse.queue_free()
 	enemies_alive = 0
 	call_deferred("_spawn_enemies")
 
@@ -495,6 +528,11 @@ func _build_interface() -> void:
 	souls_label.add_theme_font_size_override("font_size", 16)
 	souls_label.add_theme_color_override("font_color", Color("#b8a78f"))
 	stats.add_child(souls_label)
+	inventory_label = Label.new()
+	inventory_label.text = "ÉQUIPÉ  •  ÉPÉE DE VEILLE"
+	inventory_label.add_theme_font_size_override("font_size", 13)
+	inventory_label.add_theme_color_override("font_color", Color("#8f8273"))
+	stats.add_child(inventory_label)
 	area_label = Label.new()
 	area_label.text = "LES RUINES DE VIGILE"
 	area_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -516,7 +554,7 @@ func _build_interface() -> void:
 	prompt_label.visible = false
 	hud.add_child(prompt_label)
 	var controls := Label.new()
-	controls.text = "ZQSD/WASD Déplacement   •   Souris Caméra   •   Clic/F Attaque   •   Espace Esquive   •   Maj Course"
+	controls.text = "ZQSD/WASD Déplacement   •   Espace Saut   •   Q Esquive   •   Clic/F Attaque   •   E Fouiller"
 	controls.position = Vector2(24, 684)
 	controls.size = Vector2(1220, 26)
 	controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -869,6 +907,33 @@ func _on_enemy_defeated(_enemy: AshfallSoulsEnemy) -> void:
 		]
 	if enemies_alive == 0:
 		_flash_message("ZONE PURIFIÉE  •  REPOSEZ-VOUS POUR RÉVEILLER LES OMBRES")
+
+func _nearest_lootable_corpse() -> AshfallSoulsEnemy:
+	if not is_instance_valid(player):
+		return null
+	var nearest: AshfallSoulsEnemy
+	var nearest_distance := 2.7
+	for corpse in get_tree().get_nodes_in_group("lootable_corpse"):
+		if not is_instance_valid(corpse):
+			continue
+		var distance: float = player.global_position.distance_to(corpse.global_position)
+		if distance < nearest_distance:
+			nearest = corpse as AshfallSoulsEnemy
+			nearest_distance = distance
+	return nearest
+
+func _loot_names(items: Array) -> String:
+	if items.is_empty():
+		return "RIEN"
+	var names: Array[String] = []
+	for item in items:
+		if item is Dictionary:
+			names.append(item.get("name", "Objet"))
+	return ", ".join(names)
+
+func _update_inventory_hud() -> void:
+	if inventory_label and is_instance_valid(player):
+		inventory_label.text = "ÉQUIPÉ  •  %s" % player.equipment_summary().to_upper()
 
 func _flash_message(text_: String) -> void:
 	area_label.text = text_
