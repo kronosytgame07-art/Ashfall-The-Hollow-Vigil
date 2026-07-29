@@ -10,6 +10,7 @@ const GRAVITY := 24.0
 const WALK_SPEED := 5.2
 const SPRINT_SPEED := 7.4
 const DODGE_SPEED := 12.5
+const JUMP_VELOCITY := 8.8
 const MAX_HEALTH := 100.0
 const MAX_STAMINA := 100.0
 
@@ -28,6 +29,12 @@ var hit_reaction_clock := 0.0
 var checkpoint := Vector3(0, 1.2, 10)
 var race_name := "Humain"
 var character_level := 1
+var inventory: Array[Dictionary] = []
+var equipment := {
+	"weapon": {"name": "Épée de veille", "color": Color("#aeb3bb"), "power": 0},
+	"helmet": {},
+	"armor": {},
+}
 
 var camera_pivot: Node3D
 var visual: Node3D
@@ -35,6 +42,8 @@ var weapon_pivot: Node3D
 var body_pivot: Node3D
 var race_details: Node3D
 var weapon_trail: MeshInstance3D
+var weapon_model: Node3D
+var equipment_visuals: Node3D
 var _last_move := Vector3.FORWARD
 var _mouse_sensitivity := 0.003
 
@@ -76,6 +85,8 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 	else:
 		velocity.y = -0.5
+		if Input.is_action_just_pressed("jump") and not is_attacking and not is_dodging:
+			velocity.y = JUMP_VELOCITY
 
 	if is_attacking:
 		_update_attack(delta)
@@ -136,7 +147,8 @@ func _update_attack(delta: float) -> void:
 			var offset: Vector3 = enemy.global_position - global_position
 			var facing := Vector3(sin(rotation.y), 0.0, cos(rotation.y))
 			if offset.length() < 2.35 and facing.dot(offset.normalized()) > 0.18:
-				var combo_damage: float = [31.0, 38.0, 52.0][combo_step]
+				var weapon_power: float = float(equipment.get("weapon", {}).get("power", 0))
+				var combo_damage: float = [31.0, 38.0, 52.0][combo_step] + weapon_power
 				enemy.take_damage(combo_damage, attack_serial, facing)
 	if attack_clock >= (0.72 if combo_step == 2 else 0.58):
 		is_attacking = false
@@ -207,6 +219,28 @@ func configure_race(selected_race: String) -> void:
 			visual.scale = Vector3.ONE
 			_tint_skin(Color("#8d604b"))
 			_add_human_details()
+	_rebuild_equipment_visuals()
+
+func equip_loot(items: Array) -> void:
+	for raw_item in items:
+		if not raw_item is Dictionary:
+			continue
+		var item: Dictionary = raw_item.duplicate(true)
+		inventory.append(item)
+		var slot: String = item.get("slot", "")
+		if slot in equipment:
+			var current_power: int = equipment[slot].get("power", -1)
+			if int(item.get("power", 0)) >= current_power:
+				equipment[slot] = item
+	_rebuild_equipment_visuals()
+
+func equipment_summary() -> String:
+	var parts: Array[String] = []
+	for slot in ["weapon", "helmet", "armor"]:
+		var item: Dictionary = equipment.get(slot, {})
+		if not item.is_empty():
+			parts.append(item.get("name", "Objet"))
+	return "  •  ".join(parts)
 
 func _tint_skin(color: Color) -> void:
 	var face := visual.find_child("RaceSkin", true, false) as MeshInstance3D
@@ -251,8 +285,12 @@ func _build_visual() -> void:
 	weapon_pivot.position = Vector3(0.58, 1.45, 0)
 	visual.add_child(weapon_pivot)
 	_box(weapon_pivot, Vector3(0.16, 0.72, 0.16), Vector3(0, -0.3, 0), Color("#30343e"), 0.75)
-	_box(weapon_pivot, Vector3(0.1, 1.28, 0.12), Vector3(0, -0.92, 0), Color("#aeb3bb"), 0.95)
-	_box(weapon_pivot, Vector3(0.52, 0.1, 0.12), Vector3(0, -0.36, 0), Color("#6e4b2e"), 0.2)
+	weapon_model = Node3D.new()
+	weapon_model.name = "EquippedWeapon"
+	weapon_pivot.add_child(weapon_model)
+	equipment_visuals = Node3D.new()
+	equipment_visuals.name = "VisibleEquipment"
+	visual.add_child(equipment_visuals)
 	_box(visual, Vector3(0.62, 0.72, 0.12), Vector3(-0.58, 1.18, 0.02), Color("#393d46"), 0.82)
 	_box(visual, Vector3(0.48, 0.58, 0.05), Vector3(-0.58, 1.18, 0.09), Color("#651c1f"), 0.15)
 	var cape := _box(visual, Vector3(0.66, 1.08, 0.08), Vector3(0, 1.2, -0.29), Color("#351014"), 0.0)
@@ -266,6 +304,43 @@ func _build_visual() -> void:
 		true
 	)
 	weapon_trail.visible = false
+	_rebuild_equipment_visuals()
+
+func _rebuild_equipment_visuals() -> void:
+	if not is_instance_valid(equipment_visuals) or not is_instance_valid(weapon_model):
+		return
+	for child in equipment_visuals.get_children():
+		child.queue_free()
+	for child in weapon_model.get_children():
+		child.queue_free()
+	var weapon: Dictionary = equipment.get("weapon", {})
+	var weapon_color: Color = weapon.get("color", Color("#aeb3bb"))
+	var weapon_name: String = weapon.get("name", "Épée")
+	if "hache" in weapon_name.to_lower():
+		_box(weapon_model, Vector3(0.11, 1.25, 0.11), Vector3(0, -0.82, 0), Color("#5b3824"), 0.1)
+		_box(weapon_model, Vector3(0.7, 0.42, 0.13), Vector3(0.23, -1.22, 0), weapon_color, 0.92)
+		_box(weapon_model, Vector3(0.16, 0.62, 0.16), Vector3(-0.17, -1.15, 0), weapon_color.darkened(0.22), 0.9)
+	elif "marteau" in weapon_name.to_lower():
+		_box(weapon_model, Vector3(0.13, 1.2, 0.13), Vector3(0, -0.85, 0), Color("#583925"), 0.15)
+		_box(weapon_model, Vector3(0.72, 0.38, 0.38), Vector3(0, -1.33, 0), weapon_color, 0.95)
+	else:
+		_box(weapon_model, Vector3(0.11, 1.35, 0.12), Vector3(0, -0.96, 0), weapon_color, 0.95)
+		_box(weapon_model, Vector3(0.58, 0.11, 0.16), Vector3(0, -0.37, 0), Color("#80603b"), 0.35)
+		_box(weapon_model, Vector3(0.16, 0.28, 0.16), Vector3(0, -0.18, 0), Color("#4b2d20"), 0.2)
+	var helmet: Dictionary = equipment.get("helmet", {})
+	if not helmet.is_empty():
+		var helmet_color: Color = helmet.get("color", Color("#666b73"))
+		_box(equipment_visuals, Vector3(0.66, 0.28, 0.66), Vector3(0, 2.18, 0), helmet_color, 0.86)
+		_box(equipment_visuals, Vector3(0.72, 0.12, 0.54), Vector3(0, 2.02, 0.02), helmet_color.darkened(0.18), 0.82)
+		for x in [-0.24, 0.24]:
+			var horn := _box(equipment_visuals, Vector3(0.1, 0.46, 0.1), Vector3(x, 2.43, -0.05), Color("#aa9874"))
+			horn.rotation.z = -0.42 * sign(x)
+	var armor: Dictionary = equipment.get("armor", {})
+	if not armor.is_empty():
+		var armor_color: Color = armor.get("color", Color("#50545d"))
+		_box(equipment_visuals, Vector3(0.92, 0.68, 0.52), Vector3(0, 1.25, 0), armor_color, 0.8)
+		for x in [-0.54, 0.54]:
+			_box(equipment_visuals, Vector3(0.38, 0.2, 0.62), Vector3(x, 1.57, 0), armor_color.lightened(0.08), 0.86)
 
 func _build_camera() -> void:
 	camera_pivot = Node3D.new()
@@ -342,6 +417,10 @@ func _add_human_details() -> void:
 	_box(race_details, Vector3(0.32, 0.13, 0.58), Vector3(0.53, 1.56, 0), Color("#777d88"), 0.9)
 	for x in [-0.28, 0.28]:
 		_box(race_details, Vector3(0.08, 0.28, 0.06), Vector3(x, 1.2, 0.28), Color("#a98b56"), 0.55)
+	_box(race_details, Vector3(0.5, 0.1, 0.56), Vector3(0, 2.31, -0.02), Color("#50555f"), 0.9)
+	_box(race_details, Vector3(0.14, 0.2, 0.08), Vector3(0, 1.78, 0.33), Color("#6d3d30"))
+	for x in [-0.38, 0.38]:
+		_box(race_details, Vector3(0.18, 0.46, 0.12), Vector3(x, 0.48, 0.04), Color("#777d88"), 0.86)
 
 func _add_orc_details() -> void:
 	for x in [-0.16, 0.16]:
@@ -353,6 +432,11 @@ func _add_orc_details() -> void:
 			var horn := _box(race_details, Vector3(0.1, 0.38, 0.1), Vector3(x, 1.78, -0.14 + spike * 0.28), Color("#8e836c"))
 			horn.rotation.z = -0.38 * sign(x)
 	_box(race_details, Vector3(0.58, 0.12, 0.05), Vector3(0, 1.84, 0.34), Color("#2a1513"))
+	_box(race_details, Vector3(0.34, 0.18, 0.08), Vector3(0, 1.67, 0.36), Color("#382319"))
+	for x in [-0.25, 0.25]:
+		_box(race_details, Vector3(0.12, 0.16, 0.1), Vector3(x, 1.92, 0.35), Color("#d04b2e"), 0.1, true)
+	for y in [0.96, 1.22, 1.48]:
+		_box(race_details, Vector3(0.94, 0.08, 0.52), Vector3(0, y, 0.03), Color("#51484a"), 0.72)
 
 func _add_goblin_details() -> void:
 	for x in [-0.43, 0.43]:
@@ -363,6 +447,10 @@ func _add_goblin_details() -> void:
 	for x in [-0.42, 0.42]:
 		var knife := _box(race_details, Vector3(0.08, 0.62, 0.1), Vector3(x, 0.92, -0.32), Color("#99919a"), 0.82)
 		knife.rotation.z = 0.45 * sign(x)
+	_box(race_details, Vector3(0.24, 0.12, 0.08), Vector3(0, 1.72, 0.3), Color("#332118"))
+	_box(race_details, Vector3(0.82, 0.18, 0.48), Vector3(0, 1.34, 0), Color("#49384e"), 0.18)
+	for x in [-0.17, 0.17]:
+		_box(race_details, Vector3(0.06, 0.05, 0.03), Vector3(x, 1.94, 0.34), Color("#e2bb42"), 0.0, true)
 
 func _add_dwarf_details() -> void:
 	for y in range(4):
@@ -373,6 +461,10 @@ func _add_dwarf_details() -> void:
 	_box(race_details, Vector3(0.92, 0.25, 0.58), Vector3(0, 1.42, 0), Color("#4d5058"), 0.88)
 	for x in [-0.32, 0.0, 0.32]:
 		_box(race_details, Vector3(0.1, 0.42, 0.08), Vector3(x, 1.38, 0.32), Color("#b17b38"), 0.48)
+	_box(race_details, Vector3(0.88, 0.12, 0.62), Vector3(0, 1.08, 0), Color("#6f747e"), 0.9)
+	for x in [-0.44, 0.44]:
+		_box(race_details, Vector3(0.3, 0.22, 0.58), Vector3(x, 1.48, 0), Color("#646973"), 0.9)
+	_box(race_details, Vector3(0.18, 0.16, 0.1), Vector3(0, 1.73, 0.39), Color("#9b5432"))
 
 func _spawn_damage_number(amount: float, color: Color) -> void:
 	var label := Label3D.new()

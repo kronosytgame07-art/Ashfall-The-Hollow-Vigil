@@ -2,7 +2,7 @@ extends SceneTree
 
 const REQUIRED_ACTIONS := [
 	"move_forward", "move_back", "move_left", "move_right",
-	"sprint", "dodge", "attack", "interact",
+	"sprint", "dodge", "jump", "attack", "interact",
 ]
 const ACTIVE_SCRIPTS := [
 	"res://scripts/souls_world.gd",

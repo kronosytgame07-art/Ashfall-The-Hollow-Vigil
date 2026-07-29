@@ -68,6 +68,26 @@ func _run() -> void:
 		return
 	if not _require(game.player.health == game.player.MAX_HEALTH, "Player lost health while idle"):
 		return
+	var grounded_y: float = game.player.global_position.y
+	Input.action_press("jump")
+	await physics_frame
+	Input.action_release("jump")
+	for frame in range(8):
+		await physics_frame
+	if not _require(game.player.global_position.y > grounded_y + 0.25, "Space jump did not lift the player"):
+		return
+	var loot_test := [{
+		"name": "Casque du test",
+		"slot": "helmet",
+		"power": 99,
+		"color": Color("#8c929b"),
+	}]
+	game.player.equip_loot(loot_test)
+	if not _require(
+		"Casque du test" in game.player.equipment_summary(),
+		"Loot equipment was not applied to the player"
+	):
+		return
 	print(
 		"Ashfall runtime smoke: player=%s camera=%s meshes=%d health=%.1f OK"
 		% [game.player.global_position, game.follow_camera.global_position, meshes.size(), game.player.health]

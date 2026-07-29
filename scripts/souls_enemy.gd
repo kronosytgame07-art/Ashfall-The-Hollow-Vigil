@@ -23,6 +23,9 @@ var attack_has_landed := false
 var hit_reaction_clock := 0.0
 var knockback := Vector3.ZERO
 var base_visual_scale := Vector3.ONE
+var loot_items: Array[Dictionary] = []
+var corpse_label: Label3D
+var looted := false
 
 func _ready() -> void:
 	add_to_group("enemy")
@@ -95,11 +98,77 @@ func take_damage(amount: float, serial: int, direction := Vector3.ZERO) -> void:
 	if health <= 0.0:
 		dead = true
 		collision_layer = 0
+		collision_mask = 0
+		velocity = Vector3.ZERO
+		remove_from_group("enemy")
+		add_to_group("corpse")
+		add_to_group("lootable_corpse")
+		loot_items = _generate_loot()
 		defeated.emit(self)
 		var tween := create_tween()
-		tween.tween_property(visual, "scale", Vector3(0.1, 0.1, 0.1), 0.32)
-		tween.parallel().tween_property(visual, "position:y", -0.8, 0.32)
-		tween.tween_callback(queue_free)
+		tween.tween_property(visual, "rotation:z", 1.45, 0.42).set_trans(Tween.TRANS_QUAD)
+		tween.parallel().tween_property(visual, "position:y", 0.16, 0.42)
+		if level_label:
+			level_label.visible = false
+		if health_label:
+			health_label.visible = false
+		_build_corpse_label()
+
+func loot_all() -> Array:
+	if not dead or looted:
+		return []
+	looted = true
+	remove_from_group("lootable_corpse")
+	if corpse_label:
+		corpse_label.text = "DÉPOUILLÉ"
+		corpse_label.modulate = Color("#615b58")
+		var fade := create_tween()
+		fade.tween_interval(1.4)
+		fade.tween_property(corpse_label, "modulate:a", 0.0, 0.8)
+	return loot_items.duplicate(true)
+
+func _generate_loot() -> Array[Dictionary]:
+	var seed_value := enemy_name.hash() + enemy_level * 7919
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var metal := Color("#8c929b")
+	if "givre" in enemy_name.to_lower() or "boréal" in enemy_name.to_lower():
+		metal = Color("#78aeca")
+	elif "braise" in enemy_name.to_lower() or "magma" in enemy_name.to_lower():
+		metal = Color("#b84a2d")
+	var weapon_kind := ["Épée", "Hache", "Marteau"][posmod(enemy_level + enemy_name.length(), 3)]
+	var drops: Array[Dictionary] = [{
+		"name": "%s de %s" % [weapon_kind, enemy_name],
+		"slot": "weapon",
+		"power": 2 + enemy_level * 2,
+		"color": metal,
+	}]
+	if rng.randf() < 0.68 or enemy_level >= 5:
+		drops.append({
+			"name": "Casque de %s" % enemy_name,
+			"slot": "helmet",
+			"power": 1 + enemy_level,
+			"color": metal.darkened(0.16),
+		})
+	if rng.randf() < 0.52 or enemy_level >= 7:
+		drops.append({
+			"name": "Cuirasse de %s" % enemy_name,
+			"slot": "armor",
+			"power": 1 + enemy_level,
+			"color": metal.darkened(0.28),
+		})
+	return drops
+
+func _build_corpse_label() -> void:
+	corpse_label = Label3D.new()
+	corpse_label.text = "[ E ] FOUILLER"
+	corpse_label.position = Vector3(0, 1.05, 0)
+	corpse_label.font_size = 28
+	corpse_label.outline_size = 8
+	corpse_label.modulate = Color("#e1bc86")
+	corpse_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	corpse_label.no_depth_test = true
+	add_child(corpse_label)
 
 func configure(level_: int, archetype: String) -> void:
 	enemy_level = level_
@@ -148,9 +217,18 @@ func _build_visual() -> void:
 	arm_pivot.position = Vector3(0.56, 1.48, 0)
 	visual.add_child(arm_pivot)
 	_box(Vector3(0.18, 0.7, 0.18), Vector3(0.56, 1.15, 0), Color("#2b2730"))
+	# Layered armour, belt and joints make the silhouette readable as a fighter.
+	_box(Vector3(0.88, 0.16, 0.52), Vector3(0, 1.5, 0), Color("#4b454e"))
+	_box(Vector3(0.82, 0.14, 0.54), Vector3(0, 0.84, 0), Color("#5c3e29"))
+	for x in [-0.27, 0.27]:
+		_box(Vector3(0.22, 0.16, 0.24), Vector3(x, 0.78, 0), Color("#4b4650"))
+		_box(Vector3(0.23, 0.18, 0.28), Vector3(x, 0.12, 0.04), Color("#37323b"))
 	var blade := _box(Vector3(0.13, 1.15, 0.12), Vector3(0, -0.55, 0), Color("#7c7073"))
 	visual.remove_child(blade)
 	arm_pivot.add_child(blade)
+	var guard := _box(Vector3(0.56, 0.12, 0.16), Vector3(0, -0.1, 0), Color("#714b2d"))
+	visual.remove_child(guard)
+	arm_pivot.add_child(guard)
 	level_label = Label3D.new()
 	level_label.text = "%s  •  NIV. %d" % [enemy_name.to_upper(), enemy_level]
 	level_label.position = Vector3(0, 2.55, 0)
