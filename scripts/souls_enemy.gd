@@ -12,6 +12,10 @@ var hit_serial := -1
 var dead := false
 var visual: Node3D
 var arm_pivot: Node3D
+var weapon_grip: Node3D
+var left_arm_pivot: Node3D
+var left_leg_pivot: Node3D
+var right_leg_pivot: Node3D
 var target: AshfallSoulsPlayer
 var spawn_position := Vector3.ZERO
 var enemy_level := 1
@@ -72,7 +76,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_return_to_spawn(delta)
 	move_and_slide()
-	_animate()
+	_animate(delta)
 
 func _return_to_spawn(delta: float) -> void:
 	var offset := spawn_position - global_position
@@ -210,25 +214,52 @@ func _build_visual() -> void:
 	_box(Vector3(0.43, 0.08, 0.04), Vector3(0, 1.91, 0.29), Color("#080609"))
 	_box(Vector3(0.07, 0.05, 0.025), Vector3(-0.12, 1.91, 0.32), Color("#b72524"), true)
 	_box(Vector3(0.07, 0.05, 0.025), Vector3(0.12, 1.91, 0.32), Color("#b72524"), true)
-	_box(Vector3(0.18, 0.72, 0.18), Vector3(-0.26, 0.45, 0), Color("#17151a"))
-	_box(Vector3(0.18, 0.72, 0.18), Vector3(0.26, 0.45, 0), Color("#17151a"))
-	_box(Vector3(0.18, 0.74, 0.18), Vector3(-0.55, 1.15, 0), Color("#2b2730"))
+	left_leg_pivot = Node3D.new()
+	left_leg_pivot.position = Vector3(-0.26, 0.8, 0)
+	visual.add_child(left_leg_pivot)
+	var left_leg := _box(Vector3(0.18, 0.72, 0.18), Vector3(0, -0.36, 0), Color("#17151a"))
+	visual.remove_child(left_leg)
+	left_leg_pivot.add_child(left_leg)
+	right_leg_pivot = Node3D.new()
+	right_leg_pivot.position = Vector3(0.26, 0.8, 0)
+	visual.add_child(right_leg_pivot)
+	var right_leg := _box(Vector3(0.18, 0.72, 0.18), Vector3(0, -0.36, 0), Color("#17151a"))
+	visual.remove_child(right_leg)
+	right_leg_pivot.add_child(right_leg)
+	left_arm_pivot = Node3D.new()
+	left_arm_pivot.position = Vector3(-0.55, 1.5, 0)
+	visual.add_child(left_arm_pivot)
+	var left_arm := _box(Vector3(0.18, 0.74, 0.18), Vector3(0, -0.37, 0), Color("#2b2730"))
+	visual.remove_child(left_arm)
+	left_arm_pivot.add_child(left_arm)
 	arm_pivot = Node3D.new()
-	arm_pivot.position = Vector3(0.56, 1.48, 0)
+	arm_pivot.position = Vector3(0.56, 1.5, 0)
 	visual.add_child(arm_pivot)
-	_box(Vector3(0.18, 0.7, 0.18), Vector3(0.56, 1.15, 0), Color("#2b2730"))
+	var right_arm := _box(Vector3(0.18, 0.7, 0.18), Vector3(0, -0.35, 0), Color("#2b2730"))
+	visual.remove_child(right_arm)
+	arm_pivot.add_child(right_arm)
+	weapon_grip = Node3D.new()
+	weapon_grip.position = Vector3(0, -0.7, 0)
+	arm_pivot.add_child(weapon_grip)
 	# Layered armour, belt and joints make the silhouette readable as a fighter.
 	_box(Vector3(0.88, 0.16, 0.52), Vector3(0, 1.5, 0), Color("#4b454e"))
 	_box(Vector3(0.82, 0.14, 0.54), Vector3(0, 0.84, 0), Color("#5c3e29"))
 	for x in [-0.27, 0.27]:
 		_box(Vector3(0.22, 0.16, 0.24), Vector3(x, 0.78, 0), Color("#4b4650"))
 		_box(Vector3(0.23, 0.18, 0.28), Vector3(x, 0.12, 0.04), Color("#37323b"))
-	var blade := _box(Vector3(0.13, 1.15, 0.12), Vector3(0, -0.55, 0), Color("#7c7073"))
-	visual.remove_child(blade)
-	arm_pivot.add_child(blade)
-	var guard := _box(Vector3(0.56, 0.12, 0.16), Vector3(0, -0.1, 0), Color("#714b2d"))
+	# L'arme est enfant de la paume et ne peut plus flotter ni changer de main.
+	var hand := _box(Vector3(0.22, 0.18, 0.22), Vector3.ZERO, Color("#29262d"))
+	visual.remove_child(hand)
+	weapon_grip.add_child(hand)
+	var handle := _box(Vector3(0.12, 0.3, 0.12), Vector3(0, -0.08, 0), Color("#4a2d20"))
+	visual.remove_child(handle)
+	weapon_grip.add_child(handle)
+	var guard := _box(Vector3(0.56, 0.12, 0.16), Vector3(0, -0.25, 0), Color("#714b2d"))
 	visual.remove_child(guard)
-	arm_pivot.add_child(guard)
+	weapon_grip.add_child(guard)
+	var blade := _box(Vector3(0.14, 1.25, 0.12), Vector3(0, -0.88, 0), Color("#7c7073"))
+	visual.remove_child(blade)
+	weapon_grip.add_child(blade)
 	level_label = Label3D.new()
 	level_label.text = "%s  •  NIV. %d" % [enemy_name.to_upper(), enemy_level]
 	level_label.position = Vector3(0, 2.55, 0)
@@ -247,22 +278,35 @@ func _build_visual() -> void:
 	health_label.no_depth_test = true
 	add_child(health_label)
 
-func _animate() -> void:
+func _animate(delta: float) -> void:
 	var time := Time.get_ticks_msec() * 0.001
+	var planar_speed := Vector2(velocity.x, velocity.z).length()
+	var moving := planar_speed > 0.25 and attack_clock <= 0.0
+	var stride := sin(time * (7.0 + move_speed)) * minf(0.62, planar_speed * 0.18) if moving else 0.0
 	visual.scale = visual.scale.lerp(base_visual_scale, 0.12)
-	visual.position.y = sin(time * 2.4 + global_position.x) * 0.016
+	visual.position.y = abs(sin(time * (7.0 + move_speed))) * (0.026 if moving else 0.0)
 	if hit_reaction_clock > 0.0:
 		visual.rotation.z = sin(hit_reaction_clock * 30.0) * 0.17
 	elif attack_clock > 0.72:
-		# Visible wind-up: the player can read and dodge the blow.
-		arm_pivot.rotation.x = lerpf(arm_pivot.rotation.x, -2.25, 0.18)
+		# Armé derrière l'épaule, lame toujours tenue dans la main.
+		arm_pivot.rotation.x = lerpf(arm_pivot.rotation.x, 1.95, 0.2)
+		arm_pivot.rotation.z = lerpf(arm_pivot.rotation.z, -0.35, 0.18)
+		left_arm_pivot.rotation.x = lerpf(left_arm_pivot.rotation.x, -0.45, 0.16)
 		visual.rotation.x = lerpf(visual.rotation.x, -0.12, 0.12)
 	elif attack_clock > 0.35:
-		arm_pivot.rotation.x = lerpf(arm_pivot.rotation.x, 1.35, 0.34)
+		# Le tranchant traverse vers l'avant, dans le même sens que les dégâts.
+		arm_pivot.rotation.x = lerpf(arm_pivot.rotation.x, -1.15, 0.36)
+		arm_pivot.rotation.z = lerpf(arm_pivot.rotation.z, 0.28, 0.3)
+		left_arm_pivot.rotation.x = lerpf(left_arm_pivot.rotation.x, 0.35, 0.22)
 	else:
-		arm_pivot.rotation.x = lerpf(arm_pivot.rotation.x, 0.15, 0.12)
-		visual.rotation.x = lerpf(visual.rotation.x, 0.0, 0.12)
-		visual.rotation.z = lerpf(visual.rotation.z, 0.0, 0.12)
+		arm_pivot.rotation.x = lerpf(arm_pivot.rotation.x, -stride * 0.7, 10.0 * delta)
+		arm_pivot.rotation.z = lerpf(arm_pivot.rotation.z, 0.0, 10.0 * delta)
+		left_arm_pivot.rotation.x = lerpf(left_arm_pivot.rotation.x, stride * 0.7, 10.0 * delta)
+		left_leg_pivot.rotation.x = lerpf(left_leg_pivot.rotation.x, -stride, 12.0 * delta)
+		right_leg_pivot.rotation.x = lerpf(right_leg_pivot.rotation.x, stride, 12.0 * delta)
+		visual.rotation.x = lerpf(visual.rotation.x, 0.0, 10.0 * delta)
+		visual.rotation.z = lerpf(visual.rotation.z, 0.0, 10.0 * delta)
+
 
 func _box(size: Vector3, position_: Vector3, color: Color, emissive := false) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
@@ -314,7 +358,38 @@ func _apply_archetype_details() -> void:
 	for x in [-0.27, 0.27]:
 		for y in [1.22, 1.47]:
 			_detail_box(Vector3(0.05, 0.05, 0.035), Vector3(x, y, 0.31), Color("#8b765e"))
-	if "givre" in lower_name or "boréal" in lower_name:
+	if "déchu" in lower_name:
+		# Chevalier déchu de la référence : armure noire, visière cyan, chaînes,
+		# grand manteau en lambeaux et bouclier massif fixé dans le dos.
+		_detail_box(Vector3(0.66, 0.24, 0.66), Vector3(0, 2.13, 0), Color("#292b2e"))
+		_detail_box(Vector3(0.58, 0.22, 0.6), Vector3(0, 1.98, 0.01), Color("#17191c"))
+		_detail_box(Vector3(0.5, 0.08, 0.04), Vector3(0, 2.01, 0.34), Color("#05090a"))
+		for x in [-0.16, 0.16]:
+			_detail_box(Vector3(0.11, 0.055, 0.025), Vector3(x, 2.02, 0.375), Color("#31d7df"), true)
+		for y in [1.54, 1.36, 1.18]:
+			_detail_box(Vector3(0.92, 0.13, 0.57), Vector3(0, y, 0.02), Color("#343436").darkened((1.54 - y) * 0.5))
+		for side in [-1.0, 1.0]:
+			for layer in range(4):
+				var fallen_pauldron := _detail_box(Vector3(0.44 - layer * 0.035, 0.17, 0.68 - layer * 0.055), Vector3(side * 0.58, 1.7 - layer * 0.11, -0.01), Color("#444448").darkened(layer * 0.08))
+				fallen_pauldron.rotation.z = -0.13 * side
+		# Chaînes croisées simulées par des maillons métalliques courts.
+		for link in range(7):
+			var chain_x := -0.31 + link * 0.1
+			var chain_y := 1.68 - link * 0.09
+			var chain := _detail_box(Vector3(0.1, 0.055, 0.045), Vector3(chain_x, chain_y, 0.35), Color("#76634f"))
+			chain.rotation.z = -0.68
+			var chain_mirror := _detail_box(Vector3(0.1, 0.055, 0.045), Vector3(-chain_x, chain_y, 0.38), Color("#625343"))
+			chain_mirror.rotation.z = 0.68
+		_detail_box(Vector3(0.62, 0.92, 0.07), Vector3(0, 0.9, -0.32), Color("#151518"))
+		for x in [-0.24, 0.0, 0.24]:
+			var cape_strip := _detail_box(Vector3(0.2, 0.92 + abs(x), 0.065), Vector3(x, 0.52 - abs(x) * 0.12, -0.34), Color("#111216"))
+			cape_strip.rotation.z = x * 0.18
+		_detail_box(Vector3(0.92, 1.15, 0.12), Vector3(0, 1.08, -0.42), Color("#2b2929"))
+		_detail_box(Vector3(0.62, 0.82, 0.08), Vector3(0, 1.08, -0.5), Color("#5b201d"))
+		for x in [-0.26, 0.26]:
+			for y in [0.42, 0.64]:
+				_detail_box(Vector3(0.3, 0.18, 0.32), Vector3(x, y, 0.03), Color("#3d3d40"))
+	elif "givre" in lower_name or "boréal" in lower_name:
 		for x in [-0.42, 0.0, 0.42]:
 			var crystal := _detail_box(Vector3(0.16, 0.72, 0.16), Vector3(x, 2.18 + abs(x), -0.16), Color("#82b8ce"), true)
 			crystal.rotation.z = x * 0.72
