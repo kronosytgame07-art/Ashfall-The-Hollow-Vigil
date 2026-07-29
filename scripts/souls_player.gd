@@ -39,6 +39,10 @@ var equipment := {
 var camera_pivot: Node3D
 var visual: Node3D
 var weapon_pivot: Node3D
+var weapon_grip: Node3D
+var left_arm_pivot: Node3D
+var left_leg_pivot: Node3D
+var right_leg_pivot: Node3D
 var body_pivot: Node3D
 var race_details: Node3D
 var weapon_trail: MeshInstance3D
@@ -278,16 +282,31 @@ func _build_visual() -> void:
 	_box(visual, Vector3(0.44, 0.1, 0.06), Vector3(0, 1.96, 0.29), Color("#08090c"), 0.1)
 	_box(visual, Vector3(0.07, 0.06, 0.03), Vector3(-0.13, 1.96, 0.325), Color("#d64d32"), 0.2, true)
 	_box(visual, Vector3(0.07, 0.06, 0.03), Vector3(0.13, 1.96, 0.325), Color("#d64d32"), 0.2, true)
-	_box(visual, Vector3(0.16, 0.76, 0.18), Vector3(-0.27, 0.43, 0), Color("#1a1b21"), 0.6)
-	_box(visual, Vector3(0.16, 0.76, 0.18), Vector3(0.27, 0.43, 0), Color("#1a1b21"), 0.6)
-	_box(visual, Vector3(0.18, 0.7, 0.18), Vector3(-0.57, 1.15, 0), Color("#30343e"), 0.75)
+	# Membres articulés : chaque pièce tourne depuis une vraie épaule ou une vraie hanche.
+	left_leg_pivot = Node3D.new()
+	left_leg_pivot.position = Vector3(-0.27, 0.78, 0)
+	visual.add_child(left_leg_pivot)
+	_box(left_leg_pivot, Vector3(0.16, 0.76, 0.18), Vector3(0, -0.35, 0), Color("#1a1b21"), 0.6)
+	right_leg_pivot = Node3D.new()
+	right_leg_pivot.position = Vector3(0.27, 0.78, 0)
+	visual.add_child(right_leg_pivot)
+	_box(right_leg_pivot, Vector3(0.16, 0.76, 0.18), Vector3(0, -0.35, 0), Color("#1a1b21"), 0.6)
+	left_arm_pivot = Node3D.new()
+	left_arm_pivot.position = Vector3(-0.57, 1.5, 0)
+	visual.add_child(left_arm_pivot)
+	_box(left_arm_pivot, Vector3(0.18, 0.7, 0.18), Vector3(0, -0.35, 0), Color("#30343e"), 0.75)
 	weapon_pivot = Node3D.new()
-	weapon_pivot.position = Vector3(0.58, 1.45, 0)
+	weapon_pivot.position = Vector3(0.58, 1.5, 0)
 	visual.add_child(weapon_pivot)
-	_box(weapon_pivot, Vector3(0.16, 0.72, 0.16), Vector3(0, -0.3, 0), Color("#30343e"), 0.75)
+	_box(weapon_pivot, Vector3(0.18, 0.7, 0.18), Vector3(0, -0.35, 0), Color("#30343e"), 0.75)
+	weapon_grip = Node3D.new()
+	weapon_grip.name = "RightHandGrip"
+	weapon_grip.position = Vector3(0, -0.69, 0)
+	weapon_pivot.add_child(weapon_grip)
+	_box(weapon_grip, Vector3(0.22, 0.18, 0.22), Vector3.ZERO, Color("#252832"), 0.72)
 	weapon_model = Node3D.new()
 	weapon_model.name = "EquippedWeapon"
-	weapon_pivot.add_child(weapon_model)
+	weapon_grip.add_child(weapon_model)
 	equipment_visuals = Node3D.new()
 	equipment_visuals.name = "VisibleEquipment"
 	visual.add_child(equipment_visuals)
@@ -316,17 +335,19 @@ func _rebuild_equipment_visuals() -> void:
 	var weapon: Dictionary = equipment.get("weapon", {})
 	var weapon_color: Color = weapon.get("color", Color("#aeb3bb"))
 	var weapon_name: String = weapon.get("name", "Épée")
+	# L'origine locale est la paume : poignée en main, lame sous la garde.
 	if "hache" in weapon_name.to_lower():
-		_box(weapon_model, Vector3(0.11, 1.25, 0.11), Vector3(0, -0.82, 0), Color("#5b3824"), 0.1)
-		_box(weapon_model, Vector3(0.7, 0.42, 0.13), Vector3(0.23, -1.22, 0), weapon_color, 0.92)
-		_box(weapon_model, Vector3(0.16, 0.62, 0.16), Vector3(-0.17, -1.15, 0), weapon_color.darkened(0.22), 0.9)
+		_box(weapon_model, Vector3(0.11, 1.18, 0.11), Vector3(0, -0.49, 0), Color("#5b3824"), 0.1)
+		_box(weapon_model, Vector3(0.68, 0.4, 0.13), Vector3(0.22, -0.96, 0), weapon_color, 0.92)
+		_box(weapon_model, Vector3(0.15, 0.58, 0.16), Vector3(-0.16, -0.91, 0), weapon_color.darkened(0.22), 0.9)
 	elif "marteau" in weapon_name.to_lower():
-		_box(weapon_model, Vector3(0.13, 1.2, 0.13), Vector3(0, -0.85, 0), Color("#583925"), 0.15)
-		_box(weapon_model, Vector3(0.72, 0.38, 0.38), Vector3(0, -1.33, 0), weapon_color, 0.95)
+		_box(weapon_model, Vector3(0.13, 1.12, 0.13), Vector3(0, -0.47, 0), Color("#583925"), 0.15)
+		_box(weapon_model, Vector3(0.72, 0.38, 0.38), Vector3(0, -1.0, 0), weapon_color, 0.95)
 	else:
-		_box(weapon_model, Vector3(0.11, 1.35, 0.12), Vector3(0, -0.96, 0), weapon_color, 0.95)
-		_box(weapon_model, Vector3(0.58, 0.11, 0.16), Vector3(0, -0.37, 0), Color("#80603b"), 0.35)
-		_box(weapon_model, Vector3(0.16, 0.28, 0.16), Vector3(0, -0.18, 0), Color("#4b2d20"), 0.2)
+		_box(weapon_model, Vector3(0.12, 0.3, 0.12), Vector3(0, -0.08, 0), Color("#4b2d20"), 0.2)
+		_box(weapon_model, Vector3(0.58, 0.11, 0.16), Vector3(0, -0.25, 0), Color("#80603b"), 0.35)
+		_box(weapon_model, Vector3(0.13, 1.22, 0.12), Vector3(0, -0.86, 0), weapon_color, 0.95)
+		_box(weapon_model, Vector3(0.08, 0.24, 0.08), Vector3(0, -1.57, 0), weapon_color.lightened(0.08), 0.95)
 	var helmet: Dictionary = equipment.get("helmet", {})
 	if not helmet.is_empty():
 		var helmet_color: Color = helmet.get("color", Color("#666b73"))
@@ -353,33 +374,49 @@ func _build_camera() -> void:
 func _animate(delta: float) -> void:
 	var planar_speed := Vector2(velocity.x, velocity.z).length()
 	var time := Time.get_ticks_msec() * 0.001
+	var moving := planar_speed > 0.35 and is_on_floor()
+	var stride_speed := 13.0 if planar_speed > WALK_SPEED + 0.5 else 9.0
+	var stride := sin(time * stride_speed) * minf(0.72, planar_speed * 0.1) if moving else 0.0
 	if is_dead:
 		visual.rotation.z = lerpf(visual.rotation.z, 1.42, 4.0 * delta)
 	elif is_dodging:
 		visual.rotation.x = -sin(dodge_clock / 0.52 * PI) * 0.62
+		left_leg_pivot.rotation.x = lerpf(left_leg_pivot.rotation.x, -0.45, 0.25)
+		right_leg_pivot.rotation.x = lerpf(right_leg_pivot.rotation.x, 0.45, 0.25)
 	elif is_attacking:
 		var duration := 0.72 if combo_step == 2 else 0.58
 		var phase := clampf(attack_clock / duration, 0.0, 1.0)
+		# Le bras arme d'abord derrière le personnage puis traverse vers l'avant.
+		# L'épée reste enfant de la paume pendant tout le mouvement.
 		if combo_step == 1:
-			weapon_pivot.rotation.z = lerpf(-1.9, 1.15, smoothstep(0.1, 0.62, phase))
-			weapon_pivot.rotation.x = -0.5
+			weapon_pivot.rotation.x = lerpf(1.75, -1.05, smoothstep(0.08, 0.68, phase))
+			weapon_pivot.rotation.z = lerpf(-1.0, 0.85, smoothstep(0.16, 0.7, phase))
 		elif combo_step == 2:
-			weapon_pivot.rotation.x = lerpf(-2.65, 1.8, smoothstep(0.18, 0.68, phase))
+			weapon_pivot.rotation.x = lerpf(2.45, -1.25, smoothstep(0.12, 0.72, phase))
+			weapon_pivot.rotation.z = -0.12
 		else:
-			weapon_pivot.rotation.x = lerpf(-1.3, 1.65, smoothstep(0.15, 0.55, phase))
-		body_pivot.rotation.y = sin(phase * PI) * (0.52 if combo_step == 1 else 0.38)
-		weapon_trail.visible = phase > 0.28 and phase < 0.72
+			weapon_pivot.rotation.x = lerpf(1.55, -1.0, smoothstep(0.1, 0.64, phase))
+			weapon_pivot.rotation.z = lerpf(0.72, -0.58, smoothstep(0.18, 0.68, phase))
+		left_arm_pivot.rotation.x = lerpf(-0.45, 0.35, phase)
+		left_arm_pivot.rotation.z = lerpf(-0.18, 0.22, phase)
+		body_pivot.rotation.y = sin(phase * PI) * (0.58 if combo_step == 1 else 0.42)
+		weapon_trail.visible = phase > 0.3 and phase < 0.76
 	elif hit_reaction_clock > 0.0:
 		visual.rotation.x = sin(hit_reaction_clock * 24.0) * 0.16
 		body_pivot.rotation.z = sin(hit_reaction_clock * 31.0) * 0.12
 	else:
 		visual.rotation.x = lerpf(visual.rotation.x, 0.0, 9.0 * delta)
-		weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x, 0.0, 10.0 * delta)
+		weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x, -stride * 0.7, 10.0 * delta)
 		weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z, 0.0, 10.0 * delta)
+		left_arm_pivot.rotation.x = lerpf(left_arm_pivot.rotation.x, stride * 0.7, 10.0 * delta)
+		left_arm_pivot.rotation.z = lerpf(left_arm_pivot.rotation.z, 0.0, 10.0 * delta)
+		left_leg_pivot.rotation.x = lerpf(left_leg_pivot.rotation.x, -stride, 12.0 * delta)
+		right_leg_pivot.rotation.x = lerpf(right_leg_pivot.rotation.x, stride, 12.0 * delta)
 		body_pivot.rotation.y = lerpf(body_pivot.rotation.y, 0.0, 10.0 * delta)
 		body_pivot.rotation.z = lerpf(body_pivot.rotation.z, 0.0, 10.0 * delta)
 		weapon_trail.visible = false
-		visual.position.y = sin(time * (9.0 if planar_speed > 0.5 else 2.0)) * (0.045 if planar_speed > 0.5 else 0.012)
+		visual.position.y = abs(sin(time * stride_speed)) * (0.035 if moving else 0.0) + sin(time * 2.0) * 0.008
+
 
 func _box(
 	parent: Node3D,
