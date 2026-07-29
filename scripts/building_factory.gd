@@ -32,12 +32,15 @@ const MODEL_PATHS := {
 }
 
 const ART_PALETTE := {
+	"basalt": Color(0.075, 0.07, 0.085),
 	"stone": Color(0.105, 0.10, 0.12),
+	"stone2": Color(0.16, 0.15, 0.17),
 	"stone_light": Color(0.19, 0.18, 0.20),
 	"wood": Color(0.19, 0.085, 0.038),
 	"wood_dark": Color(0.055, 0.027, 0.02),
 	"iron": Color(0.085, 0.095, 0.11),
 	"cloth": Color(0.17, 0.025, 0.045),
+	"roof": Color(0.16, 0.045, 0.028),
 	"gold": Color(0.52, 0.23, 0.035),
 	"ember": Color(1.0, 0.065, 0.003),
 	"soul": Color(0.28, 0.025, 0.65),
