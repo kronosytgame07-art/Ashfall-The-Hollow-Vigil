@@ -507,32 +507,102 @@ func _add_orc_details() -> void:
 		_box(race_details, Vector3(0.4, 0.2, 0.48), Vector3(x, 0.12, 0.11), Color("#33251c"), 0.2)
 
 func _add_goblin_details() -> void:
-	for x in [-0.43, 0.43]:
-		var ear := _box(race_details, Vector3(0.48, 0.12, 0.24), Vector3(x, 1.9, 0), Color("#66733f"))
-		ear.rotation.z = 0.22 * sign(x)
-	var hood := _box(race_details, Vector3(0.72, 0.18, 0.68), Vector3(0, 2.14, -0.03), Color("#241a28"))
-	hood.rotation.z = 0.06
-	for x in [-0.42, 0.42]:
-		var knife := _box(race_details, Vector3(0.08, 0.62, 0.1), Vector3(x, 0.92, -0.32), Color("#99919a"), 0.82)
-		knife.rotation.z = 0.45 * sign(x)
-	_box(race_details, Vector3(0.24, 0.12, 0.08), Vector3(0, 1.72, 0.3), Color("#332118"))
-	_box(race_details, Vector3(0.82, 0.18, 0.48), Vector3(0, 1.34, 0), Color("#49384e"), 0.18)
+	var skin := Color("#6f7d38")
+	var skin_shadow := Color("#4d5927")
+	var leather := Color("#4a2f1d")
+	var dark_leather := Color("#2c2018")
+	var scrap_iron := Color("#625c58")
+	var cloth := Color("#755129")
+	# Tête anguleuse : crâne, longues oreilles, arcade, nez et mâchoire à défenses.
+	_box(race_details, Vector3(0.62, 0.42, 0.54), Vector3(0, 2.0, 0), skin)
+	for x in [-0.49, 0.49]:
+		var ear := _box(race_details, Vector3(0.48, 0.12, 0.23), Vector3(x, 2.04, -0.01), skin)
+		ear.rotation.z = 0.2 * sign(x)
+		_box(race_details, Vector3(0.2, 0.075, 0.16), Vector3(x * 0.99, 2.03, 0.025), Color("#98704d"))
+	_box(race_details, Vector3(0.52, 0.1, 0.12), Vector3(0, 2.08, 0.3), skin_shadow)
+	_box(race_details, Vector3(0.17, 0.28, 0.18), Vector3(0, 1.93, 0.38), Color("#99704b"))
+	_box(race_details, Vector3(0.45, 0.17, 0.18), Vector3(0, 1.78, 0.3), skin_shadow)
 	for x in [-0.17, 0.17]:
-		_box(race_details, Vector3(0.06, 0.05, 0.03), Vector3(x, 1.94, 0.34), Color("#e2bb42"), 0.0, true)
+		_box(race_details, Vector3(0.075, 0.06, 0.035), Vector3(x, 2.02, 0.39), Color("#f0bd2e"), 0.0, true)
+		var tusk := _box(race_details, Vector3(0.075, 0.22, 0.075), Vector3(x, 1.72, 0.41), Color("#d5c8a2"))
+		tusk.rotation.z = -0.16 * sign(x)
+	# Torse maigre, bandoulière cloutée et épaulière asymétrique en fer récupéré.
+	_box(race_details, Vector3(0.72, 0.62, 0.46), Vector3(0, 1.38, 0), skin_shadow)
+	var strap := _box(race_details, Vector3(0.13, 0.96, 0.07), Vector3(-0.13, 1.48, 0.3), leather, 0.05)
+	strap.rotation.z = -0.55
+	for y in [1.18, 1.44, 1.7]:
+		_box(race_details, Vector3(0.06, 0.06, 0.035), Vector3(-0.13 + (y - 1.48) * 0.48, y, 0.35), scrap_iron, 0.72)
+	for layer in range(3):
+		var shoulder := _box(race_details, Vector3(0.35 - layer * 0.035, 0.16, 0.54 - layer * 0.05), Vector3(0.47, 1.65 - layer * 0.11, 0), scrap_iron.darkened(layer * 0.1), 0.64)
+		shoulder.rotation.z = -0.15
+	for x in [-0.45, 0.45]:
+		_box(race_details, Vector3(0.22, 0.3, 0.22), Vector3(x, 1.18, 0), skin)
+		for band in range(3):
+			_box(race_details, Vector3(0.25, 0.075, 0.25), Vector3(x, 1.02 - band * 0.08, 0), dark_leather)
+		for finger in range(3):
+			_box(race_details, Vector3(0.055, 0.16, 0.07), Vector3(x + (finger - 1) * 0.055, 0.78, 0.04), skin_shadow)
+	# Ceinture, boucle, sacoches, pagne déchiré et bottes carrées.
+	_box(race_details, Vector3(0.82, 0.13, 0.5), Vector3(0, 0.88, 0), dark_leather)
+	_box(race_details, Vector3(0.21, 0.19, 0.08), Vector3(0, 0.88, 0.31), scrap_iron, 0.74)
+	for x in [-0.34, 0.34]:
+		_box(race_details, Vector3(0.24, 0.3, 0.14), Vector3(x, 0.73, 0.25), leather)
+	_box(race_details, Vector3(0.42, 0.54, 0.06), Vector3(0, 0.55, 0.29), cloth)
+	for x in [-0.28, 0.28]:
+		_box(race_details, Vector3(0.22, 0.12, 0.24), Vector3(x, 0.52, 0), leather)
+		_box(race_details, Vector3(0.24, 0.29, 0.25), Vector3(x, 0.33, 0), dark_leather)
+		_box(race_details, Vector3(0.36, 0.18, 0.43), Vector3(x, 0.11, 0.1), Color("#33271d"), 0.15)
+
 
 func _add_dwarf_details() -> void:
-	for y in range(4):
-		_box(race_details, Vector3(0.48 - y * 0.06, 0.17, 0.18), Vector3(0, 1.67 - y * 0.15, 0.34), Color("#6b3523"))
-	for x in [-0.34, 0.34]:
-		var horn := _box(race_details, Vector3(0.12, 0.55, 0.12), Vector3(x, 2.23, 0), Color("#b9a47b"))
-		horn.rotation.z = -0.55 * sign(x)
-	_box(race_details, Vector3(0.92, 0.25, 0.58), Vector3(0, 1.42, 0), Color("#4d5058"), 0.88)
-	for x in [-0.32, 0.0, 0.32]:
-		_box(race_details, Vector3(0.1, 0.42, 0.08), Vector3(x, 1.38, 0.32), Color("#b17b38"), 0.48)
-	_box(race_details, Vector3(0.88, 0.12, 0.62), Vector3(0, 1.08, 0), Color("#6f747e"), 0.9)
-	for x in [-0.44, 0.44]:
-		_box(race_details, Vector3(0.3, 0.22, 0.58), Vector3(x, 1.48, 0), Color("#646973"), 0.9)
-	_box(race_details, Vector3(0.18, 0.16, 0.1), Vector3(0, 1.73, 0.39), Color("#9b5432"))
+	var beard := Color("#9b4e28")
+	var beard_light := Color("#bd7133")
+	var iron := Color("#3d4148")
+	var iron_edge := Color("#676b72")
+	var leather := Color("#4a2d1e")
+	var cloth := Color("#4b171c")
+	var gold := Color("#a87932")
+	# Casque bas et lourd, composé de plaques et d'un frontal riveté.
+	_box(race_details, Vector3(0.72, 0.23, 0.7), Vector3(0, 2.2, 0), iron, 0.9)
+	_box(race_details, Vector3(0.64, 0.17, 0.68), Vector3(0, 2.06, 0.01), iron.darkened(0.15), 0.92)
+	_box(race_details, Vector3(0.15, 0.37, 0.12), Vector3(0, 2.24, 0.32), iron_edge, 0.9)
+	_box(race_details, Vector3(0.1, 0.1, 0.05), Vector3(0, 2.28, 0.4), gold, 0.72)
+	for x in [-0.27, 0.27]:
+		_box(race_details, Vector3(0.065, 0.065, 0.035), Vector3(x, 2.09, 0.38), gold, 0.72)
+	# Visage trapu et barbe rousse volumineuse en mèches tressées.
+	_box(race_details, Vector3(0.2, 0.18, 0.18), Vector3(0, 1.91, 0.39), Color("#a96f52"))
+	_box(race_details, Vector3(0.56, 0.17, 0.16), Vector3(0, 1.78, 0.31), beard.darkened(0.12))
+	for row in range(4):
+		var row_y := 1.68 - row * 0.14
+		var width := 0.54 - row * 0.07
+		_box(race_details, Vector3(width, 0.18, 0.17), Vector3(0, row_y, 0.34), beard.lightened(row * 0.025))
+	for x in [-0.24, 0.0, 0.24]:
+		for segment in range(3):
+			_box(race_details, Vector3(0.12, 0.18, 0.12), Vector3(x, 1.37 - segment * 0.14, 0.36), beard_light.darkened(segment * 0.07))
+		_box(race_details, Vector3(0.15, 0.1, 0.13), Vector3(x, 1.08, 0.36), gold, 0.68)
+		_box(race_details, Vector3(0.11, 0.19, 0.11), Vector3(x, 0.94, 0.36), beard)
+	# Plastron sombre, épaulières étagées et tunique bordeaux.
+	_box(race_details, Vector3(1.02, 0.68, 0.58), Vector3(0, 1.38, 0), cloth)
+	for y in [1.55, 1.39, 1.23]:
+		_box(race_details, Vector3(0.9, 0.12, 0.6), Vector3(0, y, 0), iron.darkened((1.55 - y) * 0.35), 0.9)
+	_box(race_details, Vector3(0.56, 0.54, 0.07), Vector3(0, 1.35, 0.34), cloth.darkened(0.15))
+	for x in [-0.58, 0.58]:
+		for layer in range(3):
+			var shoulder := _box(race_details, Vector3(0.42 - layer * 0.04, 0.19, 0.64 - layer * 0.055), Vector3(x, 1.69 - layer * 0.12, 0), iron_edge.darkened(layer * 0.1), 0.92)
+			shoulder.rotation.z = -0.12 * sign(x)
+		_box(race_details, Vector3(0.28, 0.31, 0.28), Vector3(x, 1.21, 0), cloth.darkened(0.12))
+		for band in range(3):
+			_box(race_details, Vector3(0.31, 0.09, 0.3), Vector3(x, 1.02 - band * 0.09, 0), iron.darkened(band * 0.08), 0.88)
+	# Ceinture de cuir, boucle dorée, tabard et lourdes bottes de forge.
+	_box(race_details, Vector3(1.0, 0.16, 0.62), Vector3(0, 0.88, 0), leather, 0.08)
+	_box(race_details, Vector3(0.28, 0.25, 0.09), Vector3(0, 0.88, 0.39), gold, 0.78)
+	for x in [-0.39, 0.39]:
+		_box(race_details, Vector3(0.27, 0.31, 0.15), Vector3(x, 0.73, 0.29), leather)
+	_box(race_details, Vector3(0.5, 0.55, 0.06), Vector3(0, 0.55, 0.34), cloth)
+	for x in [-0.3, 0.3]:
+		_box(race_details, Vector3(0.31, 0.2, 0.32), Vector3(x, 0.55, 0), iron_edge, 0.9)
+		_box(race_details, Vector3(0.3, 0.31, 0.3), Vector3(x, 0.35, 0), iron, 0.9)
+		_box(race_details, Vector3(0.43, 0.2, 0.5), Vector3(x, 0.12, 0.12), Color("#30241c"), 0.2)
+
 
 func _spawn_damage_number(amount: float, color: Color) -> void:
 	var label := Label3D.new()
