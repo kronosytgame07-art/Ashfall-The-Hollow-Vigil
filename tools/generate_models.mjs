@@ -92,6 +92,30 @@ function crenels(m,r,y,count=8,cx=0,cz=0){
 }
 function torch(m,x,y,z){m.cylinder("iron",[x,y-.25,z],.055,.55,8);m.cone("ember",[x,y+.05,z],.16,.42,8)}
 function windowGlow(m,x,y,z,sx=.35,sy=.55){m.box("ember",[x,y,z],[sx,sy,.035])}
+function crystalShard(m,mat,c,r,h,segments=6){
+  const y0=c[1]-h*.5,y1=c[1]+h*.22,tip=[c[0],c[1]+h*.5,c[2]];
+  const lower=[],upper=[];
+  for(let i=0;i<segments;i++){
+    const a=i*TAU/segments;
+    lower.push([c[0]+Math.cos(a)*r,y0,c[2]+Math.sin(a)*r]);
+    upper.push([c[0]+Math.cos(a)*r*.88,y1,c[2]+Math.sin(a)*r*.88]);
+  }
+  for(let i=0;i<segments;i++){
+    const n=(i+1)%segments;
+    m.quad(mat,lower[i],upper[i],upper[n],lower[n]);
+    m.tri(mat,upper[i],tip,upper[n]);
+  }
+  for(let i=1;i<segments-1;i++)m.tri(mat,lower[0],lower[i+1],lower[i]);
+}
+function verticalDisc(m,mat,c,r,thickness=.1,segments=24){
+  const z0=c[2]-thickness*.5,z1=c[2]+thickness*.5;
+  for(let i=0;i<segments;i++){
+    const a=i*TAU/segments,b=(i+1)*TAU/segments;
+    const p0=[c[0]+Math.cos(a)*r,c[1]+Math.sin(a)*r,z0],p1=[c[0]+Math.cos(b)*r,c[1]+Math.sin(b)*r,z0];
+    const q0=[p0[0],p0[1],z1],q1=[p1[0],p1[1],z1];
+    m.tri(mat,[c[0],c[1],z0],p1,p0);m.tri(mat,[c[0],c[1],z1],q0,q1);m.quad(mat,p0,q0,q1,p1);
+  }
+}
 function timberFrame(m,w,d,y){
   for(const x of [-w/2,w/2])for(const z of [-d/2,d/2])m.box("wood",[x,y,z],[.18,y*2,.18]);
   for(const z of [-d/2,d/2])m.beam("wood",[-w/2,.5,z],[w/2,y*1.8,z],.15);
@@ -249,13 +273,27 @@ function mine(){
   gothicDress(m,3.9,3.9,3.1);return m;
 }
 function sawmill(){
-  const m=new Model("Sawmill");base(m,3.9,3.9);m.box("wood",[.35,1.25,-.25],[2.65,1.7,2.35]);
-  timberFrame(m,2.7,2.4,1.85);
-  m.roofPanel("roof",-1,3.35,2.08,1.78,2.85,.16);m.roofPanel("roof",1,3.35,2.08,1.78,2.85,.16);
-  tiledRoof(m,{halfW:1.78,depth:2.85,eaveY:2.14,ridgeY:3.35,rows:8,columns:9});
-  for(let i=0;i<5;i++){m.cylinder("wood",[-1.35,.53,-1.25+i*.48],.17,2.5,10); }
-  m.cylinder("iron",[1.0,1.15,1.22],.72,.09,24);m.box("darkwood",[1.0,.62,1.22],[1.75,.3,.7]);
-  gothicDress(m,3.9,3.9,2.8);for(const z of [-1.45,1.45])m.beam3("iron",[-1.5,.55,z],[1.5,.55,z],.07);return m;
+  const m=new Model("Open Sawmill");base(m,3.9,3.9);
+  // Silhouette ouverte et horizontale, volontairement opposée à la mine fermée.
+  for(const x of [-1.45,1.45])for(const z of [-1.25,1.25])m.box("wood",[x,1.28,z],[.22,2.35,.22]);
+  for(const z of [-1.25,1.25])m.beam3("wood",[-1.58,2.38,z],[1.58,2.38,z],.2);
+  // Grand auvent asymétrique de chantier.
+  for(let row=0;row<7;row++)for(let col=0;col<9;col++){
+    const x=-1.62+(row+.5)*3.24/7,z=-1.52+(col+.5)*3.04/9;
+    m.boxEuler("roof",[x,2.55+x*.16,z],[.55,.09,.39],0,0,-.16);
+  }
+  // Banc de sciage et énorme lame immédiatement reconnaissable.
+  m.box("darkwood",[.48,.64,.15],[2.55,.34,.78]);
+  verticalDisc(m,"iron",[.48,1.1,.15],.82,.12,28);
+  for(let i=0;i<28;i++){const a=i*TAU/28,b=(i+.5)*TAU/28;m.tri("iron",[.48+Math.cos(a)*.78,1.1+Math.sin(a)*.78,.08],[.48+Math.cos(b)*.94,1.1+Math.sin(b)*.94,.14],[.48+Math.cos((i+1)*TAU/28)*.78,1.1+Math.sin((i+1)*TAU/28)*.78,.08])}
+  verticalDisc(m,"gold",[.48,1.1,.07],.13,.15,12);
+  // Troncs couchés et piles de planches.
+  for(let i=0;i<6;i++){const y=.34+Math.floor(i/3)*.34,z=-1.25+(i%3)*.36;m.beam3("wood",[-1.82,y,z],[-.5,y,z],.31);}
+  for(let i=0;i<7;i++)m.box(i%3?"wood":"darkwood",[1.22,.28+i*.16,-1.18],[1.22,.13,.34]);
+  // Petite grue à grumes et chaîne.
+  m.box("wood",[-1.45,1.9,.92],[.2,3.15,.2]);m.beam3("wood",[-1.45,3.38,.92],[.72,3.38,.92],.18);
+  m.box("iron",[.6,2.55,.92],[.055,1.55,.055]);m.beam3("iron",[.35,1.72,.92],[.6,1.42,.92],.07);m.beam3("iron",[.85,1.72,.92],[.6,1.42,.92],.07);
+  torch(m,-1.62,1.55,1.42);return m;
 }
 function barracks(){
   const m=new Model("Barracks");base(m,4.0,4.0);m.box("stone",[0,1.55,0],[3.2,2.25,2.9]);
@@ -361,7 +399,7 @@ function bones(){
 }
 function crystals(){
   const m=new Model("Soul Crystals");base(m,1.9,1.9);
-  for(let i=0;i<14;i++){const a=i*2.2,r=.18+(i%4)*.035,h=.72+(i%7)*.16;m.cone(i%3?"crystal":"soul",[Math.cos(a)*(.28+(i%5)*.12),h*.5+.18,Math.sin(a)*(.28+(i%5)*.12)],r,h,6)}
+  for(let i=0;i<14;i++){const a=i*2.2,r=.13+(i%4)*.03,h=.65+(i%7)*.17;crystalShard(m,i%3?"crystal":"soul",[Math.cos(a)*(.24+(i%5)*.13),h*.5+.17,Math.sin(a)*(.24+(i%5)*.13)],r,h,6)}
   for(let i=0;i<7;i++){const a=i*TAU/7;m.box("soul",[Math.cos(a)*.72,.2,Math.sin(a)*.72],[.08,.04,.34],-a)}return m;
 }
 
@@ -378,11 +416,12 @@ function scenery(){
     const a=[x,h(x,z),z],b=[x1,h(x1,z),z],c=[x1,h(x1,z1),z1],d=[x,h(x,z1),z1];
     m.tri("earth",a,c,b);m.tri("earth",a,d,c)
   }
-  for(let i=0;i<34;i++){const a=i*2.399,r=54+(i%5)*1.8,x=Math.cos(a)*r,z=Math.sin(a)*r;
-    m.cone(i%4===0?"basalt":"stone",[x,h(x,z)+1.3,z],1.2+(i%3)*.45,3.5+(i%6)*1.15,7)}
-  for(let i=0;i<24;i++){const a=i*TAU/24,r=61,x=Math.cos(a)*r,z=Math.sin(a)*r;
-    m.box("stone",[x,h(x,z)+1.0,z],[1.2+(i%3)*.5,2+(i%4)*.8,.9],-a)}
-  for(let i=0;i<22;i++){const a=i*2.399,r=55+(i%3)*1.5,x=Math.cos(a)*r,z=Math.sin(a)*r,y=h(x,z);
+  for(let i=0;i<34;i++){const a=i*2.399,edge=54+(i%5)*1.8,r=edge/Math.max(Math.abs(Math.cos(a)),Math.abs(Math.sin(a))),x=Math.cos(a)*r,z=Math.sin(a)*r;
+    m.cone(i%4===0?"basalt":"stone",[x,h(x,z)+1.3,z],1.2+(i%3)*.45,3.5+(i%6)*1.15,7);
+    if(i%3===0)m.box("moss",[x,h(x,z)+.42,z],[1.2,.12,1.0],-a)}
+  for(let i=0;i<24;i++){const a=i*TAU/24,edge=60,r=edge/Math.max(Math.abs(Math.cos(a)),Math.abs(Math.sin(a))),x=Math.cos(a)*r,z=Math.sin(a)*r;
+    m.box(i%4===0?"stone2":"stone",[x,h(x,z)+1.0,z],[1.2+(i%3)*.5,2+(i%4)*.8,.9],-a)}
+  for(let i=0;i<22;i++){const a=i*2.399,edge=55+(i%3)*1.5,r=edge/Math.max(Math.abs(Math.cos(a)),Math.abs(Math.sin(a))),x=Math.cos(a)*r,z=Math.sin(a)*r,y=h(x,z);
     m.cylinder("darkwood",[x,y+1.15,z],.18,2.3,7,.11);
     m.beam3("wood",[x,y+1.6,z],[x+Math.sin(a+.7)*1.05,y+2.35,z+Math.cos(a+.7)*.7],.11);
     if(i%4===0){m.box("stone2",[x+1.1,y+.65,z],[1.4,1.3,.32],-a);m.cone("ember",[x+1.1,y+1.45,z],.12,.38,7)}

@@ -109,8 +109,33 @@ func _apply_mountain_material(node: Node) -> void:
 					material.emission_energy_multiplier = 2.4
 				elif "wood" in material_name:
 					material.albedo_color = Color("#160d0c")
+				elif "earth" in material_name:
+					material.albedo_color = Color("#292126")
+				elif "moss" in material_name:
+					material.albedo_color = Color("#263323")
 				else:
-					material.albedo_color = Color("#27242d")
+					material.albedo_color = Color("#45404b") if "stone2" in material_name else Color("#34313a")
+				if "soul" not in material_name:
+					var noise := FastNoiseLite.new()
+					noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+					noise.frequency = 0.12
+					noise.fractal_octaves = 4
+					var texture := NoiseTexture2D.new()
+					texture.width = 256
+					texture.height = 256
+					texture.seamless = true
+					texture.noise = noise
+					var ramp := Gradient.new()
+					ramp.colors = PackedColorArray([
+						material.albedo_color.darkened(0.28),
+						material.albedo_color,
+						material.albedo_color.lightened(0.18)
+					])
+					texture.color_ramp = ramp
+					material.albedo_texture = texture
+					material.uv1_scale = Vector3(3.0, 3.0, 3.0)
+					material.uv1_triplanar = true
+					material.uv1_world_triplanar = true
 				mesh.set_surface_override_material(surface, material)
 	for child in node.get_children():
 		_apply_mountain_material(child)
@@ -133,10 +158,13 @@ func _add_footprint_base(building: Node3D, fp: Vector2i) -> void:
 	)
 	building.move_child(base, 0)
 
-func _spawn_obstacle(cell: Vector2i) -> void:
+func _spawn_obstacle(cell: Vector2i, record := false) -> void:
 	occupied[cell] = "obstacle"
+	if record:
+		state.obstacles.append({"cell": [cell.x, cell.y]})
 	var root := Node3D.new()
 	root.position = _cell_center(cell, Vector2i.ONE)
+	root.set_meta("cell", cell)
 	obstacles_root.add_child(root)
 	var kinds := ["corrupted_rocks", "dead_tree", "bones", "soul_crystals"]
 	var scene := load("res://models/obstacles/%s.glb" % kinds[posmod(cell.x + cell.y, kinds.size())]) as PackedScene
@@ -144,6 +172,8 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 		root.add_child(scene.instantiate())
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
+	body.set_meta("obstacle_root", root)
+	body.set_meta("obstacle_cell", cell)
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(TILE_SIZE * 0.92, 1.8, TILE_SIZE * 0.92)

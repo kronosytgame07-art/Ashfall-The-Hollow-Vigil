@@ -20,8 +20,15 @@ var _right_leg: Node3D
 var _left_arm: Node3D
 var _right_arm: Node3D
 var _weapon: Node3D
+var roaming_enabled := false
+var roaming_half_extent := 46.0
+var forbidden_center := Vector3.ZERO
+var forbidden_radius := 3.6
+var _roam_clock := 0.0
+var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	_rng.randomize()
 	collision_layer = 2
 	collision_mask = 3
 	add_to_group("moving_units")
@@ -37,8 +44,42 @@ func attack() -> void:
 	action = Action.ATTACK
 	animation_time = 0.0
 
+func enable_roaming(camp_center: Vector3, half_extent: float) -> void:
+	forbidden_center = camp_center
+	roaming_half_extent = half_extent
+	roaming_enabled = true
+	_pick_roaming_target()
+
+func _pick_roaming_target() -> void:
+	for attempt in range(30):
+		var candidate := Vector3(
+			_rng.randf_range(-roaming_half_extent, roaming_half_extent),
+			0.0,
+			_rng.randf_range(-roaming_half_extent, roaming_half_extent)
+		)
+		if candidate.distance_to(forbidden_center) > forbidden_radius and _route_avoids_camp(candidate):
+			move_to(candidate)
+			_roam_clock = _rng.randf_range(5.0, 12.0)
+			return
+
+func _route_avoids_camp(candidate: Vector3) -> bool:
+	var start := Vector2(global_position.x, global_position.z)
+	var finish := Vector2(candidate.x, candidate.z)
+	var camp := Vector2(forbidden_center.x, forbidden_center.z)
+	var segment := finish - start
+	var segment_length_squared := segment.length_squared()
+	if segment_length_squared < 0.001:
+		return false
+	var t := clampf((camp - start).dot(segment) / segment_length_squared, 0.0, 1.0)
+	var closest := start + segment * t
+	return closest.distance_to(camp) > forbidden_radius + 0.75
+
 func _physics_process(delta: float) -> void:
 	animation_time += delta
+	if roaming_enabled:
+		_roam_clock -= delta
+		if action == Action.IDLE or _roam_clock <= 0.0:
+			_pick_roaming_target()
 	if action == Action.MOVE:
 		var offset := destination - global_position
 		offset.y = 0.0
@@ -53,6 +94,8 @@ func _physics_process(delta: float) -> void:
 			rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-turn_speed * delta))
 			facing_sector = posmod(roundi((target_yaw / TAU) * 8.0), 8)
 			move_and_slide()
+			if get_slide_collision_count() > 0 and roaming_enabled:
+				_pick_roaming_target()
 	elif action == Action.ATTACK and animation_time > 0.78:
 		action = Action.IDLE
 	_animate()
@@ -143,7 +186,9 @@ func _build_model() -> void:
 		UnitKind.HERO: "res://models/units/hero.glb",
 	}
 	var authored_path: String = authored_paths.get(kind, authored_paths[UnitKind.WARRIOR])
-	var authored := load(authored_path) as PackedScene
+	# Le guerrier utilise une silhouette dédiée avec armure, épée et bouclier.
+	# L'ancien GLB ressemblait trop au modèle de l'ouvrier.
+	var authored := load(authored_path) as PackedScene if kind != UnitKind.WARRIOR else null
 	if authored:
 		var imported := authored.instantiate() as Node3D
 		add_child(imported)

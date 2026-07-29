@@ -127,6 +127,28 @@ static func apply_art_direction(building: Node3D) -> void:
 				material.emission_enabled = true
 				material.emission = Color(0.22, 0.015, 0.58)
 				material.emission_energy_multiplier = 3.5
+			elif material_name == "cloth":
+				var cloth_shader := Shader.new()
+				cloth_shader.code = """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 cloth_color : source_color = vec4(0.30, 0.045, 0.075, 1.0);
+void vertex() {
+	float anchored = smoothstep(0.0, 0.7, abs(VERTEX.x));
+	float gust = sin(TIME * 2.2 + VERTEX.y * 3.6 + VERTEX.x * 2.1);
+	float flutter = sin(TIME * 5.1 + VERTEX.y * 7.0) * 0.35;
+	VERTEX.z += (gust + flutter) * 0.055 * anchored;
+}
+void fragment() {
+	ALBEDO = cloth_color.rgb;
+	ROUGHNESS = 0.86;
+}
+"""
+				var animated_cloth := ShaderMaterial.new()
+				animated_cloth.shader = cloth_shader
+				animated_cloth.set_shader_parameter("cloth_color", Color(0.30, 0.045, 0.075, 1.0))
+				mesh_instance.set_surface_override_material(surface, animated_cloth)
+				continue
 			mesh_instance.set_surface_override_material(surface, material)
 
 	# Les anciennes fondations formaient de gros colliers de pierres blanches.

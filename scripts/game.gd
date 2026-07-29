@@ -9,6 +9,7 @@ var occupied: Dictionary = {}
 var building_nodes: Dictionary = {}
 var selected_kind := ""
 var selected_id := -1
+var selected_obstacle: Node3D
 var placement_ghost: Node3D
 var placement_cell := Vector2i(-99, -99)
 var grid_root: Node3D
@@ -336,7 +337,7 @@ func _create_new_village() -> void:
 	_add_building_record("builders_yard", Vector2i(22, 29), 1, 0)
 	state.last_update = _now()
 	for cell in [Vector2i(16, 17), Vector2i(33, 18), Vector2i(18, 32), Vector2i(31, 31)]:
-		_spawn_obstacle(cell)
+		_spawn_obstacle(cell, true)
 	state.save()
 
 func _restore_village() -> void:
@@ -348,9 +349,17 @@ func _restore_village() -> void:
 		var cell := Vector2i(int(cell_data[0]), int(cell_data[1]))
 		_mark_occupied(str(data.kind), cell)
 		_spawn_building_node(index)
-	for cell in [Vector2i(16, 17), Vector2i(33, 18), Vector2i(18, 32), Vector2i(31, 31)]:
-		if not occupied.has(cell):
-			_spawn_obstacle(cell)
+	if not state.obstacle_data_initialized:
+		for cell in [Vector2i(16, 17), Vector2i(33, 18), Vector2i(18, 32), Vector2i(31, 31)]:
+			if not occupied.has(cell):
+				_spawn_obstacle(cell, true)
+	else:
+		for obstacle_data in state.obstacles:
+			var obstacle_cell: Array = obstacle_data.get("cell", [])
+			if obstacle_cell.size() >= 2:
+				var cell := Vector2i(int(obstacle_cell[0]), int(obstacle_cell[1]))
+				if not occupied.has(cell):
+					_spawn_obstacle(cell)
 
 func _add_building_record(kind: String, cell: Vector2i, level: int, finish_at: int) -> int:
 	var data := {"kind": kind, "cell": [cell.x, cell.y], "level": level, "finish_at": finish_at, "stored": 0.0}
@@ -451,12 +460,21 @@ func _select_at_pointer(pointer: Vector2) -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit.is_empty():
 		selected_id = -1
+		selected_obstacle = null
 	else:
 		var collider = hit.get("collider")
-		selected_id = int(collider.get_meta("building_id", -1)) if collider else -1
+		if collider and collider.has_meta("obstacle_root"):
+			selected_id = -1
+			selected_obstacle = collider.get_meta("obstacle_root") as Node3D
+		else:
+			selected_obstacle = null
+			selected_id = int(collider.get_meta("building_id", -1)) if collider else -1
 	_refresh_ui()
 
 func _selected_action() -> void:
+	if is_instance_valid(selected_obstacle):
+		_remove_selected_obstacle()
+		return
 	if selected_id < 0 or selected_id >= state.buildings.size():
 		return
 	var data := state.buildings[selected_id]
@@ -515,9 +533,9 @@ func _train_warrior() -> void:
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR
 		var slot := troops_root.get_child_count()
 		var camp_center := _army_camp_center()
-		unit.position = camp_center + Vector3(-2.8, 0, -2.4)
+		unit.position = _camp_exit_position(slot, camp_center)
 		troops_root.add_child(unit)
-		unit.move_to(_camp_unit_position(slot, camp_center))
+		unit.enable_roaming(camp_center, BUILDABLE_HALF - 4.0)
 	state.save()
 	_refresh_ui()
 	_set_status("Guerrier entraîné et déployé au camp.")
@@ -594,16 +612,24 @@ func _lay_road_segment(path_root: Node3D, start: Vector3, finish: Vector3) -> Ar
 		_material(Color("#39363a")),
 		_material(Color("#57483a"))
 	]
+	var right := Vector3(forward.z, 0.0, -forward.x)
+	var phase := fmod(absf(start.x * 0.17 + start.z * 0.31 + finish.x * 0.13), TAU)
 	for tile_index in range(count):
 		var distance := 1.2 + (tile_index + 0.5) * length / count
-		var position := start + forward * distance
+		var t := (tile_index + 0.5) / float(count)
+		var wandering := sin(t * PI) * sin(t * TAU + phase) * minf(1.65, length * 0.11)
+		wandering += sin(float(tile_index) * 1.73 + phase) * 0.11
+		var position := start + forward * distance + right * wandering
+		var next_t := minf(1.0, t + 1.0 / float(count))
+		var next_wandering := sin(next_t * PI) * sin(next_t * TAU + phase) * minf(1.65, length * 0.11)
+		var tangent := (forward * (length / count) + right * (next_wandering - wandering)).normalized()
 		var tile := _add_box(
 			path_root,
 			position + Vector3(0, 0.038, 0),
-			Vector3(1.16, 0.055, length / count + 0.08),
+			Vector3(1.02 + float(tile_index % 3) * 0.09, 0.055, length / count + 0.13),
 			road_materials[tile_index % road_materials.size()]
 		)
-		tile.rotation.y = atan2(forward.x, forward.z)
+		tile.rotation.y = atan2(tangent.x, tangent.z)
 		if tile_index % 3 == 0:
 			samples.append(position)
 	return samples
@@ -614,7 +640,7 @@ func _spawn_random_obstacle() -> void:
 	for attempt in range(120):
 		var cell := Vector2i(randi_range(1, GRID_SIZE - 2), randi_range(1, GRID_SIZE - 2))
 		if not occupied.has(cell):
-			_spawn_obstacle(cell)
+			_spawn_obstacle(cell, true)
 			_set_status("Un nouvel obstacle est apparu dans le village.")
 			return
 
@@ -658,9 +684,9 @@ func _spawn_villagers() -> void:
 	for i in range(mini(int(state.army.warrior), 48)):
 		var unit := AshfallCombatUnit.new()
 		unit.kind = AshfallCombatUnit.UnitKind.WARRIOR if i % 3 else AshfallCombatUnit.UnitKind.ARCHER
-		unit.position = _camp_unit_position(i, camp_center)
-		unit.rotation.y = atan2(camp_center.x - unit.position.x, camp_center.z - unit.position.z)
+		unit.position = _camp_exit_position(i, camp_center)
 		troops_root.add_child(unit)
+		unit.enable_roaming(camp_center, BUILDABLE_HALF - 4.0)
 
 func _army_camp_center() -> Vector3:
 	for index in building_nodes:
@@ -668,21 +694,15 @@ func _army_camp_center() -> Vector3:
 			return building_nodes[index].global_position
 	return Vector3(9.0, 0.0, 9.0)
 
-func _camp_unit_position(slot: int, center: Vector3) -> Vector3:
-	# Anneaux concentriques autour du brasero, comme un camp de stratégie :
-	# les unités s'accumulent visiblement au lieu de disparaître après seize.
-	var ring := 0 if slot < 8 else 1 + (slot - 8) / 8
-	var ring_slot := posmod(slot, 8)
-	var ring_count := 8
-	var organic_offset := sin(float(slot * 19 + 7)) * 0.15
-	var angle := TAU * float(ring_slot) / float(ring_count) + ring * 0.16 + organic_offset
-	var radius := 0.78 + ring * 0.48 + cos(float(slot * 11)) * 0.08
+func _camp_exit_position(slot: int, center: Vector3) -> Vector3:
+	var angle := TAU * float(posmod(slot, 12)) / 12.0
+	var radius := 3.8 + float(slot % 3) * 0.35
 	return center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
 
 func _assign_builder(target: Vector3) -> void:
 	for villager in villagers_root.get_children():
 		if villager is AshfallVillager and (villager.state == AshfallVillager.State.WALK or villager.state == AshfallVillager.State.IDLE):
-			villager.set_work_target(target + Vector3(2.4, 0, 1.0))
+			villager.set_work_target(target + Vector3(3.4, 0, 0.6))
 			return
 
 func _resume_active_builders() -> void:
@@ -691,10 +711,13 @@ func _resume_active_builders() -> void:
 		if int(state.buildings[int(index)].finish_at) > now:
 			_assign_builder(building_nodes[index].global_position)
 
-func _spawn_obstacle(cell: Vector2i) -> void:
+func _spawn_obstacle(cell: Vector2i, record := false) -> void:
 	occupied[cell] = "obstacle"
+	if record:
+		state.obstacles.append({"cell": [cell.x, cell.y]})
 	var root := Node3D.new()
 	root.position = _cell_center(cell, Vector2i.ONE)
+	root.set_meta("cell", cell)
 	obstacles_root.add_child(root)
 	_add_box(root, Vector3(0, 0.06, 0), Vector3(TILE_SIZE * 0.96, 0.12, TILE_SIZE * 0.96), _material(Color("#302b31")))
 	var paths := ["corrupted_rocks", "dead_tree", "bones", "soul_crystals"]
@@ -703,6 +726,8 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 		root.add_child(scene.instantiate())
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
+	body.set_meta("obstacle_root", root)
+	body.set_meta("obstacle_cell", cell)
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(TILE_SIZE * 0.92, 1.8, TILE_SIZE * 0.92)
@@ -710,6 +735,32 @@ func _spawn_obstacle(cell: Vector2i) -> void:
 	collision.position.y = 0.9
 	body.add_child(collision)
 	root.add_child(body)
+
+func _remove_selected_obstacle() -> void:
+	const REMOVAL_COST := 75
+	if int(state.resources.gold) < REMOVAL_COST:
+		_set_status("Il faut %d or pour détruire cet obstacle." % REMOVAL_COST)
+		return
+	state.resources.gold -= REMOVAL_COST
+	var cell: Vector2i = selected_obstacle.get_meta("cell", _world_to_cell(selected_obstacle.global_position))
+	occupied.erase(cell)
+	for obstacle_index in range(state.obstacles.size() - 1, -1, -1):
+		var stored_cell: Array = state.obstacles[obstacle_index].get("cell", [])
+		if stored_cell.size() >= 2 and int(stored_cell[0]) == cell.x and int(stored_cell[1]) == cell.y:
+			state.obstacles.remove_at(obstacle_index)
+			break
+	var reward_gems := randi_range(1, 3) if randf() < 0.35 else 0
+	if reward_gems > 0:
+		state.resources.gems += reward_gems
+		_set_status("Obstacle détruit : -%d or, +%d gemme%s." % [REMOVAL_COST, reward_gems, "s" if reward_gems > 1 else ""])
+	else:
+		var reward_xp := randi_range(8, 20)
+		state.account_xp += reward_xp
+		_set_status("Obstacle détruit : -%d or, +%d XP." % [REMOVAL_COST, reward_xp])
+	selected_obstacle.queue_free()
+	selected_obstacle = null
+	state.save()
+	_refresh_ui()
 
 func _update_building_visuals(now: int) -> void:
 	var has_active_construction := false
@@ -738,11 +789,18 @@ func _update_one_building_visual(index: int, now: int) -> void:
 
 func _refresh_ui() -> void:
 	var now := _now()
-	resource_label.text = "OR  %d     BOIS  %d     ÂMES  %d     GEMMES  %d     🏆 %d     BÂTISSEURS  %d/%d" % [
+	resource_label.text = "OR  %d     BOIS  %d     ÂMES  %d     GEMMES  %d     XP  %d     🏆 %d     BÂTISSEURS  %d/%d" % [
 		state.resources.gold, state.resources.wood, state.resources.souls, state.resources.gems,
-		state.trophies, state.free_builders(now), state.builders_total
+		state.account_xp, state.trophies, state.free_builders(now), state.builders_total
 	]
 	train_button.text = "Entraîner guerrier (100 or / 45 bois)  •  Armée %d" % int(state.army.warrior)
+	if is_instance_valid(selected_obstacle):
+		detail_panel.visible = true
+		selection_title.text = "OBSTACLE"
+		selection_info.text = "Détruire cet obstacle coûte 75 or.\nRécompense : gemmes ou expérience."
+		action_button.visible = true
+		action_button.text = "Détruire — 75 or"
+		return
 	if selected_id < 0 or selected_id >= state.buildings.size():
 		detail_panel.visible = false
 		selection_title.text = "VILLAGE"

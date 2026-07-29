@@ -7,7 +7,7 @@ enum State { IDLE, WALK, RUN, WORK }
 @export var run_speed := 4.15
 @export var acceleration := 7.5
 @export var turn_speed := 9.0
-@export var roam_radius := 21.0
+@export var roam_radius := 46.0
 @export_range(0.35, 0.65, 0.01) var character_scale := 0.48
 
 var state := State.WALK
@@ -28,6 +28,8 @@ var _left_elbow: Node3D
 var _right_elbow: Node3D
 var _tool_pivot: Node3D
 var _work_requested := false
+var _last_roam_position := Vector3.ZERO
+var _stuck_clock := 0.0
 
 func _ready() -> void:
 	_rng.randomize()
@@ -36,17 +38,14 @@ func _ready() -> void:
 	add_to_group("moving_units")
 	_build_collision()
 	_build_character()
+	_last_roam_position = global_position
 	_pick_target()
 
 func _physics_process(delta: float) -> void:
 	match state:
 		State.IDLE:
-			_idle_time -= delta
-			velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
-			velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
-			if _idle_time <= 0.0:
-				state = State.WALK
-				_pick_target()
+			state = State.WALK
+			_pick_target()
 		State.WALK, State.RUN:
 			_update_locomotion(delta)
 		State.WORK:
@@ -55,6 +54,15 @@ func _physics_process(delta: float) -> void:
 			stride_phase = fmod(stride_phase + delta * 4.8, TAU)
 	velocity.y = -0.4
 	move_and_slide()
+	if state == State.WALK:
+		if global_position.distance_to(_last_roam_position) < 0.008:
+			_stuck_clock += delta
+			if _stuck_clock > 1.0:
+				_pick_target()
+				_stuck_clock = 0.0
+		else:
+			_stuck_clock = 0.0
+		_last_roam_position = global_position
 	_animate(delta)
 
 func set_work_target(world_target: Vector3) -> void:
@@ -78,8 +86,8 @@ func _update_locomotion(delta: float) -> void:
 		if _work_requested:
 			start_work()
 		else:
-			state = State.IDLE
-			_idle_time = _rng.randf_range(0.5, 2.1)
+			state = State.WALK
+			_pick_target()
 		return
 	var desired_direction := offset.normalized()
 	var desired_speed := run_speed if state == State.RUN else walk_speed
