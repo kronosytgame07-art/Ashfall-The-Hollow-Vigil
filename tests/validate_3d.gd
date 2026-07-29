@@ -24,6 +24,11 @@ func _initialize() -> void:
 			action_rpg_script != null and action_rpg_script.can_instantiate(),
 			"Action-RPG controller cannot instantiate: " + script_path
 		)
+	for action in [
+		"move_forward", "move_back", "move_left", "move_right",
+		"sprint", "dodge", "attack", "interact"
+	]:
+		assert(InputMap.has_action(action), "Remappable action is missing: " + action)
 	var main_scene := load("res://scenes/main.tscn") as PackedScene
 	assert(main_scene != null, "The new action-RPG main scene cannot load")
 	var main_instance := main_scene.instantiate()
